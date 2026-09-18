@@ -28,7 +28,7 @@ const VERIFICATION_BG = require('../../assets/images/review_sunset_bg.jpg');
 export default function VerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, submitVerification, setVerificationStatus } = useAuth();
+  const { profile, submitVerification, checkVerificationStatus } = useAuth();
 
   const [selfieUri, setSelfieUri] = useState(null);
   const [verificationState, setVerificationState] = useState('NOT_STARTED');
@@ -40,7 +40,7 @@ export default function VerificationScreen() {
       setVerificationState('VERIFIED');
     } else if (profile?.verification_status === 'pending') {
       setVerificationState('PENDING');
-    } else if (profile?.verification_status === 'failed') {
+    } else if (profile?.verification_status === 'failed' || profile?.verification_status === 'rejected') {
       setVerificationState('FAILED');
     } else {
       setVerificationState('NOT_STARTED');
@@ -120,15 +120,18 @@ export default function VerificationScreen() {
   const handleSubmit = async () => {
     setVerificationState('IN_PROGRESS');
 
-    // Perform verification processing (simulating facial liveness & lighting check)
     setTimeout(async () => {
       try {
-        const res = await submitVerification(selfieUri, 'verified');
-        if (res.success) {
-          setVerificationState('VERIFIED');
-        } else {
+        const res = await submitVerification(selfieUri);
+        if (!res.success) {
           setFailureReason(res.error || 'Face could not be verified clearly.');
           setVerificationState('FAILED');
+        } else if (res.status === 'verified') {
+          // Demo simulation mode
+          setVerificationState('VERIFIED');
+        } else {
+          // Live Supabase mode: submission is strictly 'pending', awaiting trusted decision
+          setVerificationState('PENDING');
         }
       } catch (err) {
         setFailureReason('Verification service unavailable. Please retry.');
@@ -144,10 +147,19 @@ export default function VerificationScreen() {
   };
 
   const handleCheckPendingStatus = async () => {
-    // Check if moderation confirmed
-    if (setVerificationStatus) {
-      await setVerificationStatus('verified');
-      setVerificationState('VERIFIED');
+    try {
+      if (checkVerificationStatus) {
+        const res = await checkVerificationStatus();
+        if (res.status === 'verified') {
+          setVerificationState('VERIFIED');
+        } else if (res.status === 'failed' || res.status === 'rejected') {
+          setFailureReason(res.error || 'Verification was not approved. Please retry.');
+          setVerificationState('FAILED');
+        }
+        // If still pending, it stays in PENDING state
+      }
+    } catch (err) {
+      console.warn('Error checking pending verification status:', err);
     }
   };
 

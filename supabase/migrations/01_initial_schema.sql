@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 2. ENUMS & DOMAINS
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'verification_status_type') THEN
-        CREATE TYPE verification_status_type AS ENUM ('pending', 'verified', 'rejected');
+        CREATE TYPE verification_status_type AS ENUM ('not_started', 'pending', 'verified', 'failed', 'rejected');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'trip_status_type') THEN
         CREATE TYPE trip_status_type AS ENUM ('active', 'completed', 'cancelled');
@@ -35,10 +35,22 @@ CREATE TABLE IF NOT EXISTS public.users (
     avatar_url TEXT,
     travel_styles TEXT[] DEFAULT '{}'::TEXT[],
     languages TEXT[] DEFAULT '{}'::TEXT[],
-    verification_status verification_status_type DEFAULT 'pending'::verification_status_type,
+    verification_status verification_status_type DEFAULT 'not_started'::verification_status_type,
+    verified_at TIMESTAMPTZ,
     trust_score NUMERIC(3, 2) DEFAULT 5.00 CHECK (trust_score >= 0.00 AND trust_score <= 5.00),
     subscription_tier subscription_tier_type DEFAULT 'free'::subscription_tier_type,
     theme_preference TEXT CHECK (theme_preference IN ('dark', 'light')),
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
+);
+
+-- 4. USER VERIFICATIONS TABLE (Private, Sensitive Verification Data)
+CREATE TABLE IF NOT EXISTS public.user_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    selfie_path TEXT NOT NULL,
+    status verification_status_type DEFAULT 'pending'::verification_status_type,
+    submitted_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
+    reviewed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
 );
 
@@ -140,18 +152,53 @@ CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id ON public.reviews(reviewer_id
 CREATE INDEX IF NOT EXISTS idx_reports_reporter_id ON public.reports(reporter_id);
 CREATE INDEX IF NOT EXISTS idx_reports_reported_id ON public.reports(reported_id);
 
+CREATE INDEX IF NOT EXISTS idx_user_verifications_user_id ON public.user_verifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_verifications_status ON public.user_verifications(status);
+
 -- ============================================================================
 -- 11. ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 
 -- Enable RLS across all tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.travel_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+
+-- USER VERIFICATIONS POLICIES (Strictly Private to Owner & Service Role)
+CREATE POLICY "Users can view their own verification record"
+ON public.user_verifications FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can submit their own verification record"
+ON public.user_verifications FOR INSERT
+TO authenticated
+WITH CHECK (
+    auth.uid() = user_id 
+    AND status = 'pending'::verification_status_type 
+    AND reviewed_at IS NULL
+);
+
+CREATE POLICY "Users can update their own verification record"
+ON public.user_verifications FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (
+    auth.uid() = user_id 
+    AND status = 'pending'::verification_status_type 
+    AND reviewed_at IS NULL
+);
+
+CREATE POLICY "Service role has full access to verifications"
+ON public.user_verifications FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
 
 -- USERS POLICIES
 CREATE POLICY "Public profiles are readable by authenticated users"
@@ -162,13 +209,34 @@ USING (true);
 CREATE POLICY "Users can insert their own profile"
 ON public.users FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = id);
+WITH CHECK (
+    auth.uid() = id
+    AND (verification_status IS NULL OR verification_status IN ('not_started'::verification_status_type, 'pending'::verification_status_type))
+    AND verified_at IS NULL
+);
 
 CREATE POLICY "Users can update their own profile"
 ON public.users FOR UPDATE
 TO authenticated
 USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
+WITH CHECK (
+    auth.uid() = id
+    AND (
+        -- Normal client can ONLY set status to 'pending' or keep current status unchanged
+        verification_status = 'pending'::verification_status_type
+        OR verification_status = (SELECT u.verification_status FROM public.users u WHERE u.id = auth.uid())
+    )
+    AND (
+        -- Normal client CANNOT alter or forge verified_at
+        verified_at IS NOT DISTINCT FROM (SELECT u.verified_at FROM public.users u WHERE u.id = auth.uid())
+    )
+);
+
+CREATE POLICY "Service role has full access to users"
+ON public.users FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
 
 -- TRAVEL HISTORY POLICIES
 CREATE POLICY "Travel history is readable by authenticated users"
@@ -454,3 +522,97 @@ CREATE POLICY "Users can delete their own travel photos"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'travel-photos' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================================
+-- 15. PRIVATE STORAGE BUCKET: verification-selfies (Strictly Private)
+-- ============================================================================
+-- Create private storage bucket for verification material (public = false)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('verification-selfies', 'verification-selfies', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
+
+-- Strictly private: NO public read access.
+CREATE POLICY "Users can upload their own verification selfie"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'verification-selfies' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "Users can view their own verification selfie"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'verification-selfies' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "Users can update their own verification selfie"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'verification-selfies' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "Users can delete their own verification selfie"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'verification-selfies' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================================
+-- 16. TRUSTED VERIFICATION DECISION RPC (Service Role / Admin Only)
+-- ============================================================================
+-- Only trusted backend processes, admins, or service-role edge functions
+-- can execute verification decisions (verified, failed, rejected).
+-- Normal authenticated users cannot declare themselves verified.
+CREATE OR REPLACE FUNCTION public.process_verification_decision(
+    p_user_id UUID,
+    p_status verification_status_type,
+    p_review_notes TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_verified_at TIMESTAMPTZ := NULL;
+    v_updated_user UUID;
+BEGIN
+    -- Only allow verified, failed, or rejected decisions
+    IF p_status NOT IN ('verified'::verification_status_type, 'failed'::verification_status_type, 'rejected'::verification_status_type) THEN
+        RAISE EXCEPTION 'Invalid verification decision status: %. Must be verified, failed, or rejected.', p_status;
+    END IF;
+
+    IF p_status = 'verified'::verification_status_type THEN
+        v_verified_at := TIMEZONE('utc', NOW());
+    END IF;
+
+    -- 1. Update private user_verifications record
+    UPDATE public.user_verifications
+    SET 
+        status = p_status,
+        reviewed_at = TIMEZONE('utc', NOW())
+    WHERE user_id = p_user_id;
+
+    -- 2. Update public users table verification_status and verified_at
+    UPDATE public.users
+    SET 
+        verification_status = p_status,
+        verified_at = v_verified_at
+    WHERE id = p_user_id
+    RETURNING id INTO v_updated_user;
+
+    IF v_updated_user IS NULL THEN
+        RAISE EXCEPTION 'User with ID % not found.', p_user_id;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'user_id', p_user_id,
+        'status', p_status,
+        'verified_at', v_verified_at
+    );
+END;
+$$;
+
+-- Security hardening: Revoke execution from public, anon, and normal authenticated clients.
+-- Only service_role (and postgres superuser) can execute this trusted decision RPC.
+REVOKE ALL ON FUNCTION public.process_verification_decision(UUID, verification_status_type, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.process_verification_decision(UUID, verification_status_type, TEXT) FROM anon;
+REVOKE ALL ON FUNCTION public.process_verification_decision(UUID, verification_status_type, TEXT) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.process_verification_decision(UUID, verification_status_type, TEXT) TO service_role;
+

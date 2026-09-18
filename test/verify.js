@@ -86,11 +86,28 @@ requiredTables.forEach((table) => {
   assert.ok(sqlContent.includes(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY;`), `RLS must be enabled on ${table}`);
 });
 
+// Check user_verifications table & RLS
+assert.ok(sqlContent.includes('CREATE TABLE IF NOT EXISTS public.user_verifications'), 'Schema must define public.user_verifications table');
+assert.ok(sqlContent.includes('ALTER TABLE public.user_verifications ENABLE ROW LEVEL SECURITY;'), 'RLS must be enabled on public.user_verifications');
+assert.ok(sqlContent.includes("status = 'pending'::verification_status_type"), 'RLS must enforce status = pending on client verification submissions');
+
+// Check users UPDATE RLS policy prevents self-verification
+assert.ok(sqlContent.includes("verification_status = 'pending'::verification_status_type"), 'RLS must restrict user verification_status updates to pending or unchanged');
+assert.ok(sqlContent.includes("verified_at IS NOT DISTINCT FROM"), 'RLS must forbid client from tampering with verified_at');
+
 // Check RPC and Trigger
 assert.ok(sqlContent.includes('find_overlapping_trips'), 'Schema must define find_overlapping_trips RPC');
 assert.ok(sqlContent.includes('recalculate_trust_score'), 'Schema must define recalculate_trust_score trigger function');
 assert.ok(sqlContent.includes('idx_matches_unique_pair'), 'Schema must prevent duplicate matches');
 assert.ok(sqlContent.includes('SECURITY DEFINER'), 'RPC must have SECURITY DEFINER flag');
+
+// Check Trusted Verification Decision RPC
+assert.ok(sqlContent.includes('process_verification_decision'), 'Schema must define process_verification_decision RPC');
+assert.ok(sqlContent.includes('REVOKE ALL ON FUNCTION public.process_verification_decision(UUID, verification_status_type, TEXT) FROM authenticated;'), 'process_verification_decision must be revoked from authenticated clients');
+assert.ok(sqlContent.includes('GRANT EXECUTE ON FUNCTION public.process_verification_decision(UUID, verification_status_type, TEXT) TO service_role;'), 'process_verification_decision must be granted strictly to service_role');
+
+// Check Private verification-selfies Bucket
+assert.ok(sqlContent.includes("'verification-selfies', false"), 'verification-selfies bucket must be private (public = false)');
 
 console.log('✅ Supabase 01_initial_schema.sql passed all structural, RLS, and security policy checks.\n');
 
@@ -279,6 +296,32 @@ const tripsContent = fs.readFileSync(tripsPath, 'utf8');
 assert.ok(tripsContent.includes('formatTripDateRangeIN'), 'trips.jsx must use formatTripDateRangeIN (en-IN)');
 
 console.log('✅ India localization verified: indiaData.js, Indian states/destinations/languages, INR formatting, demo data, and UI screens all India-compliant.\n');
+
+// 9. VERIFICATION DECISION SECURITY ARCHITECTURE ASSERTIONS
+console.log('--- 9. Testing Verification Decision Security Architecture ---');
+const authContextPath = path.join(__dirname, '../lib/authContext.jsx');
+const authContextContent = fs.readFileSync(authContextPath, 'utf8');
+
+// Assert live mode submission is strictly pending
+assert.ok(authContextContent.includes("status: 'pending'"), 'submitVerification in live mode must record status as pending');
+assert.ok(authContextContent.includes("verification_status: 'pending'"), 'submitVerification in live mode must set user profile to pending');
+assert.ok(authContextContent.includes('checkVerificationStatus'), 'authContext must export checkVerificationStatus');
+assert.ok(authContextContent.includes("status === 'verified'"), 'setVerificationStatus must guard against client self-verification');
+
+// Assert verification screen does not self-verify
+const verificationScreenPath = path.join(__dirname, '../app/(auth)/verification.jsx');
+const verificationScreenContent = fs.readFileSync(verificationScreenPath, 'utf8');
+assert.ok(!verificationScreenContent.includes("submitVerification(selfieUri, 'verified')"), 'verification.jsx must NOT pass verified outcome to submitVerification');
+assert.ok(!verificationScreenContent.includes("setVerificationStatus('verified')"), 'verification.jsx must NOT call setVerificationStatus(verified)');
+assert.ok(verificationScreenContent.includes('checkVerificationStatus'), 'verification.jsx must use checkVerificationStatus');
+
+// Assert mandatory verification guard in _layout.jsx
+const layoutPath = path.join(__dirname, '../app/_layout.jsx');
+const layoutContent = fs.readFileSync(layoutPath, 'utf8');
+assert.ok(layoutContent.includes("profile?.verification_status === 'verified'"), 'Navigation guard must require verification_status === verified');
+assert.ok(layoutContent.includes("router.replace('/(auth)/verification')"), 'Unverified/pending users must be routed to verification screen');
+
+console.log('✅ Verification decision security architecture verified: client self-verification prevented, pending status enforced, and trusted decision path secured.\n');
 
 console.log('🎉 ALL AUTOMATED TESTS PASSED SUCCESSFULLY!');
 

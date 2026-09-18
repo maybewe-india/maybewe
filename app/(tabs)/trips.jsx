@@ -153,14 +153,26 @@ export default function TripsScreen() {
 
     if (isSupabaseConfigured && user?.id) {
       try {
+        const dbPayload = {
+          user_id: user.id,
+          destination: destination.trim(),
+          date_from: dateFrom.trim(),
+          date_to: dateTo.trim(),
+          travel_style: selectedStyle,
+          looking_for: selectedLookingFor,
+          status: 'active',
+        };
+
         const { data, error } = await supabase
           .from('trips')
-          .insert([newTrip])
+          .insert([dbPayload])
           .select()
           .single();
 
         if (!error && data) {
           newTrip.id = data.id;
+        } else if (error) {
+          console.warn('Supabase trip insert error:', error);
         }
       } catch (err) {
         console.warn('Supabase trip insert error:', err);

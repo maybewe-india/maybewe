@@ -275,27 +275,151 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Submit verification selfie - stores selfie in private verification field, updates status
-  const submitVerification = async (selfieUri, outcome = 'verified') => {
+  // Submit verification selfie - uploads image to private storage bucket, records pending submission in user_verifications, and sets profile status to pending
+  // NOTE: Normal clients can ONLY transition to 'pending'. Real verification decisions ('verified'/'failed'/'rejected') are strictly reserved for trusted backend/service_role.
+  const submitVerification = async (selfieUri) => {
     try {
       if (!selfieUri) {
         throw new Error('Please capture your selfie before submitting verification.');
       }
-      const updates = {
-        verification_status: outcome, // 'verified' | 'failed' | 'pending'
-        verification_selfie: selfieUri, // Private field, separate from public avatar_url
-        verified_at: outcome === 'verified' ? new Date().toISOString() : null,
-      };
-      await updateProfile(updates);
-      return { success: outcome === 'verified', status: outcome };
+
+      if (isSupabaseConfigured && session?.user) {
+        const userId = session.user.id;
+        const timestamp = Date.now();
+        const selfiePath = `${userId}/selfie_${timestamp}.jpg`;
+
+        // 1. Convert/read the local URI into a Supabase Storage-compatible file blob
+        let fileData;
+        try {
+          const response = await fetch(selfieUri);
+          fileData = await response.blob();
+        } catch (fetchErr) {
+          console.warn('Error reading selfie URI for upload:', fetchErr);
+          return {
+            success: false,
+            error: 'Failed to process verification selfie image. Please recapture and try again.',
+          };
+        }
+
+        // 2. Upload actual selfie to private storage bucket 'verification-selfies' (NO public URL)
+        const { error: uploadError } = await supabase.storage
+          .from('verification-selfies')
+          .upload(selfiePath, fileData, {
+            contentType: 'image/jpeg',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.warn('Verification selfie upload failed:', uploadError.message);
+          // If upload fails, do NOT mark submission. Return clear error.
+          return {
+            success: false,
+            error: `Failed to upload verification selfie: ${uploadError.message || 'Storage error'}. Please retry.`,
+          };
+        }
+
+        // 3. ONLY after successful upload, record sensitive verification metadata in user_verifications
+        // Enforced by PostgreSQL RLS: normal authenticated users can ONLY insert/update status as 'pending'
+        const { error: verifError } = await supabase
+          .from('user_verifications')
+          .upsert({
+            user_id: userId,
+            selfie_path: selfiePath,
+            status: 'pending',
+            submitted_at: new Date().toISOString(),
+            reviewed_at: null,
+          }, { onConflict: 'user_id' });
+
+        if (verifError) {
+          console.warn('Error recording private verification record:', verifError);
+          return {
+            success: false,
+            error: `Verification record error: ${verifError.message || 'Database error'}.`,
+          };
+        }
+
+        // 4. Update public profile verification status to 'pending' (RLS prevents client from setting 'verified')
+        await updateProfile({
+          verification_status: 'pending',
+        });
+
+        return { success: true, status: 'pending', isDemo: false };
+      } else {
+        // =========================================================================
+        // DEMO MODE ONLY (Offline / Development Simulation)
+        // IMPORTANT: In production, taking/uploading a selfie does NOT constitute
+        // identity verification. In demo mode, we simulate an immediate verification
+        // result solely to allow offline developers to preview Theme Selection and
+        // downstream application screens without an external moderation backend.
+        // =========================================================================
+        const simulatedVerifiedAt = new Date().toISOString();
+        const updates = {
+          verification_status: 'verified',
+          verified_at: simulatedVerifiedAt,
+        };
+        await updateProfile(updates);
+        return { success: true, status: 'verified', isDemo: true, simulated: true };
+      }
     } catch (error) {
       return { success: false, error: error.message };
     }
   };
 
+  // Check current verification status from trusted database
+  const checkVerificationStatus = async () => {
+    try {
+      if (isSupabaseConfigured && session?.user) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('verification_status, verified_at')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setProfile((prev) => ({
+            ...prev,
+            verification_status: data.verification_status,
+            verified_at: data.verified_at,
+          }));
+          return { success: true, status: data.verification_status, verified_at: data.verified_at };
+        }
+      } else {
+        // Demo mode simulation: tapping Check Status simulates moderator approval for testing
+        const simulatedVerifiedAt = new Date().toISOString();
+        await updateProfile({
+          verification_status: 'verified',
+          verified_at: simulatedVerifiedAt,
+        });
+        return { success: true, status: 'verified', isDemo: true, simulated: true };
+      }
+      return { success: false, status: profile?.verification_status || 'not_started' };
+    } catch (error) {
+      console.warn('Error checking verification status:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Status update guard: Normal clients cannot assign 'verified', 'failed', or 'rejected'
   const setVerificationStatus = async (status) => {
     try {
-      await updateProfile({ verification_status: status });
+      if (isSupabaseConfigured && session?.user) {
+        if (status === 'verified' || status === 'failed' || status === 'rejected') {
+          return {
+            success: false,
+            error: 'Security restriction: Verification decisions can only be assigned by trusted backend.',
+          };
+        }
+        await supabase
+          .from('user_verifications')
+          .update({ status })
+          .eq('user_id', session.user.id);
+        await updateProfile({ verification_status: status });
+      } else {
+        // Demo mode simulation only
+        const verifiedAt = status === 'verified' ? new Date().toISOString() : null;
+        await updateProfile({ verification_status: status, verified_at: verifiedAt });
+      }
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -331,6 +455,7 @@ export function AuthProvider({ children }) {
         logout,
         updateProfile,
         submitVerification,
+        checkVerificationStatus,
         setVerificationStatus,
         setThemePreference,
         agreeToGuidelines,
