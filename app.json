@@ -1,13 +1,19 @@
 {
   "expo": {
-    "name": "solo-traveler-app",
-    "slug": "solo-traveler-app",
+    "name": "MaybeWe",
+    "slug": "solo-traveler",
     "version": "1.0.0",
+    "scheme": "solo-traveler",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow MaybeWe to capture your verification selfie to build community trust.",
+        "NSPhotoLibraryUsageDescription": "Allow MaybeWe to select profile and travel history photos.",
+        "NSLocationWhenInUseUsageDescription": "Allow MaybeWe to share your meeting spot with confirmed connections."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -15,10 +21,40 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow MaybeWe to capture your verification selfie."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow MaybeWe to access photos for your profile and travel history."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow MaybeWe to share your meeting location with trusted connections."
+        }
+      ],
+      "expo-font"
+    ]
   }
 }
