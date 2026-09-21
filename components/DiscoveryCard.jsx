@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS } from '../lib/theme';
+import { GRADIENTS, RADII, SHADOWS, FONTS } from '../lib/theme';
+import { useTheme } from '../lib/themeContext';
 import TrustBadge from './ui/TrustBadge';
 
 export default function DiscoveryCard({
@@ -19,6 +20,7 @@ export default function DiscoveryCard({
   onPass,
   style,
 }) {
+  const { colors, isDark } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [connecting, setConnecting] = useState(false);
 
@@ -63,11 +65,18 @@ export default function DiscoveryCard({
     traveler.languages?.length ? `Speaks ${traveler.languages[0]}` : 'Active community verified profile',
   ];
 
+  const connectBtnGradient = isDark ? ['#FFFFFF', '#F0F4F8'] : ['#061522', '#10283A'];
+  const connectBtnTextColor = isDark ? '#061522' : '#FFFFFF';
+
   return (
     <Animated.View
       style={[
         styles.cardContainer,
-        { transform: [{ scale: scaleAnim }] },
+        {
+          backgroundColor: colors.cardBg,
+          borderColor: colors.cardBorder,
+          transform: [{ scale: scaleAnim }],
+        },
         style,
       ]}
     >
@@ -78,13 +87,13 @@ export default function DiscoveryCard({
         style={styles.cardInner}
       >
         {/* Top Hero Image Section */}
-        <View style={styles.imageWrapper}>
+        <View style={[styles.imageWrapper, { backgroundColor: colors.backgroundSecondary }]}>
           <Image
             source={{ uri: imageSource }}
             style={styles.coverImage}
             resizeMode="cover"
           />
-          {/* Deep Navy Gradient Overlay for Readability */}
+          {/* Deep Navy Gradient Overlay for Readability on the photo */}
           <LinearGradient
             colors={['rgba(6, 21, 34, 0.1)', 'rgba(6, 21, 34, 0.65)', 'rgba(6, 21, 34, 0.95)']}
             style={styles.imageGradient}
@@ -93,7 +102,7 @@ export default function DiscoveryCard({
           {/* Vibe Match Indicator Pill */}
           <View style={styles.vibePill}>
             <LinearGradient
-              colors={GRADIENTS.lavenderViolet}
+              colors={['#FFFFFF', '#F0F4F8']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.vibePillGradient}
@@ -112,7 +121,7 @@ export default function DiscoveryCard({
               </Text>
             </View>
             <View style={styles.datesRow}>
-              <Ionicons name="calendar-outline" size={13} color={COLORS.textSecondary} />
+              <Ionicons name="calendar-outline" size={13} color="rgba(255, 255, 255, 0.85)" />
               <Text style={styles.datesText}>
                 {traveler.trip_date_from} – {traveler.trip_date_to}
               </Text>
@@ -121,15 +130,15 @@ export default function DiscoveryCard({
         </View>
 
         {/* Content Section */}
-        <View style={styles.contentSection}>
+        <View style={[styles.contentSection, { backgroundColor: colors.cardBg }]}>
           {/* Header Row: Name, Age & TrustBadge */}
           <View style={styles.nameHeaderRow}>
             <View style={styles.nameContainer}>
-              <Text style={styles.nameText}>
-                {traveler.name}, <Text style={styles.ageText}>{traveler.age}</Text>
+              <Text style={[styles.nameText, { color: colors.textPrimary }]}>
+                {traveler.name}, <Text style={[styles.ageText, { color: colors.textSecondary }]}>{traveler.age}</Text>
               </Text>
               {traveler.gender && traveler.gender !== 'Not specified' && (
-                <Text style={styles.genderSubtitle}>{traveler.gender}</Text>
+                <Text style={[styles.genderSubtitle, { color: colors.textMuted }]}>{traveler.gender}</Text>
               )}
             </View>
             <TrustBadge
@@ -141,17 +150,17 @@ export default function DiscoveryCard({
 
           {/* Short Bio */}
           {traveler.bio ? (
-            <Text style={styles.bioText} numberOfLines={3}>
+            <Text style={[styles.bioText, { color: colors.textSecondary }]} numberOfLines={3}>
               {traveler.bio}
             </Text>
           ) : null}
 
           {/* Looking For Callout */}
           {traveler.looking_for ? (
-            <View style={styles.lookingForBox}>
-              <Ionicons name="compass-outline" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.lookingForText} numberOfLines={1}>
-                Looking for: <Text style={styles.lookingForHighlight}>{traveler.looking_for}</Text>
+            <View style={[styles.lookingForBox, { backgroundColor: colors.chipBg, borderColor: colors.chipBorder }]}>
+              <Ionicons name="compass-outline" size={14} color={colors.textPrimary} style={{ marginRight: 6 }} />
+              <Text style={[styles.lookingForText, { color: colors.textSecondary }]} numberOfLines={1}>
+                Looking for: <Text style={[styles.lookingForHighlight, { color: colors.textPrimary }]}>{traveler.looking_for}</Text>
               </Text>
             </View>
           ) : null}
@@ -160,25 +169,25 @@ export default function DiscoveryCard({
           {traveler.travel_styles && traveler.travel_styles.length > 0 && (
             <View style={styles.tagsRow}>
               {traveler.travel_styles.slice(0, 4).map((tag, idx) => (
-                <View key={idx} style={styles.tagPill}>
-                  <Text style={styles.tagText}>{tag}</Text>
+                <View key={idx} style={[styles.tagPill, { backgroundColor: colors.chipBg, borderColor: colors.chipBorder }]}>
+                  <Text style={[styles.tagText, { color: colors.textSecondary }]}>{tag}</Text>
                 </View>
               ))}
             </View>
           )}
 
           {/* Why you might match section */}
-          <View style={styles.whyMatchBox}>
+          <View style={[styles.whyMatchBox, { backgroundColor: isDark ? 'rgba(6, 21, 34, 0.60)' : 'rgba(237, 241, 247, 0.85)', borderColor: colors.border }]}>
             <View style={styles.whyMatchHeader}>
-              <Ionicons name="git-network-outline" size={13} color="#FFFFFF" />
-              <Text style={styles.whyMatchTitle}>Why you might match</Text>
-              <Text style={styles.whyMatchNotice}>(Criteria match)</Text>
+              <Ionicons name="git-network-outline" size={13} color={colors.textPrimary} />
+              <Text style={[styles.whyMatchTitle, { color: colors.textPrimary }]}>Why you might match</Text>
+              <Text style={[styles.whyMatchNotice, { color: colors.textMuted }]}>(Criteria match)</Text>
             </View>
             <View style={styles.reasonsList}>
               {matchReasons.map((reason, index) => (
                 <View key={index} style={styles.reasonRow}>
-                  <Ionicons name="checkmark-circle" size={13} color={COLORS.success} style={{ marginRight: 6 }} />
-                  <Text style={styles.reasonText}>{reason}</Text>
+                  <Ionicons name="checkmark-circle" size={13} color={colors.success} style={{ marginRight: 6 }} />
+                  <Text style={[styles.reasonText, { color: colors.textSecondary }]}>{reason}</Text>
                 </View>
               ))}
             </View>
@@ -188,12 +197,12 @@ export default function DiscoveryCard({
           <View style={styles.actionButtonsRow}>
             <TouchableOpacity
               onPress={() => onPass?.(traveler)}
-              style={styles.passButton}
+              style={[styles.passButton, { backgroundColor: colors.chipBg, borderColor: colors.border }]}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Pass traveler"
             >
-              <Ionicons name="close" size={22} color={COLORS.textMuted} />
+              <Ionicons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -205,13 +214,13 @@ export default function DiscoveryCard({
               accessibilityLabel="Connect with traveler"
             >
               <LinearGradient
-                colors={GRADIENTS.lavenderViolet}
+                colors={connectBtnGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.connectGradient}
               >
-                <Ionicons name="paper-plane" size={16} color="#061522" style={{ marginRight: 8 }} />
-                <Text style={styles.connectButtonText}>Connect</Text>
+                <Ionicons name="paper-plane" size={16} color={connectBtnTextColor} style={{ marginRight: 8 }} />
+                <Text style={[styles.connectButtonText, { color: connectBtnTextColor }]}>Connect</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -223,13 +232,11 @@ export default function DiscoveryCard({
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: 'rgba(16, 40, 58, 0.70)',
     borderRadius: RADII['3xl'],
     marginBottom: 20,
     marginHorizontal: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
     backdropFilter: 'blur(16px)',
     ...SHADOWS.card,
   },
@@ -241,7 +248,6 @@ const styles = StyleSheet.create({
     height: 240,
     width: '100%',
     position: 'relative',
-    backgroundColor: COLORS.backgroundSecondary,
   },
   coverImage: {
     width: '100%',
@@ -297,13 +303,12 @@ const styles = StyleSheet.create({
   },
   datesText: {
     fontFamily: FONTS.medium,
-    color: COLORS.textSecondary,
+    color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 12,
     fontWeight: '500',
   },
   contentSection: {
     padding: 18,
-    backgroundColor: 'rgba(16, 40, 58, 0.75)',
   },
   nameHeaderRow: {
     flexDirection: 'row',
@@ -319,34 +324,28 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extraBold,
     fontSize: 21,
     fontWeight: '800',
-    color: COLORS.textPrimary,
     letterSpacing: -0.4,
   },
   ageText: {
     fontFamily: FONTS.medium,
     fontWeight: '500',
-    color: COLORS.textSecondary,
   },
   genderSubtitle: {
     fontFamily: FONTS.medium,
     fontSize: 12,
-    color: COLORS.textMuted,
     marginTop: 2,
     fontWeight: '500',
   },
   bioText: {
     fontFamily: FONTS.regular,
     fontSize: 14,
-    color: COLORS.textSecondary,
     lineHeight: 20,
     marginBottom: 12,
   },
   lookingForBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
     borderRadius: RADII.lg,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -355,13 +354,11 @@ const styles = StyleSheet.create({
   lookingForText: {
     fontFamily: FONTS.medium,
     fontSize: 12,
-    color: COLORS.textSecondary,
     flex: 1,
   },
   lookingForHighlight: {
     fontFamily: FONTS.bold,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   tagsRow: {
     flexDirection: 'row',
@@ -370,25 +367,20 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   tagPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: RADII.full,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
   },
   tagText: {
     fontFamily: FONTS.semiBold,
     fontSize: 12,
-    color: COLORS.textSecondary,
     fontWeight: '600',
   },
   whyMatchBox: {
-    backgroundColor: 'rgba(6, 21, 34, 0.60)',
     borderRadius: RADII.xl,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
     marginBottom: 16,
   },
   whyMatchHeader: {
@@ -401,13 +393,11 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.textPrimary,
     letterSpacing: 0.1,
   },
   whyMatchNotice: {
     fontFamily: FONTS.regular,
     fontSize: 10,
-    color: COLORS.textMuted,
   },
   reasonsList: {
     gap: 5,
@@ -419,7 +409,6 @@ const styles = StyleSheet.create({
   reasonText: {
     fontFamily: FONTS.medium,
     fontSize: 12,
-    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   actionButtonsRow: {
@@ -431,9 +420,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -453,7 +440,6 @@ const styles = StyleSheet.create({
   },
   connectButtonText: {
     fontFamily: FONTS.bold,
-    color: '#061522',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,

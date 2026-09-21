@@ -2,11 +2,12 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS } from '../../lib/theme';
+import { RADII, SHADOWS, FONTS } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 
 /**
  * Premium PrimaryButton
- * variant: 'primary' | 'secondary' | 'glass' | 'danger' | 'ghost'
+ * variant: 'primary' | 'secondary' | 'glass' | 'danger' | 'ghost' | 'peach'
  */
 export default function PrimaryButton({
   title,
@@ -20,6 +21,7 @@ export default function PrimaryButton({
   textStyle,
   size = 'md',
 }) {
+  const { colors, isDark } = useTheme();
   const isDisabled = disabled || loading;
 
   const sizeStyles = {
@@ -35,28 +37,31 @@ export default function PrimaryButton({
   };
 
   if (variant === 'primary') {
+    const primaryGradient = isDark ? ['#FFFFFF', '#F2F5F8'] : ['#F1F5F9', '#E2E8F0'];
+    const primaryTextColor = '#0F172A';
+
     return (
       <TouchableOpacity
         onPress={onPress}
         disabled={isDisabled}
         activeOpacity={0.82}
-        style={[styles.base, style, isDisabled && styles.disabled]}
+        style={[styles.base, { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: RADII.full }, style, isDisabled && styles.disabled]}
         accessibilityRole="button"
         accessibilityLabel={title}
       >
         <LinearGradient
-          colors={['#FFFFFF', '#F2F5F8']}
+          colors={primaryGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={[styles.gradientInner, sizeStyles[size], SHADOWS.lavender]}
+          style={[styles.gradientInner, sizeStyles[size], SHADOWS.soft]}
         >
           {loading ? (
-            <ActivityIndicator color="#061522" size="small" />
+            <ActivityIndicator color={primaryTextColor} size="small" />
           ) : (
             <View style={styles.innerRow}>
-              {icon && <Ionicons name={icon} size={18} color="#061522" style={styles.iconLeft} />}
-              <Text style={[styles.primaryText, textSizes[size], textStyle]}>{title}</Text>
-              {iconRight && <Ionicons name={iconRight} size={18} color="#061522" style={styles.iconRight} />}
+              {icon && <Ionicons name={icon} size={18} color={primaryTextColor} style={styles.iconLeft} />}
+              <Text style={[styles.primaryText, textSizes[size], { color: primaryTextColor }, textStyle]}>{title}</Text>
+              {iconRight && <Ionicons name={iconRight} size={18} color={primaryTextColor} style={styles.iconRight} />}
             </View>
           )}
         </LinearGradient>
@@ -75,7 +80,7 @@ export default function PrimaryButton({
         accessibilityLabel={title}
       >
         <LinearGradient
-          colors={[COLORS.peach, COLORS.sunset]}
+          colors={[colors.peach, colors.sunset]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.gradientInner, sizeStyles[size]]}
@@ -85,7 +90,7 @@ export default function PrimaryButton({
           ) : (
             <View style={styles.innerRow}>
               {icon && <Ionicons name={icon} size={18} color="#FFFFFF" style={styles.iconLeft} />}
-              <Text style={[styles.primaryText, textSizes[size], textStyle]}>{title}</Text>
+              <Text style={[styles.primaryText, textSizes[size], { color: '#FFFFFF' }, textStyle]}>{title}</Text>
             </View>
           )}
         </LinearGradient>
@@ -101,7 +106,13 @@ export default function PrimaryButton({
         activeOpacity={0.8}
         style={[
           styles.base,
-          styles.secondaryBtn,
+          {
+            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
+            borderWidth: 1.5,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : '#CBD5E1',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
           sizeStyles[size],
           style,
           isDisabled && styles.disabled,
@@ -110,11 +121,11 @@ export default function PrimaryButton({
         accessibilityLabel={title}
       >
         {loading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+          <ActivityIndicator color={colors.textPrimary} size="small" />
         ) : (
           <View style={styles.innerRow}>
-            {icon && <Ionicons name={icon} size={18} color="#FFFFFF" style={styles.iconLeft} />}
-            <Text style={[styles.secondaryText, textSizes[size], textStyle]}>{title}</Text>
+            {icon && <Ionicons name={icon} size={18} color={colors.textPrimary} style={styles.iconLeft} />}
+            <Text style={[styles.secondaryText, textSizes[size], { color: colors.textPrimary }, textStyle]}>{title}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -129,7 +140,13 @@ export default function PrimaryButton({
         activeOpacity={0.8}
         style={[
           styles.base,
-          styles.glassBtn,
+          {
+            backgroundColor: colors.surfaceGlass,
+            borderWidth: 1.5,
+            borderColor: colors.borderGlass,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
           sizeStyles[size],
           style,
           isDisabled && styles.disabled,
@@ -138,12 +155,12 @@ export default function PrimaryButton({
         accessibilityLabel={title}
       >
         {loading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+          <ActivityIndicator color={colors.textPrimary} size="small" />
         ) : (
           <View style={styles.innerRow}>
-            {icon && <Ionicons name={icon} size={18} color="#FFFFFF" style={styles.iconLeft} />}
-            <Text style={[styles.glassText, textSizes[size], textStyle]}>{title}</Text>
-            {iconRight && <Ionicons name={iconRight} size={18} color="#FFFFFF" style={styles.iconRight} />}
+            {icon && <Ionicons name={icon} size={18} color={colors.textPrimary} style={styles.iconLeft} />}
+            <Text style={[styles.glassText, textSizes[size], { color: colors.textPrimary }, textStyle]}>{title}</Text>
+            {iconRight && <Ionicons name={iconRight} size={18} color={colors.textPrimary} style={styles.iconRight} />}
           </View>
         )}
       </TouchableOpacity>
@@ -156,16 +173,28 @@ export default function PrimaryButton({
         onPress={onPress}
         disabled={isDisabled}
         activeOpacity={0.82}
-        style={[styles.base, styles.dangerBtn, sizeStyles[size], style, isDisabled && styles.disabled]}
+        style={[
+          styles.base,
+          {
+            backgroundColor: colors.dangerBg,
+            borderWidth: 1.5,
+            borderColor: isDark ? 'rgba(255, 125, 138, 0.30)' : 'rgba(220, 38, 38, 0.25)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          sizeStyles[size],
+          style,
+          isDisabled && styles.disabled,
+        ]}
         accessibilityRole="button"
         accessibilityLabel={title}
       >
         {loading ? (
-          <ActivityIndicator color={COLORS.danger} size="small" />
+          <ActivityIndicator color={colors.danger} size="small" />
         ) : (
           <View style={styles.innerRow}>
-            {icon && <Ionicons name={icon} size={18} color={COLORS.danger} style={styles.iconLeft} />}
-            <Text style={[styles.dangerText, textSizes[size], textStyle]}>{title}</Text>
+            {icon && <Ionicons name={icon} size={18} color={colors.danger} style={styles.iconLeft} />}
+            <Text style={[styles.dangerText, textSizes[size], { color: colors.danger }, textStyle]}>{title}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -183,8 +212,8 @@ export default function PrimaryButton({
       accessibilityLabel={title}
     >
       <View style={styles.innerRow}>
-        {icon && <Ionicons name={icon} size={16} color={COLORS.textMuted} style={styles.iconLeft} />}
-        <Text style={[styles.ghostText, textSizes[size], textStyle]}>{title}</Text>
+        {icon && <Ionicons name={icon} size={16} color={colors.textMuted} style={styles.iconLeft} />}
+        <Text style={[styles.ghostText, textSizes[size], { color: colors.textMuted }, textStyle]}>{title}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -207,46 +236,21 @@ const styles = StyleSheet.create({
   iconRight: { marginLeft: 8 },
   primaryText: {
     fontFamily: FONTS.bold,
-    color: '#061522',
     fontWeight: '700',
     letterSpacing: -0.2,
-  },
-  secondaryBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   secondaryText: {
     fontFamily: FONTS.bold,
-    color: '#FFFFFF',
     fontWeight: '700',
     letterSpacing: -0.2,
-  },
-  glassBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   glassText: {
     fontFamily: FONTS.bold,
-    color: '#FFFFFF',
     fontWeight: '700',
     letterSpacing: -0.2,
   },
-  dangerBtn: {
-    backgroundColor: 'rgba(255, 125, 138, 0.10)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 125, 138, 0.30)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   dangerText: {
     fontFamily: FONTS.bold,
-    color: COLORS.danger,
     fontWeight: '700',
   },
   ghostBtn: {
@@ -256,7 +260,6 @@ const styles = StyleSheet.create({
   },
   ghostText: {
     fontFamily: FONTS.semiBold,
-    color: COLORS.textMuted,
     fontWeight: '600',
   },
   disabled: {

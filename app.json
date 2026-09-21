@@ -54,7 +54,8 @@
           "locationWhenInUsePermission": "Allow MaybeWe to share your meeting location with trusted connections."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-web-browser"
     ]
   }
 }

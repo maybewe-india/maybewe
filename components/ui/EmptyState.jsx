@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, RADII } from '../../lib/theme';
+import { RADII, FONTS } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 
 export default function EmptyState({
   icon = 'earth-outline',
@@ -13,26 +14,31 @@ export default function EmptyState({
   style,
   accentColor,
 }) {
-  const accent = accentColor || COLORS.lavender;
+  const { colors, isDark } = useTheme();
+  const accent = accentColor || colors.primary;
 
   return (
     <View style={[styles.container, style]}>
-      <View style={[styles.iconWrap, { borderColor: `${accent}30` }]}>
+      <View style={[styles.iconWrap, { backgroundColor: colors.chipBg, borderColor: colors.border }]}>
         <LinearGradient
-          colors={GRADIENTS.lavenderViolet}
+          colors={isDark ? ['#FFFFFF', '#F0F4F8'] : ['#061522', '#10283A']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.iconGradient}
         >
-          <Ionicons name={icon} size={32} color="#061522" />
+          <Ionicons name={icon} size={32} color={isDark ? '#061522' : '#FFFFFF'} />
         </LinearGradient>
       </View>
 
-      {title && <Text style={styles.title}>{title}</Text>}
-      {description && <Text style={styles.description}>{description}</Text>}
+      {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
+      {description && <Text style={[styles.description, { color: colors.textMuted }]}>{description}</Text>}
 
       {actionTitle && onAction && (
-        <TouchableOpacity onPress={onAction} style={styles.actionBtn} activeOpacity={0.8}>
+        <TouchableOpacity
+          onPress={onAction}
+          style={[styles.actionBtn, { backgroundColor: colors.chipBg, borderColor: colors.border }]}
+          activeOpacity={0.8}
+        >
           <Text style={[styles.actionText, { color: accent }]}>{actionTitle}</Text>
         </TouchableOpacity>
       )}
@@ -50,11 +56,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   iconGradient: {
     width: 60,
@@ -64,16 +69,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
+    fontFamily: FONTS.bold,
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.textPrimary,
     textAlign: 'center',
     marginBottom: 10,
     letterSpacing: -0.3,
   },
   description: {
+    fontFamily: FONTS.regular,
     fontSize: 14,
-    color: COLORS.textMuted,
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 280,
@@ -83,11 +88,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: RADII.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   actionText: {
+    fontFamily: FONTS.bold,
     fontSize: 14,
     fontWeight: '700',
   },

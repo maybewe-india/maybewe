@@ -22,7 +22,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, profile, logout } = useAuth();
-  const { isDark, toggleTheme, colors } = useTheme();
+  const { isDark, colors } = useTheme();
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
@@ -56,16 +56,16 @@ export default function SettingsScreen() {
       {/* Top Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
         <TouchableOpacity
-          style={[styles.backBtn, { borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)' }]}
+          style={[styles.backBtn, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated }]}
           onPress={() => router.back()}
           activeOpacity={0.8}
           accessibilityLabel="Go back"
         >
-          <Ionicons name="chevron-back" size={20} color={isDark ? '#FFFFFF' : '#061522'} />
+          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerSubtitle, { color: COLORS.lavender }]}>MAYBEWE</Text>
-          <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#061522' }]}>Settings</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.primary }]}>MAYBEWE</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -80,20 +80,20 @@ export default function SettingsScreen() {
           style={[
             styles.card,
             {
-              backgroundColor: isDark ? 'rgba(11, 29, 45, 0.85)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(6, 21, 34, 0.08)',
+              backgroundColor: colors.cardBg,
+              borderColor: colors.cardBorder,
             },
           ]}
         >
           <View style={styles.userRow}>
-            <View style={styles.userAvatarPlaceholder}>
-              <Text style={styles.userAvatarInitial}>
+            <View style={[styles.userAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.userAvatarInitial, { color: colors.primaryText }]}>
                 {profile?.name ? profile.name[0].toUpperCase() : 'P'}
               </Text>
             </View>
             <View style={styles.userInfo}>
               <View style={styles.userNameRow}>
-                <Text style={[styles.userName, { color: isDark ? '#FFFFFF' : '#061522' }]}>
+                <Text style={[styles.userName, { color: colors.textPrimary }]}>
                   {profile?.name || 'Priya Sharma'}
                 </Text>
                 {isVerified && (
@@ -113,69 +113,17 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section: Appearance */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: COLORS.lavender }]}>APPEARANCE & THEME</Text>
-        </View>
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: isDark ? 'rgba(11, 29, 45, 0.85)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(6, 21, 34, 0.08)',
-            },
-          ]}
-        >
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <View style={[styles.iconWrap, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}>
-                <Ionicons name={isDark ? 'moon' : 'sunny'} size={18} color={isDark ? '#E2E8F0' : '#E67E22'} />
-              </View>
-              <View>
-                <Text style={[styles.settingLabel, { color: isDark ? '#FFFFFF' : '#061522' }]}>Dark Theme</Text>
-                <Text style={[styles.settingDesc, { color: colors.textSecondary }]}>
-                  {isDark ? 'Deep navy cinematic mode' : 'Crisp clean daylight mode'}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#CBD5E1', true: COLORS.primary }}
-              thumbColor={isDark ? '#FFFFFF' : '#FFFFFF'}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}
-            onPress={() => router.push('/(auth)/theme-selection')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.settingLeft}>
-              <View style={[styles.iconWrap, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}>
-                <Ionicons name="color-palette-outline" size={18} color={COLORS.lavender} />
-              </View>
-              <View>
-                <Text style={[styles.settingLabel, { color: isDark ? '#FFFFFF' : '#061522' }]}>Theme Selection Screen</Text>
-                <Text style={[styles.settingDesc, { color: colors.textSecondary }]}>
-                  Re-visit the dedicated onboarding theme picker
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
 
         {/* Section: Trust & Verification */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: COLORS.lavender }]}>TRUST & SAFETY</Text>
+          <Text style={[styles.sectionTitle, { color: colors.primary }]}>TRUST & SAFETY</Text>
         </View>
         <View
           style={[
             styles.card,
             {
-              backgroundColor: isDark ? 'rgba(11, 29, 45, 0.85)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(6, 21, 34, 0.08)',
+              backgroundColor: colors.cardBg,
+              borderColor: colors.cardBorder,
             },
           ]}
         >
@@ -189,7 +137,7 @@ export default function SettingsScreen() {
                 <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.teal} />
               </View>
               <View>
-                <Text style={[styles.settingLabel, { color: isDark ? '#FFFFFF' : '#061522' }]}>Selfie ID Verification</Text>
+                <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Selfie ID Verification</Text>
                 <Text style={[styles.settingDesc, { color: isVerified ? COLORS.success : COLORS.sunset }]}>
                   {isVerified ? '✓ Verified Community Member' : 'Action Required: Submit verification'}
                 </Text>
@@ -199,16 +147,16 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}
+            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: colors.border }]}
             onPress={() => router.push('/(auth)/guidelines')}
             activeOpacity={0.7}
           >
             <View style={styles.settingLeft}>
               <View style={[styles.iconWrap, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)' }]}>
-                <Ionicons name="book-outline" size={18} color={COLORS.lavender} />
+                <Ionicons name="book-outline" size={18} color={colors.primary} />
               </View>
               <View>
-                <Text style={[styles.settingLabel, { color: isDark ? '#FFFFFF' : '#061522' }]}>Community Guidelines</Text>
+                <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Community Guidelines</Text>
                 <Text style={[styles.settingDesc, { color: colors.textSecondary }]}>
                   Zero tolerance harassment pledge & safety rules
                 </Text>
@@ -220,49 +168,49 @@ export default function SettingsScreen() {
 
         {/* Section: India-Only Localization */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: COLORS.lavender }]}>REGION & LOCALIZATION</Text>
+          <Text style={[styles.sectionTitle, { color: colors.primary }]}>REGION & LOCALIZATION</Text>
         </View>
         <View
           style={[
             styles.card,
             {
-              backgroundColor: isDark ? 'rgba(11, 29, 45, 0.85)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(6, 21, 34, 0.08)',
+              backgroundColor: colors.cardBg,
+              borderColor: colors.cardBorder,
             },
           ]}
         >
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Target Market</Text>
-            <View style={styles.badgeWrap}>
-              <Text style={styles.badgeText}>🇮🇳 India Only (IN)</Text>
+            <View style={[styles.badgeWrap, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)' }]}>
+              <Text style={[styles.badgeText, { color: colors.textPrimary }]}>🇮🇳 India Only (IN)</Text>
             </View>
           </View>
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)' }]}>
+          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.border }]}>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Currency</Text>
-            <Text style={[styles.infoValue, { color: isDark ? '#FFFFFF' : '#061522' }]}>
+            <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
               {INDIA_CURRENCY_SYMBOL} INR (Indian Rupee)
             </Text>
           </View>
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)' }]}>
+          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.border }]}>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Phone Code</Text>
-            <Text style={[styles.infoValue, { color: isDark ? '#FFFFFF' : '#061522' }]}>{INDIA_PHONE_CODE}</Text>
+            <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{INDIA_PHONE_CODE}</Text>
           </View>
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)' }]}>
+          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: colors.border }]}>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Locale</Text>
-            <Text style={[styles.infoValue, { color: isDark ? '#FFFFFF' : '#061522' }]}>{INDIA_LOCALE}</Text>
+            <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{INDIA_LOCALE}</Text>
           </View>
         </View>
 
         {/* Section: Account Actions */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: COLORS.lavender }]}>ACCOUNT</Text>
+          <Text style={[styles.sectionTitle, { color: colors.primary }]}>ACCOUNT</Text>
         </View>
         <View
           style={[
             styles.card,
             {
-              backgroundColor: isDark ? 'rgba(11, 29, 45, 0.85)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(6, 21, 34, 0.08)',
+              backgroundColor: colors.cardBg,
+              borderColor: colors.cardBorder,
             },
           ]}
         >
@@ -278,7 +226,7 @@ export default function SettingsScreen() {
 
         <View style={styles.footerNote}>
           <Text style={[styles.footerText, { color: colors.textMuted }]}>
-            MaybeWe v1.0.0 • Solo Traveler Matching
+            MaybeWe v1.0.0 • Verified Travel Matching
           </Text>
           <Text style={[styles.footerText, { color: colors.textMuted, marginTop: 2 }]}>
             Single Unified Expo Application

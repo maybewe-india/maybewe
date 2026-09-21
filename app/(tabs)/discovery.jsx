@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, RADII, SHADOWS, FONTS } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 import GradientHeader from '../../components/ui/GradientHeader';
 import InputField from '../../components/ui/InputField';
 import PrimaryButton from '../../components/ui/PrimaryButton';
@@ -36,6 +37,7 @@ export default function DiscoveryScreen() {
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { profile, user } = useAuth();
+  const { colors, isDark } = useTheme();
 
   const [travelers, setTravelers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,7 +138,7 @@ export default function DiscoveryScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ImageBackground
         source={DISCOVERY_BG}
         style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%' }]}
@@ -144,11 +146,7 @@ export default function DiscoveryScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={[
-            'rgba(6, 21, 34, 0.45)',
-            'rgba(6, 21, 34, 0.75)',
-            'rgba(6, 21, 34, 0.95)',
-          ]}
+          colors={colors.bgGradientOverlay}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -157,186 +155,186 @@ export default function DiscoveryScreen() {
       <View style={styles.container}>
         {/* Top Header */}
         <GradientHeader
-        title="Find your travel people."
-        subtitle="Plans that overlap. Vibes that connect."
-        rightIcon="options-outline"
-        rightAction={() => setFilterModalVisible(true)}
-      />
+          title="Find your travel people."
+          subtitle="Plans that overlap. Vibes that connect."
+          rightIcon="options-outline"
+          rightAction={() => setFilterModalVisible(true)}
+        />
 
-      {/* Toast Notification */}
-      {toastMessage && (
-        <View style={styles.toastBanner}>
-          <Ionicons name="sparkles" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.toastText}>{toastMessage}</Text>
-        </View>
-      )}
-
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollBody,
-          { paddingBottom: insets.bottom + 110 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />
-        }
-      >
-        {/* Search Field & Filter Chips Bar */}
-        <View style={styles.searchBarContainer}>
-          <InputField
-            placeholder="Search destination (Tokyo, Bali, Kyoto, Lisbon)..."
-            icon="search-outline"
-            value={searchDestination}
-            onChangeText={setSearchDestination}
-            style={{ marginBottom: 12 }}
-          />
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsScroll}
-          >
-            {FILTER_STYLES.map((style) => (
-              <FilterChip
-                key={style}
-                label={style}
-                size="small"
-                selected={selectedStyle === style}
-                onPress={() => setSelectedStyle(style)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Feed Header */}
-        <View style={styles.feedHeaderRow}>
-          <View>
-            <Text style={styles.feedTitle}>Compatible Travelers</Text>
-            <Text style={styles.feedSubtitle}>
-              {travelers.length} traveler{travelers.length === 1 ? '' : 's'} matching your travel criteria
-            </Text>
+        {/* Toast Notification */}
+        {toastMessage && (
+          <View style={[styles.toastBanner, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+            <Ionicons name="sparkles" size={16} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={[styles.toastText, { color: colors.textPrimary }]}>{toastMessage}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setFilterModalVisible(true)}
-            style={styles.filterPillBtn}
-          >
-            <Ionicons name="filter" size={14} color="#FFFFFF" />
-            <Text style={styles.filterPillText}>Filters</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Discovery Feed */}
-        {loading ? (
-          <View>
-            <SkeletonCard height={380} />
-            <SkeletonCard height={380} />
-          </View>
-        ) : travelers.length > 0 ? (
-          travelers.map((traveler) => (
-            <View key={traveler.id} style={styles.cardWrapper}>
-              <DiscoveryCard
-                traveler={traveler}
-                onConnect={handleConnect}
-                onPass={handlePass}
-              />
-              <TouchableOpacity
-                onPress={() => handleOpenReport(traveler)}
-                style={styles.reportBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="flag-outline" size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} />
-                <Text style={styles.reportBtnText}>Report traveler</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        ) : (
-          <EmptyState
-            icon="earth-outline"
-            title="No travelers found yet"
-            description="Try changing your search destination, clearing active filters, or posting a trip to attract fellow travelers."
-            actionTitle="Reset All Filters"
-            onAction={resetFilters}
-          />
         )}
-      </ScrollView>
 
-      {/* Filter Bottom Sheet Modal */}
-      <Modal
-        visible={filterModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setFilterModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Discovery Filters</Text>
-              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
-                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-            </View>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollBody,
+            { paddingBottom: insets.bottom + 110 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        >
+          {/* Search Field & Filter Chips Bar */}
+          <View style={styles.searchBarContainer}>
+            <InputField
+              placeholder="Search destination (Goa, Manali, Kashmir, Kerala)..."
+              icon="search-outline"
+              value={searchDestination}
+              onChangeText={setSearchDestination}
+              style={{ marginBottom: 12 }}
+            />
 
-            <ScrollView style={styles.sheetContent} showsVerticalScrollIndicator={false}>
-              <Text style={styles.filterSectionTitle}>Gender Preference</Text>
-              <View style={styles.chipsWrap}>
-                {GENDERS.map((g) => (
-                  <FilterChip
-                    key={g}
-                    label={g}
-                    selected={selectedGender === g}
-                    onPress={() => setSelectedGender(g)}
-                  />
-                ))}
-              </View>
-
-              <Text style={styles.filterSectionTitle}>Travel Vibe & Style</Text>
-              <View style={styles.chipsWrap}>
-                {FILTER_STYLES.map((st) => (
-                  <FilterChip
-                    key={st}
-                    label={st}
-                    selected={selectedStyle === st}
-                    onPress={() => setSelectedStyle(st)}
-                  />
-                ))}
-              </View>
-
-              {/* Verified Toggle */}
-              <TouchableOpacity
-                onPress={() => setOnlyVerified(!onlyVerified)}
-                style={styles.verifiedToggleRow}
-                activeOpacity={0.8}
-              >
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={styles.toggleTitle}>Verified Travelers Only</Text>
-                  <Text style={styles.toggleSubtitle}>
-                    Show only travelers with confirmed community selfie identity verification.
-                  </Text>
-                </View>
-                <Ionicons
-                  name={onlyVerified ? 'checkbox' : 'square-outline'}
-                  size={24}
-                  color={onlyVerified ? COLORS.lavender : COLORS.textMuted}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipsScroll}
+            >
+              {FILTER_STYLES.map((style) => (
+                <FilterChip
+                  key={style}
+                  label={style}
+                  size="small"
+                  selected={selectedStyle === style}
+                  onPress={() => setSelectedStyle(style)}
                 />
-              </TouchableOpacity>
+              ))}
             </ScrollView>
+          </View>
 
-            <View style={styles.sheetFooter}>
-              <TouchableOpacity onPress={resetFilters} style={styles.resetBtn}>
-                <Text style={styles.resetBtnText}>Reset</Text>
-              </TouchableOpacity>
-              <PrimaryButton
-                title="Apply Filters"
-                onPress={() => {
-                  setFilterModalVisible(false);
-                  fetchTravelers();
-                }}
-                style={{ flex: 1 }}
-              />
+          {/* Feed Header */}
+          <View style={styles.feedHeaderRow}>
+            <View>
+              <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>Compatible Travelers</Text>
+              <Text style={[styles.feedSubtitle, { color: colors.textSecondary }]}>
+                {travelers.length} traveler{travelers.length === 1 ? '' : 's'} matching your travel criteria
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setFilterModalVisible(true)}
+              style={[styles.filterPillBtn, { backgroundColor: colors.chipBg, borderColor: colors.chipBorder }]}
+            >
+              <Ionicons name="filter" size={14} color={colors.primary} />
+              <Text style={[styles.filterPillText, { color: colors.primary }]}>Filters</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Discovery Feed */}
+          {loading ? (
+            <View>
+              <SkeletonCard height={380} />
+              <SkeletonCard height={380} />
+            </View>
+          ) : travelers.length > 0 ? (
+            travelers.map((traveler) => (
+              <View key={traveler.id} style={styles.cardWrapper}>
+                <DiscoveryCard
+                  traveler={traveler}
+                  onConnect={handleConnect}
+                  onPass={handlePass}
+                />
+                <TouchableOpacity
+                  onPress={() => handleOpenReport(traveler)}
+                  style={styles.reportBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="flag-outline" size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+                  <Text style={[styles.reportBtnText, { color: colors.textMuted }]}>Report traveler</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          ) : (
+            <EmptyState
+              icon="earth-outline"
+              title="No travelers found yet"
+              description="Try changing your search destination, clearing active filters, or posting a trip to attract fellow travelers."
+              actionTitle="Reset All Filters"
+              onAction={resetFilters}
+            />
+          )}
+        </ScrollView>
+
+        {/* Filter Bottom Sheet Modal */}
+        <Modal
+          visible={filterModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setFilterModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.modalBg, borderColor: colors.borderGlass }]}>
+              <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>Discovery Filters</Text>
+                <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.sheetContent} showsVerticalScrollIndicator={false}>
+                <Text style={[styles.filterSectionTitle, { color: colors.textPrimary }]}>Gender Preference</Text>
+                <View style={styles.chipsWrap}>
+                  {GENDERS.map((g) => (
+                    <FilterChip
+                      key={g}
+                      label={g}
+                      selected={selectedGender === g}
+                      onPress={() => setSelectedGender(g)}
+                    />
+                  ))}
+                </View>
+
+                <Text style={[styles.filterSectionTitle, { color: colors.textPrimary }]}>Travel Vibe & Style</Text>
+                <View style={styles.chipsWrap}>
+                  {FILTER_STYLES.map((st) => (
+                    <FilterChip
+                      key={st}
+                      label={st}
+                      selected={selectedStyle === st}
+                      onPress={() => setSelectedStyle(st)}
+                    />
+                  ))}
+                </View>
+
+                {/* Verified Toggle */}
+                <TouchableOpacity
+                  onPress={() => setOnlyVerified(!onlyVerified)}
+                  style={[styles.verifiedToggleRow, { backgroundColor: colors.chipBg, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Verified Travelers Only</Text>
+                    <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>
+                      Show only travelers with confirmed community selfie identity verification.
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={onlyVerified ? 'checkbox' : 'square-outline'}
+                    size={24}
+                    color={onlyVerified ? colors.primary : colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </ScrollView>
+
+              <View style={styles.sheetFooter}>
+                <TouchableOpacity onPress={resetFilters} style={styles.resetBtn}>
+                  <Text style={[styles.resetBtnText, { color: colors.textMuted }]}>Reset</Text>
+                </TouchableOpacity>
+                <PrimaryButton
+                  title="Apply Filters"
+                  onPress={() => {
+                    setFilterModalVisible(false);
+                    fetchTravelers();
+                  }}
+                  style={{ flex: 1 }}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
       {/* Safety Report Modal */}
       <SafetyReportModal

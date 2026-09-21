@@ -51,14 +51,6 @@ export const ALL_SCREENS = [
     route: '/(auth)/verification',
     category: 'Onboarding',
   },
-  {
-    id: 'theme-selection',
-    title: '🎨 Theme Selection',
-    description: 'Mandatory post-verification theme choice',
-    route: '/(auth)/theme-selection',
-    category: 'Onboarding',
-    badge: 'MANDATORY',
-  },
 
   // Main App
   {

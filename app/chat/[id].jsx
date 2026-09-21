@@ -21,6 +21,7 @@ import InChatSafetyWarning from '../../components/InChatSafetyWarning';
 import LiveLocationShare from '../../components/LiveLocationShare';
 import SafetyReportModal from '../../components/SafetyReportModal';
 import { useAuth } from '../../lib/authContext';
+import { useTheme } from '../../lib/themeContext';
 import { getMessages, sendMessage, subscribeToMessages } from '../../lib/messages';
 import { scanMessageForSafety } from '../../lib/safety';
 
@@ -32,6 +33,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { id: matchId, partnerName, partnerAvatar, partnerScore, partnerVerified, destination, dates } = useLocalSearchParams();
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -146,11 +148,11 @@ export default function ChatScreen() {
       <View>
         {showDateDivider && (
           <View style={styles.dateSeparatorWrapper}>
-            <View style={styles.dateSeparatorLine} />
-            <View style={styles.dateSeparatorBadge}>
-              <Text style={styles.dateSeparatorText}>TODAY</Text>
+            <View style={[styles.dateSeparatorLine, { backgroundColor: colors.border }]} />
+            <View style={[styles.dateSeparatorBadge, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border }]}>
+              <Text style={[styles.dateSeparatorText, { color: colors.textMuted }]}>TODAY</Text>
             </View>
-            <View style={styles.dateSeparatorLine} />
+            <View style={[styles.dateSeparatorLine, { backgroundColor: colors.border }]} />
           </View>
         )}
 
@@ -177,18 +179,18 @@ export default function ChatScreen() {
               </View>
             </LinearGradient>
           ) : (
-            /* Other Traveler Message: Dark Translucent Glass */
-            <View style={[styles.messageBubble, styles.theirBubble, isLocation && styles.theirLocationBubble]}>
+            /* Other Traveler Message: Translucent Glass / Surface */
+            <View style={[styles.messageBubble, styles.theirBubble, { backgroundColor: isDark ? 'rgba(16, 40, 58, 0.78)' : colors.surfaceElevated, borderColor: colors.border }, isLocation && styles.theirLocationBubble]}>
               {isLocation && (
                 <View style={styles.locationHeader}>
-                  <Ionicons name="location" size={15} color={COLORS.lavender} style={{ marginRight: 5 }} />
-                  <Text style={styles.locationTitleTheir}>Meeting Point Shared</Text>
+                  <Ionicons name="location" size={15} color={colors.primary} style={{ marginRight: 5 }} />
+                  <Text style={[styles.locationTitleTheir, { color: colors.primary }]}>Meeting Point Shared</Text>
                 </View>
               )}
 
-              <Text style={styles.theirMessageText}>{item.content}</Text>
+              <Text style={[styles.theirMessageText, { color: colors.textPrimary }]}>{item.content}</Text>
               <View style={styles.messageFooterTheir}>
-                <Text style={styles.theirMessageTime}>{formattedTime}</Text>
+                <Text style={[styles.theirMessageTime, { color: colors.textMuted }]}>{formattedTime}</Text>
               </View>
             </View>
           )}
@@ -200,7 +202,7 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
     >
       {/* Full-Screen Cinematic Destination Photography Background */}
       <ImageBackground
@@ -210,21 +212,21 @@ export default function ChatScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(6, 21, 34, 0.68)', 'rgba(6, 21, 34, 0.82)', 'rgba(6, 21, 34, 0.94)']}
+          colors={colors.bgGradientOverlay}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
       </ImageBackground>
 
       {/* Header: Back, Avatar, Verification Badge, Name, Trust Score, Destination Context */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) + 6 }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 14) + 6, backgroundColor: isDark ? 'rgba(6, 21, 34, 0.65)' : 'rgba(255, 255, 255, 0.88)', borderBottomColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.headerBackBtn}
           accessibilityLabel="Back"
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <Avatar
@@ -238,7 +240,7 @@ export default function ChatScreen() {
 
         <View style={styles.headerTitleBox}>
           <View style={styles.headerNameRow}>
-            <Text style={styles.headerName} numberOfLines={1}>
+            <Text style={[styles.headerName, { color: colors.textPrimary }]} numberOfLines={1}>
               {partnerDisplayName}
             </Text>
             <View style={styles.trustScorePill}>
@@ -247,7 +249,7 @@ export default function ChatScreen() {
             </View>
           </View>
 
-          <Text style={styles.headerContextSubtitle} numberOfLines={1}>
+          <Text style={[styles.headerContextSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
             {partnerTripDestination} • {partnerTripDates}
           </Text>
         </View>
@@ -255,25 +257,25 @@ export default function ChatScreen() {
         {/* Safety Actions Menu */}
         <TouchableOpacity
           onPress={() => setReportModalVisible(true)}
-          style={styles.headerActionBtn}
+          style={[styles.headerActionBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated }]}
           accessibilityLabel="Report or Block Traveler"
         >
-          <Ionicons name="shield-half-outline" size={20} color={COLORS.textSecondary} />
+          <Ionicons name="shield-half-outline" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       {/* Subtle Trip Context Card pinned near the top */}
-      <View style={styles.tripContextCard}>
+      <View style={[styles.tripContextCard, { borderColor: colors.cardBorder }]}>
         <LinearGradient
-          colors={['rgba(16, 40, 58, 0.75)', 'rgba(11, 29, 45, 0.65)']}
+          colors={isDark ? ['rgba(16, 40, 58, 0.75)', 'rgba(11, 29, 45, 0.65)'] : [colors.cardBg, colors.cardBg]}
           style={styles.tripContextCardGradient}
         >
-          <View style={styles.tripContextIconBox}>
-            <Ionicons name="airplane" size={18} color="#FFFFFF" />
+          <View style={[styles.tripContextIconBox, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.10)' : colors.surfaceElevated, borderColor: colors.border }]}>
+            <Ionicons name="airplane" size={18} color={colors.primary} />
           </View>
           <View style={styles.tripContextTextBox}>
             <View style={styles.tripContextDestinationRow}>
-              <Text style={styles.tripContextDestination}>
+              <Text style={[styles.tripContextDestination, { color: colors.textPrimary }]}>
                 {partnerTripDestination.toUpperCase()}
               </Text>
               <View style={styles.vibeMatchBadge}>
@@ -281,8 +283,8 @@ export default function ChatScreen() {
                 <Text style={styles.vibeMatchText}>94% Match</Text>
               </View>
             </View>
-            <Text style={styles.tripContextDates}>{partnerTripDates}</Text>
-            <Text style={styles.tripContextNotice}>You both are planning this journey.</Text>
+            <Text style={[styles.tripContextDates, { color: colors.accent }]}>{partnerTripDates}</Text>
+            <Text style={[styles.tripContextNotice, { color: colors.textMuted }]}>You both are planning this journey.</Text>
           </View>
         </LinearGradient>
       </View>
@@ -307,25 +309,25 @@ export default function ChatScreen() {
       />
 
       {/* Composer: Message input, Attachment button, Send button */}
-      <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
+      <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 12) + 4, backgroundColor: isDark ? 'rgba(6, 21, 34, 0.75)' : 'rgba(255, 255, 255, 0.92)', borderTopColor: colors.border }]}>
         {/* Attachment / Location Share Button */}
         <TouchableOpacity
           onPress={() => setLocationModalVisible(true)}
-          style={styles.attachActionBtn}
+          style={[styles.attachActionBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border }]}
           accessibilityLabel="Share meeting location"
           activeOpacity={0.8}
         >
-          <Ionicons name="add" size={22} color="#FFFFFF" />
+          <Ionicons name="add" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
 
         {/* Text Input in Glass Container */}
-        <View style={styles.textInputContainer}>
+        <View style={[styles.textInputContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
           <TextInput
             value={inputText}
             onChangeText={handleTextChange}
             placeholder="Message..."
-            placeholderTextColor="rgba(255, 255, 255, 0.45)"
-            style={styles.textInputField}
+            placeholderTextColor={colors.textMuted}
+            style={[styles.textInputField, { color: colors.textPrimary }]}
             multiline
             maxLength={1000}
           />

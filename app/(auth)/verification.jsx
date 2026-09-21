@@ -9,6 +9,7 @@ import {
   ImageBackground,
   ActivityIndicator,
   Platform,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,18 +29,45 @@ const VERIFICATION_BG = require('../../assets/images/review_sunset_bg.jpg');
 export default function VerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, submitVerification, checkVerificationStatus } = useAuth();
+  const { profile, submitVerification, checkVerificationStatus, updateProfile } = useAuth();
 
   const [selfieUri, setSelfieUri] = useState(null);
   const [verificationState, setVerificationState] = useState('NOT_STARTED');
   const [failureReason, setFailureReason] = useState('');
+  const [isChecking, setIsChecking] = useState(false);
+  const [statusFeedback, setStatusFeedback] = useState('');
+
+  // Profile repair state for accounts missing public.users
+  const [repairName, setRepairName] = useState(
+    profile?.name && profile.name !== 'Traveler' && !profile.name.includes('@') ? profile.name : ''
+  );
+  const [repairAge, setRepairAge] = useState(profile?.age ? String(profile.age) : '');
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repairError, setRepairError] = useState('');
+  const [repairSuccess, setRepairSuccess] = useState('');
+
+  useEffect(() => {
+    if (profile?.needsProfileRepair) {
+      if (!repairName && profile.name && profile.name !== 'Traveler' && !profile.name.includes('@')) {
+        setRepairName(profile.name);
+      }
+      if (!repairAge && profile.age && profile.age >= 18) {
+        setRepairAge(String(profile.age));
+      }
+    }
+  }, [profile?.needsProfileRepair, profile?.name, profile?.age]);
 
   // Sync with user's stored status on mount
   useEffect(() => {
+    const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
     if (profile?.verification_status === 'verified') {
       setVerificationState('VERIFIED');
     } else if (profile?.verification_status === 'pending') {
-      setVerificationState('PENDING');
+      if (isDemo) {
+        setVerificationState('VERIFIED');
+      } else {
+        setVerificationState('PENDING');
+      }
     } else if (profile?.verification_status === 'failed' || profile?.verification_status === 'rejected') {
       setVerificationState('FAILED');
     } else {
@@ -48,9 +76,10 @@ export default function VerificationScreen() {
   }, [profile?.verification_status]);
 
   const handleCaptureSelfie = async () => {
+    const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
     try {
       if (Platform.OS === 'web') {
-        // In browser environments, try camera or image picker if available
+        // In browser environments, try camera or file upload
         try {
           const result = await ImagePicker.launchCameraAsync({
             cameraType: ImagePicker.CameraType.front,
@@ -64,9 +93,31 @@ export default function VerificationScreen() {
             return;
           }
         } catch (webCamErr) {
-          console.log('Web camera prompt bypassed or unavailable:', webCamErr);
+          console.log('Web camera bypassed or unavailable, trying photo picker:', webCamErr);
         }
-        // Fallback realistic verification portrait for web/browser
+
+        try {
+          const libResult = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
+          if (!libResult.canceled && libResult.assets?.[0]?.uri) {
+            setSelfieUri(libResult.assets[0].uri);
+            setVerificationState('CAPTURED');
+            return;
+          }
+        } catch (webLibErr) {
+          console.log('Web photo picker error:', webLibErr);
+        }
+
+        if (!isDemo) {
+          Alert.alert('Camera or Photo Required', 'Please capture or upload a clear photo of your face to verify your identity.');
+          return;
+        }
+
+        // Demo fallback only in development mode when camera is unavailable
         setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
         setVerificationState('CAPTURED');
         return;
@@ -89,7 +140,11 @@ export default function VerificationScreen() {
             return;
           }
         }
-        // Graceful fallback portrait
+        if (!isDemo) {
+          Alert.alert('Camera Permission Required', 'Please grant camera access in your device settings to take your verification selfie.');
+          return;
+        }
+        // Graceful fallback portrait ONLY in demo mode
         setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
         setVerificationState('CAPTURED');
         return;
@@ -102,16 +157,21 @@ export default function VerificationScreen() {
         quality: 0.7,
       });
 
-      if (!result.canceled && result.assets[0]?.uri) {
+      if (!result.canceled && result.assets?.[0]?.uri) {
         setSelfieUri(result.assets[0].uri);
         setVerificationState('CAPTURED');
-      } else {
+      } else if (isDemo) {
+        // Fallback only permitted in demo mode
         setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
         setVerificationState('CAPTURED');
       }
     } catch (err) {
-      console.warn('Camera capture fallback:', err);
-      // High-resolution realistic front-facing traveler verification portrait
+      console.warn('Camera capture error:', err);
+      if (!isDemo) {
+        Alert.alert('Camera Error', 'Could not open camera. Please check your permissions and try again.');
+        return;
+      }
+      // Realistic front-facing traveler verification portrait in demo mode only
       setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
       setVerificationState('CAPTURED');
     }
@@ -123,11 +183,12 @@ export default function VerificationScreen() {
     setTimeout(async () => {
       try {
         const res = await submitVerification(selfieUri);
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
         if (!res.success) {
           setFailureReason(res.error || 'Face could not be verified clearly.');
           setVerificationState('FAILED');
-        } else if (res.status === 'verified') {
-          // Demo simulation mode
+        } else if (res.status === 'verified' || isDemo) {
+          // Demo simulation mode: immediately show existing "Verification Successful" state
           setVerificationState('VERIFIED');
         } else {
           // Live Supabase mode: submission is strictly 'pending', awaiting trusted decision
@@ -137,7 +198,7 @@ export default function VerificationScreen() {
         setFailureReason('Verification service unavailable. Please retry.');
         setVerificationState('FAILED');
       }
-    }, 1200);
+    }, 1000);
   };
 
   const handleRetry = () => {
@@ -147,25 +208,143 @@ export default function VerificationScreen() {
   };
 
   const handleCheckPendingStatus = async () => {
+    if (isChecking) return;
+    setIsChecking(true);
+    setStatusFeedback('');
     try {
       if (checkVerificationStatus) {
         const res = await checkVerificationStatus();
-        if (res.status === 'verified') {
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+        if (res?.status === 'verified' || isDemo) {
           setVerificationState('VERIFIED');
-        } else if (res.status === 'failed' || res.status === 'rejected') {
+        } else if (res?.status === 'failed' || res?.status === 'rejected') {
           setFailureReason(res.error || 'Verification was not approved. Please retry.');
           setVerificationState('FAILED');
+        } else {
+          // Explicit visible confirmation for pending state
+          setStatusFeedback('Status checked: Your verification selfie is actively under review by our safety moderators. Please check back shortly.');
         }
-        // If still pending, it stays in PENDING state
       }
     } catch (err) {
       console.warn('Error checking pending verification status:', err);
+      setStatusFeedback('Unable to refresh verification status. Please check your connection and retry.');
+    } finally {
+      setIsChecking(false);
     }
+  };
+
+  const handleSaveProfileDetails = async () => {
+    if (!repairName.trim()) {
+      setRepairError('Please enter your full name.');
+      return;
+    }
+    const ageNum = parseInt(repairAge, 10);
+    if (isNaN(ageNum) || ageNum < 18) {
+      setRepairError('You must be at least 18 years old to join MaybeWe.');
+      return;
+    }
+    setIsRepairing(true);
+    setRepairError('');
+    setRepairSuccess('');
+    try {
+      const res = await updateProfile({
+        name: repairName.trim(),
+        age: ageNum,
+      });
+      if (res?.success) {
+        setRepairSuccess('Profile details saved! Your traveler profile is created and verification remains under review.');
+      } else {
+        setRepairError(res?.error || 'Failed to save profile details. Please retry.');
+      }
+    } catch (err) {
+      setRepairError(err.message || 'An error occurred while saving profile.');
+    } finally {
+      setIsRepairing(false);
+    }
+  };
+
+  const renderProfileRepairBox = () => {
+    if (!profile?.needsProfileRepair && !repairSuccess) return null;
+
+    return (
+      <View style={styles.repairBox}>
+        <View style={styles.repairHeader}>
+          <Ionicons name="person-circle-outline" size={24} color={COLORS.sunset} style={{ marginRight: 8 }} />
+          <Text style={styles.repairTitle}>Complete Profile Details</Text>
+        </View>
+        <Text style={styles.repairSubtitle}>
+          Your verification selfie is on file and pending review, but your authentic name and age (18+) are required to complete your traveler profile.
+        </Text>
+
+        {repairError ? (
+          <View style={styles.repairErrorBox}>
+            <Ionicons name="alert-circle" size={16} color="#FF6B6B" style={{ marginRight: 6 }} />
+            <Text style={styles.repairErrorText}>{repairError}</Text>
+          </View>
+        ) : null}
+
+        {repairSuccess ? (
+          <View style={styles.repairSuccessBox}>
+            <Ionicons name="checkmark-circle" size={16} color="#4ADE80" style={{ marginRight: 6 }} />
+            <Text style={styles.repairSuccessText}>{repairSuccess}</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.repairInputGroup}>
+              <Text style={styles.repairInputLabel}>Full Name</Text>
+              <TextInput
+                style={styles.repairTextInput}
+                placeholder="Enter your full name"
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                value={repairName}
+                onChangeText={(t) => {
+                  setRepairName(t);
+                  if (repairError) setRepairError('');
+                }}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.repairInputGroup}>
+              <Text style={styles.repairInputLabel}>Age (Must be 18+)</Text>
+              <TextInput
+                style={styles.repairTextInput}
+                placeholder="e.g. 24"
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                value={repairAge}
+                onChangeText={(t) => {
+                  setRepairAge(t);
+                  if (repairError) setRepairError('');
+                }}
+                keyboardType="number-pad"
+                maxLength={3}
+              />
+            </View>
+
+            <TouchableOpacity
+              onPress={handleSaveProfileDetails}
+              style={[styles.saveProfileBtn, isRepairing && { opacity: 0.7 }]}
+              disabled={isRepairing}
+              activeOpacity={0.8}
+            >
+              {isRepairing ? (
+                <ActivityIndicator size="small" color="#061522" style={{ marginRight: 8 }} />
+              ) : (
+                <Ionicons name="save-outline" size={18} color="#061522" style={{ marginRight: 8 }} />
+              )}
+              <Text style={styles.saveProfileBtnText}>
+                {isRepairing ? 'Saving Profile...' : 'Save Profile Details'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    );
   };
 
   const handleFinish = () => {
     if (verificationState === 'VERIFIED') {
-      router.replace('/(auth)/theme-selection');
+      router.replace('/(tabs)');
     }
   };
 
@@ -297,7 +476,7 @@ export default function VerificationScreen() {
               </View>
 
               <PrimaryButton
-                title="Continue to Theme Selection  →"
+                title="Continue to Explore  →"
                 size="lg"
                 onPress={handleFinish}
                 style={{ width: '100%', marginTop: 24 }}
@@ -347,14 +526,30 @@ export default function VerificationScreen() {
                 <TrustBadge verificationStatus="pending" score={5.0} variant="full" />
               </View>
 
+              {renderProfileRepairBox()}
+
               <TouchableOpacity
                 onPress={handleCheckPendingStatus}
-                style={styles.refreshBtn}
+                style={[styles.refreshBtn, isChecking && { opacity: 0.7 }]}
                 activeOpacity={0.8}
+                disabled={isChecking}
               >
-                <Ionicons name="refresh-outline" size={18} color="#061522" style={{ marginRight: 8 }} />
-                <Text style={styles.refreshBtnText}>Check Status / Confirm</Text>
+                {isChecking ? (
+                  <ActivityIndicator size="small" color="#061522" style={{ marginRight: 8 }} />
+                ) : (
+                  <Ionicons name="refresh-outline" size={18} color="#061522" style={{ marginRight: 8 }} />
+                )}
+                <Text style={styles.refreshBtnText}>
+                  {isChecking ? 'Checking Status...' : 'Check Status / Confirm'}
+                </Text>
               </TouchableOpacity>
+
+              {statusFeedback ? (
+                <View style={styles.pendingFeedbackBox}>
+                  <Ionicons name="information-circle-outline" size={16} color={COLORS.sunset} style={{ marginRight: 6, marginTop: 1 }} />
+                  <Text style={styles.pendingFeedbackText}>{statusFeedback}</Text>
+                </View>
+              ) : null}
             </View>
           )}
         </ScrollView>
@@ -621,6 +816,122 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   refreshBtnText: {
+    fontFamily: FONTS.bold,
+    fontSize: 14,
+    color: '#061522',
+    fontWeight: '700',
+  },
+  pendingFeedbackBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 179, 71, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 179, 71, 0.30)',
+    borderRadius: RADII.lg,
+    padding: 12,
+    width: '100%',
+    marginTop: 14,
+  },
+  pendingFeedbackText: {
+    fontFamily: FONTS.medium,
+    flex: 1,
+    fontSize: 12,
+    color: '#FFE0B2',
+    lineHeight: 17,
+  },
+  repairBox: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 179, 71, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 179, 71, 0.35)',
+    borderRadius: RADII.xl,
+    padding: 16,
+    marginVertical: 14,
+  },
+  repairHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  repairTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.sunset,
+  },
+  repairSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+    marginBottom: 14,
+  },
+  repairInputGroup: {
+    marginBottom: 12,
+    width: '100%',
+  },
+  repairInputLabel: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#FFFFFF',
+    marginBottom: 6,
+  },
+  repairTextInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: RADII.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#FFFFFF',
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+  },
+  repairErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.35)',
+    borderRadius: RADII.md,
+    padding: 10,
+    marginBottom: 12,
+  },
+  repairErrorText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#FFBABA',
+    flex: 1,
+  },
+  repairSuccessBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(74, 222, 128, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(74, 222, 128, 0.35)',
+    borderRadius: RADII.md,
+    padding: 10,
+    marginBottom: 12,
+  },
+  repairSuccessText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#DCFCE7',
+    flex: 1,
+    lineHeight: 16,
+  },
+  saveProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.sunset,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: RADII.full,
+    marginTop: 6,
+    width: '100%',
+  },
+  saveProfileBtnText: {
     fontFamily: FONTS.bold,
     fontSize: 14,
     color: '#061522',

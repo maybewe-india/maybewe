@@ -25,6 +25,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { DEMO_MY_TRIPS, DESTINATION_IMAGES } from '../../lib/demoData';
 import { formatTripDateRangeIN } from '../../lib/indiaData';
 import { useAuth } from '../../lib/authContext';
+import { useTheme } from '../../lib/themeContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 const TRIPS_BG = require('../../assets/images/dest_manali.jpg');
@@ -63,6 +64,7 @@ export default function TripsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
 
   // 'upcoming' (active) | 'past' (completed)
   const [sectionFilter, setSectionFilter] = useState('upcoming');
@@ -296,7 +298,7 @@ export default function TripsScreen() {
   const displayedTrips = sectionFilter === 'upcoming' ? upcomingTrips : pastTrips;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Full-Screen Cinematic Travel Photography Background */}
       <ImageBackground
         source={TRIPS_BG}
@@ -305,7 +307,7 @@ export default function TripsScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(6, 21, 34, 0.55)', 'rgba(6, 21, 34, 0.76)', 'rgba(6, 21, 34, 0.94)']}
+          colors={colors.bgGradientOverlay}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -313,12 +315,12 @@ export default function TripsScreen() {
 
       <View style={styles.container}>
         {/* Top Header matching exact specification */}
-        <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 12 }]}>
+        <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 12, borderBottomColor: colors.border }]}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTextGroup}>
-              <Text style={styles.headerEyebrow}>YOUR JOURNEYS</Text>
-              <Text style={styles.headerTitle}>Your Trips</Text>
-              <Text style={styles.headerSubtitle}>Places you're going. Stories you're about to make.</Text>
+              <Text style={[styles.headerEyebrow, { color: colors.primary }]}>YOUR JOURNEYS</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Your Trips</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Places you're going. Stories you're about to make.</Text>
             </View>
 
             {/* Primary Action Button: + Plan a Trip */}
@@ -341,23 +343,23 @@ export default function TripsScreen() {
           </View>
 
           {/* Section Segmented Switcher: UPCOMING & PAST JOURNEYS */}
-          <View style={styles.segmentWrapper}>
+          <View style={[styles.segmentWrapper, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)', borderColor: colors.border }]}>
             <TouchableOpacity
               onPress={() => setSectionFilter('upcoming')}
-              style={[styles.segmentBtn, sectionFilter === 'upcoming' && styles.segmentBtnActive]}
+              style={[styles.segmentBtn, sectionFilter === 'upcoming' && [styles.segmentBtnActive, { backgroundColor: isDark ? '#FFFFFF' : colors.surfaceElevated }]]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.segmentBtnText, sectionFilter === 'upcoming' && styles.segmentBtnTextActive]}>
+              <Text style={[styles.segmentBtnText, { color: colors.textMuted }, sectionFilter === 'upcoming' && [styles.segmentBtnTextActive, { color: isDark ? '#061522' : colors.textPrimary }]]}>
                 UPCOMING ({upcomingTrips.length})
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setSectionFilter('past')}
-              style={[styles.segmentBtn, sectionFilter === 'past' && styles.segmentBtnActive]}
+              style={[styles.segmentBtn, sectionFilter === 'past' && [styles.segmentBtnActive, { backgroundColor: isDark ? '#FFFFFF' : colors.surfaceElevated }]]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.segmentBtnText, sectionFilter === 'past' && styles.segmentBtnTextActive]}>
+              <Text style={[styles.segmentBtnText, { color: colors.textMuted }, sectionFilter === 'past' && [styles.segmentBtnTextActive, { color: isDark ? '#061522' : colors.textPrimary }]]}>
                 PAST JOURNEYS ({pastTrips.length})
               </Text>
             </TouchableOpacity>
@@ -379,12 +381,12 @@ export default function TripsScreen() {
               const isCancelled = trip.status === 'cancelled';
 
               return (
-                <View key={trip.id} style={[styles.tripCard, SHADOWS.card]}>
+                <View key={trip.id} style={[styles.tripCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.card]}>
                   {/* Full-width Destination Imagery with Gradient */}
                   <View style={styles.cardImageContainer}>
                     <Image source={destImg} style={styles.cardImage} resizeMode="cover" />
                     <LinearGradient
-                      colors={['rgba(6, 21, 34, 0.15)', 'rgba(6, 21, 34, 0.55)', 'rgba(16, 40, 58, 0.95)']}
+                      colors={['rgba(6, 21, 34, 0.15)', 'rgba(6, 21, 34, 0.55)', isDark ? 'rgba(16, 40, 58, 0.95)' : 'rgba(246, 248, 251, 0.95)']}
                       locations={[0, 0.55, 1]}
                       style={StyleSheet.absoluteFill}
                     />
@@ -413,9 +415,9 @@ export default function TripsScreen() {
                       </Text>
                     </View>
 
-                    <View style={styles.styleBadgePill}>
-                      <Ionicons name="sparkles" size={11} color={COLORS.lavender} style={{ marginRight: 4 }} />
-                      <Text style={styles.styleBadgeText}>{trip.travel_style || 'Culture • Photography'}</Text>
+                    <View style={[styles.styleBadgePill, { backgroundColor: isDark ? 'rgba(6, 21, 34, 0.75)' : 'rgba(255, 255, 255, 0.85)', borderColor: colors.border }]}>
+                      <Ionicons name="sparkles" size={11} color={colors.primary} style={{ marginRight: 4 }} />
+                      <Text style={[styles.styleBadgeText, { color: colors.textPrimary }]}>{trip.travel_style || 'Culture • Photography'}</Text>
                     </View>
                   </View>
 
@@ -430,18 +432,18 @@ export default function TripsScreen() {
                 </View>
 
                 {/* Card Lower Details & Actions */}
-                <View style={styles.cardBody}>
+                <View style={[styles.cardBody, { backgroundColor: isDark ? 'rgba(10, 26, 40, 0.55)' : colors.surface }]}>
                   {/* Looking For block */}
-                  <View style={styles.lookingForSection}>
-                    <Text style={styles.lookingForLabel}>LOOKING FOR</Text>
-                    <Text style={styles.lookingForValue}>
+                  <View style={[styles.lookingForSection, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surfaceElevated, borderColor: colors.border }]}>
+                    <Text style={[styles.lookingForLabel, { color: colors.primary }]}>LOOKING FOR</Text>
+                    <Text style={[styles.lookingForValue, { color: colors.textPrimary }]}>
                       {trip.looking_for || 'Photography buddies & local food explorers'}
                     </Text>
                   </View>
 
                   {/* Compatible Travelers Row with Overlapping Avatars */}
                   <TouchableOpacity
-                    style={styles.compatibleRow}
+                    style={[styles.compatibleRow, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated, borderColor: colors.border }]}
                     onPress={() => router.push('/(tabs)/discovery')}
                     activeOpacity={0.8}
                   >
@@ -450,47 +452,47 @@ export default function TripsScreen() {
                         <Image
                           key={idx}
                           source={{ uri }}
-                          style={[styles.clusterAvatar, { marginLeft: idx === 0 ? 0 : -10 }]}
+                          style={[styles.clusterAvatar, { marginLeft: idx === 0 ? 0 : -10, borderColor: colors.border }]}
                         />
                       ))}
                     </View>
-                    <Text style={styles.compatibleText}>
-                      <Text style={styles.compatibleNumber}>{trip.matched_count || 3} compatible travelers</Text> in {trip.destination?.split(',')[0]}
+                    <Text style={[styles.compatibleText, { color: colors.textSecondary }]}>
+                      <Text style={[styles.compatibleNumber, { color: colors.accent }]}>{trip.matched_count || 3} compatible travelers</Text> in {trip.destination?.split(',')[0]}
                     </Text>
-                    <Ionicons name="chevron-forward" size={14} color={COLORS.lavender} style={{ marginLeft: 'auto' }} />
+                    <Ionicons name="chevron-forward" size={14} color={colors.primary} style={{ marginLeft: 'auto' }} />
                   </TouchableOpacity>
 
                   {/* Card Action Row: View Trip & Edit */}
                   <View style={styles.cardActionsRow}>
                     <TouchableOpacity
                       onPress={() => openViewModal(trip)}
-                      style={styles.viewTripBtn}
+                      style={[styles.viewTripBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : colors.surfaceElevated, borderColor: colors.border }]}
                       activeOpacity={0.8}
                       accessibilityLabel="View Trip Details"
                     >
-                      <Text style={styles.viewTripBtnText}>View Trip</Text>
-                      <Ionicons name="arrow-forward" size={14} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                      <Text style={[styles.viewTripBtnText, { color: colors.textPrimary }]}>View Trip</Text>
+                      <Ionicons name="arrow-forward" size={14} color={colors.textPrimary} style={{ marginLeft: 6 }} />
                     </TouchableOpacity>
 
                     {trip.status === 'active' && (
                       <TouchableOpacity
                         onPress={() => openEditModal(trip)}
-                        style={styles.editBtn}
+                        style={[styles.editBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated, borderColor: colors.border }]}
                         activeOpacity={0.8}
                         accessibilityLabel="Edit Itinerary"
                       >
-                        <Ionicons name="create-outline" size={15} color={COLORS.lavender} style={{ marginRight: 5 }} />
-                        <Text style={styles.editBtnText}>Edit</Text>
+                        <Ionicons name="create-outline" size={15} color={colors.primary} style={{ marginRight: 5 }} />
+                        <Text style={[styles.editBtnText, { color: colors.textPrimary }]}>Edit</Text>
                       </TouchableOpacity>
                     )}
 
                     <TouchableOpacity
                       onPress={() => handleCancelTrip(trip.id)}
-                      style={styles.deleteIconBtn}
+                      style={[styles.deleteIconBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.surfaceElevated }]}
                       activeOpacity={0.7}
                       accessibilityLabel="Archive Trip"
                     >
-                      <Ionicons name="trash-outline" size={17} color="rgba(255, 255, 255, 0.45)" />
+                      <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -499,12 +501,12 @@ export default function TripsScreen() {
           })
         ) : (
           /* Empty state matching exact user copy */
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons name="compass-outline" size={48} color={COLORS.lavender} />
+          <View style={[styles.emptyContainer, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated, borderColor: colors.border }]}>
+              <Ionicons name="compass-outline" size={48} color={colors.primary} />
             </View>
-            <Text style={styles.emptyTitle}>No journeys yet</Text>
-            <Text style={styles.emptySubtitle}>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No journeys yet</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
               Start planning somewhere you've always wanted to go.
             </Text>
             <TouchableOpacity
@@ -533,16 +535,16 @@ export default function TripsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setViewModalVisible(false)}
       >
-        <View style={styles.modalRoot}>
+        <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
           {selectedTrip && (
             <>
-              <View style={styles.modalHeader}>
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setViewModalVisible(false)} style={styles.modalCloseBtn}>
-                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                  <Ionicons name="close" size={24} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.modalHeaderTitle}>Trip Itinerary</Text>
+                <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Trip Itinerary</Text>
                 <TouchableOpacity onPress={() => { setViewModalVisible(false); openEditModal(selectedTrip); }}>
-                  <Text style={styles.modalHeaderAction}>Edit</Text>
+                  <Text style={[styles.modalHeaderAction, { color: colors.primary }]}>Edit</Text>
                 </TouchableOpacity>
               </View>
 
@@ -554,40 +556,40 @@ export default function TripsScreen() {
                     resizeMode="cover"
                   />
                   <LinearGradient
-                    colors={['transparent', 'rgba(6, 21, 34, 0.95)']}
+                    colors={['transparent', isDark ? 'rgba(6, 21, 34, 0.95)' : 'rgba(246, 248, 251, 0.95)']}
                     style={StyleSheet.absoluteFill}
                   />
                   <View style={styles.viewModalHeroInfo}>
-                    <Text style={styles.viewModalDestination}>{selectedTrip.destination}</Text>
+                    <Text style={[styles.viewModalDestination, { color: colors.textPrimary }]}>{selectedTrip.destination}</Text>
                     <Text style={styles.viewModalDates}>{formatTripDates(selectedTrip.date_from, selectedTrip.date_to)}</Text>
                   </View>
                 </View>
 
-                <View style={styles.viewModalCard}>
-                  <Text style={styles.viewModalSectionTitle}>TRIP STYLE</Text>
-                  <Text style={styles.viewModalSectionText}>{selectedTrip.travel_style || 'Culture & Food'}</Text>
+                <View style={[styles.viewModalCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+                  <Text style={[styles.viewModalSectionTitle, { color: colors.primary }]}>TRIP STYLE</Text>
+                  <Text style={[styles.viewModalSectionText, { color: colors.textPrimary }]}>{selectedTrip.travel_style || 'Culture & Food'}</Text>
                 </View>
 
-                <View style={styles.viewModalCard}>
-                  <Text style={styles.viewModalSectionTitle}>LOOKING FOR</Text>
-                  <Text style={styles.viewModalSectionText}>{selectedTrip.looking_for}</Text>
+                <View style={[styles.viewModalCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+                  <Text style={[styles.viewModalSectionTitle, { color: colors.primary }]}>LOOKING FOR</Text>
+                  <Text style={[styles.viewModalSectionText, { color: colors.textPrimary }]}>{selectedTrip.looking_for}</Text>
                 </View>
 
-                <View style={styles.viewModalCard}>
-                  <Text style={styles.viewModalSectionTitle}>COMPATIBLE TRAVELERS</Text>
-                  <Text style={styles.viewModalSectionSubtitle}>
+                <View style={[styles.viewModalCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+                  <Text style={[styles.viewModalSectionTitle, { color: colors.primary }]}>COMPATIBLE TRAVELERS</Text>
+                  <Text style={[styles.viewModalSectionSubtitle, { color: colors.textSecondary }]}>
                     {selectedTrip.matched_count || 3} travelers are visiting {selectedTrip.destination?.split(',')[0]} during your dates.
                   </Text>
                   <TouchableOpacity
-                    style={styles.findBuddiesBtn}
+                    style={[styles.findBuddiesBtn, { backgroundColor: colors.primary }]}
                     onPress={() => {
                       setViewModalVisible(false);
                       router.push('/(tabs)/discovery');
                     }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="sparkles" size={15} color="#061522" style={{ marginRight: 6 }} />
-                    <Text style={styles.findBuddiesBtnText}>Browse Overlapping Travelers</Text>
+                    <Ionicons name="sparkles" size={15} color={colors.primaryText} style={{ marginRight: 6 }} />
+                    <Text style={[styles.findBuddiesBtnText, { color: colors.primaryText }]}>Browse Overlapping Travelers</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -603,18 +605,18 @@ export default function TripsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setPostModalVisible(false)}
       >
-        <View style={styles.modalRoot}>
-          <View style={styles.modalHeader}>
+        <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setPostModalVisible(false)} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>Plan a New Journey</Text>
+            <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Plan a New Journey</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <ScrollView contentContainerStyle={styles.postModalBody} showsVerticalScrollIndicator={false}>
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>DESTINATION</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>DESTINATION</Text>
               <InputField
                 placeholder="e.g. Tokyo, Japan / Bali, Indonesia / Paris"
                 value={destination}
@@ -625,7 +627,7 @@ export default function TripsScreen() {
 
             <View style={styles.formRow}>
               <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.formLabel}>DEPARTURE DATE</Text>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>DEPARTURE DATE</Text>
                 <InputField
                   placeholder="YYYY-MM-DD"
                   value={dateFrom}
@@ -634,7 +636,7 @@ export default function TripsScreen() {
                 />
               </View>
               <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.formLabel}>RETURN DATE</Text>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>RETURN DATE</Text>
                 <InputField
                   placeholder="YYYY-MM-DD"
                   value={dateTo}
@@ -645,16 +647,24 @@ export default function TripsScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>TRAVEL STYLE</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>TRAVEL STYLE</Text>
               <View style={styles.styleChipsCloud}>
                 {TRIP_STYLES.map((style) => (
                   <TouchableOpacity
                     key={style}
                     onPress={() => setSelectedStyle(style)}
-                    style={[styles.postStyleChip, selectedStyle === style && styles.postStyleChipActive]}
+                    style={[
+                      styles.postStyleChip,
+                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border },
+                      selectedStyle === style && [styles.postStyleChipActive, { backgroundColor: isDark ? '#FFFFFF' : colors.primary, borderColor: isDark ? '#FFFFFF' : colors.primary }]
+                    ]}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.postStyleChipText, selectedStyle === style && styles.postStyleChipTextActive]}>
+                    <Text style={[
+                      styles.postStyleChipText,
+                      { color: colors.textSecondary },
+                      selectedStyle === style && [styles.postStyleChipTextActive, { color: isDark ? '#061522' : colors.primaryText }]
+                    ]}>
                       {style}
                     </Text>
                   </TouchableOpacity>
@@ -663,21 +673,29 @@ export default function TripsScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>WHAT ARE YOU LOOKING FOR?</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>WHAT ARE YOU LOOKING FOR?</Text>
               {LOOKING_FOR_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt}
                   onPress={() => setSelectedLookingFor(opt)}
-                  style={[styles.lookingForOption, selectedLookingFor === opt && styles.lookingForOptionActive]}
+                  style={[
+                    styles.lookingForOption,
+                    { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surfaceElevated, borderColor: colors.border },
+                    selectedLookingFor === opt && [styles.lookingForOptionActive, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(125, 211, 252, 0.15)', borderColor: colors.primary }]
+                  ]}
                   activeOpacity={0.8}
                 >
                   <Ionicons
                     name={selectedLookingFor === opt ? 'radio-button-on' : 'radio-button-off'}
                     size={16}
-                    color={selectedLookingFor === opt ? COLORS.lavender : 'rgba(255, 255, 255, 0.4)'}
+                    color={selectedLookingFor === opt ? colors.primary : colors.textMuted}
                     style={{ marginRight: 8 }}
                   />
-                  <Text style={[styles.lookingForOptionText, selectedLookingFor === opt && styles.lookingForOptionTextActive]}>
+                  <Text style={[
+                    styles.lookingForOptionText,
+                    { color: colors.textSecondary },
+                    selectedLookingFor === opt && [styles.lookingForOptionTextActive, { color: colors.textPrimary }]
+                  ]}>
                     {opt}
                   </Text>
                 </TouchableOpacity>
@@ -710,18 +728,18 @@ export default function TripsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalRoot}>
-          <View style={styles.modalHeader}>
+        <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>Edit Itinerary</Text>
+            <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Edit Itinerary</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <ScrollView contentContainerStyle={styles.postModalBody} showsVerticalScrollIndicator={false}>
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>DESTINATION</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>DESTINATION</Text>
               <InputField
                 placeholder="e.g. Tokyo, Japan"
                 value={editDestination}
@@ -732,36 +750,44 @@ export default function TripsScreen() {
 
             <View style={styles.formRow}>
               <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.formLabel}>DEPARTURE DATE</Text>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>DEPARTURE DATE</Text>
                 <InputField
                   placeholder="YYYY-MM-DD"
                   value={editDateFrom}
-                  onChangeText={setEditDateFrom}
+                  onChangeText={setDateFrom}
                   icon="calendar-outline"
                 />
               </View>
               <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.formLabel}>RETURN DATE</Text>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>RETURN DATE</Text>
                 <InputField
                   placeholder="YYYY-MM-DD"
                   value={editDateTo}
-                  onChangeText={setEditDateTo}
+                  onChangeText={setDateTo}
                   icon="calendar-outline"
                 />
               </View>
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>TRAVEL STYLE</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>TRAVEL STYLE</Text>
               <View style={styles.styleChipsCloud}>
                 {TRIP_STYLES.map((style) => (
                   <TouchableOpacity
                     key={style}
                     onPress={() => setEditStyle(style)}
-                    style={[styles.postStyleChip, editStyle === style && styles.postStyleChipActive]}
+                    style={[
+                      styles.postStyleChip,
+                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border },
+                      editStyle === style && [styles.postStyleChipActive, { backgroundColor: isDark ? '#FFFFFF' : colors.primary, borderColor: isDark ? '#FFFFFF' : colors.primary }]
+                    ]}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.postStyleChipText, editStyle === style && styles.postStyleChipTextActive]}>
+                    <Text style={[
+                      styles.postStyleChipText,
+                      { color: colors.textSecondary },
+                      editStyle === style && [styles.postStyleChipTextActive, { color: isDark ? '#061522' : colors.primaryText }]
+                    ]}>
                       {style}
                     </Text>
                   </TouchableOpacity>
@@ -770,21 +796,29 @@ export default function TripsScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>WHAT ARE YOU LOOKING FOR?</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>WHAT ARE YOU LOOKING FOR?</Text>
               {LOOKING_FOR_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt}
                   onPress={() => setEditLookingFor(opt)}
-                  style={[styles.lookingForOption, editLookingFor === opt && styles.lookingForOptionActive]}
+                  style={[
+                    styles.lookingForOption,
+                    { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : colors.surfaceElevated, borderColor: colors.border },
+                    editLookingFor === opt && [styles.lookingForOptionActive, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(125, 211, 252, 0.15)', borderColor: colors.primary }]
+                  ]}
                   activeOpacity={0.8}
                 >
                   <Ionicons
                     name={editLookingFor === opt ? 'radio-button-on' : 'radio-button-off'}
                     size={16}
-                    color={editLookingFor === opt ? COLORS.lavender : 'rgba(255, 255, 255, 0.4)'}
+                    color={editLookingFor === opt ? colors.primary : colors.textMuted}
                     style={{ marginRight: 8 }}
                   />
-                  <Text style={[styles.lookingForOptionText, editLookingFor === opt && styles.lookingForOptionTextActive]}>
+                  <Text style={[
+                    styles.lookingForOptionText,
+                    { color: colors.textSecondary },
+                    editLookingFor === opt && [styles.lookingForOptionTextActive, { color: colors.textPrimary }]
+                  ]}>
                     {opt}
                   </Text>
                 </TouchableOpacity>

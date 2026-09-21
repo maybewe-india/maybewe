@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,10 +24,15 @@ export default function ThemeSelectionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { setThemePreference } = useAuth();
-  const { setTheme: setGlobalTheme } = useTheme();
+  const { theme, setTheme: setGlobalTheme } = useTheme();
 
-  const [selectedTheme, setSelectedTheme] = useState('dark');
+  const [selectedTheme, setSelectedTheme] = useState('light');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    // App is permanently locked to Light Theme — redirect directly to tabs
+    router.replace('/(tabs)');
+  }, []);
 
   const handleContinue = async () => {
     if (submitting) return;

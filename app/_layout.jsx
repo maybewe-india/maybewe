@@ -18,7 +18,7 @@ import { COLORS } from '../lib/theme';
 import TestNavigatorModal from '../components/TestNavigatorModal';
 
 function AuthRouteGuard({ children }) {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, isPasswordRecovery } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const searchParams = useGlobalSearchParams();
@@ -34,27 +34,28 @@ function AuthRouteGuard({ children }) {
 
     if (inShowcase || isPreviewMode) return;
 
+    const currentSubRoute = segments[1] || '';
+
+    // CRITICAL: When on reset-password or in password recovery mode, do NOT redirect to verification, tabs, or login!
+    if (currentSubRoute === 'reset-password' || isPasswordRecovery) {
+      if (currentSubRoute !== 'reset-password') {
+        router.replace('/(auth)/reset-password');
+      }
+      return;
+    }
+
     const isVerified = profile?.verification_status === 'verified';
-    const hasTheme = profile?.theme_preference === 'dark' || profile?.theme_preference === 'light';
 
     if (user || profile) {
       // User is logged in
       if (!isVerified) {
         // Unverified user MUST complete selfie verification before entering any authenticated area
-        const currentSubRoute = segments[1] || '';
         if (!inAuthGroup || (currentSubRoute !== 'verification' && currentSubRoute !== 'guidelines')) {
           router.replace('/(auth)/verification');
         }
-      } else if (!hasTheme) {
-        // Verified user with NO theme preference MUST choose a theme before entering main app!
-        const currentSubRoute = segments[1] || '';
-        if (!inAuthGroup || currentSubRoute !== 'theme-selection') {
-          router.replace('/(auth)/theme-selection');
-        }
       } else {
-        // Verified with theme preference: only redirect from initial unauthenticated entry points (welcome/login/signup)
-        const currentSubRoute = segments[1] || '';
-        if (inAuthGroup && (currentSubRoute === 'welcome' || currentSubRoute === 'login' || currentSubRoute === 'signup')) {
+        // Verified user: redirect directly from auth screens or theme-selection to tabs
+        if (inAuthGroup && (currentSubRoute === 'welcome' || currentSubRoute === 'login' || currentSubRoute === 'signup' || currentSubRoute === 'forgot-password' || currentSubRoute === 'theme-selection')) {
           router.replace('/(tabs)');
         }
       }
@@ -64,17 +65,17 @@ function AuthRouteGuard({ children }) {
         router.replace('/(auth)/welcome');
       }
     }
-  }, [user, profile, isLoading, segments, searchParams]);
+  }, [user, profile, isLoading, isPasswordRecovery, segments, searchParams]);
 
   return children;
 }
 
 function ThemedAppContainer({ children }) {
-  const { isDark, colors } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="dark" />
       {children}
     </View>
   );
@@ -113,8 +114,11 @@ export default function RootLayout() {
             margin: 0 !important;
             padding: 0 !important;
             overflow-x: hidden !important;
-            background-color: #030a10 !important;
+            background-color: #F6F8FB !important;
             -webkit-font-smoothing: antialiased;
+          }
+          html[data-theme="light"], body[data-theme="light"] {
+            background-color: #F6F8FB !important;
           }
           * {
             box-sizing: border-box;
@@ -141,7 +145,7 @@ export default function RootLayout() {
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
-              background: radial-gradient(circle at 50% 30%, #0d273e 0%, #030a10 100%) !important;
+              background: radial-gradient(circle at 50% 30%, #F8FAFC 0%, #D8E2EC 100%) !important;
               min-height: 100vh !important;
               overflow: hidden !important;
             }
@@ -151,9 +155,14 @@ export default function RootLayout() {
               height: 100vh !important;
               margin: 0 auto !important;
               position: relative !important;
-              box-shadow: 0 0 60px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+              box-shadow: 0 0 50px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
               overflow: hidden !important;
-              background-color: #061522 !important;
+              background-color: #F6F8FB !important;
+            }
+            html[data-theme="light"] #root,
+            body[data-theme="light"] #root {
+              background-color: #F6F8FB !important;
+              box-shadow: 0 0 50px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
             }
             /* When showcase screen is opened on laptop, allow full desktop width */
             body.showcase-wide #root,

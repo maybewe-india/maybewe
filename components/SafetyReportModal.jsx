@@ -15,6 +15,7 @@ import PrimaryButton from './ui/PrimaryButton';
 import InputField from './ui/InputField';
 import { blockUser } from '../lib/discovery';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { useTheme } from '../lib/themeContext';
 
 const REPORT_REASONS = [
   { id: 'harassment', label: 'Harassment or offensive behavior', icon: 'hand-left-outline' },
@@ -32,6 +33,7 @@ export default function SafetyReportModal({
   currentUserId,
   onUserBlocked,
 }) {
+  const { colors, isDark } = useTheme();
   const [selectedReason, setSelectedReason] = useState('harassment');
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [shouldBlock, setShouldBlock] = useState(true);
@@ -61,13 +63,13 @@ export default function SafetyReportModal({
       }
 
       Alert.alert(
-        'Report Received',
-        'Thank you for helping keep the MaybeWe community safe. Our safety team reviews all reports promptly.',
+        'Report Submitted',
+        'Thank you for helping keep the MaybeWe community safe. Our safety team will review this report within 24 hours.',
         [{ text: 'OK', onPress: onClose }]
       );
     } catch (err) {
-      console.warn('Error submitting report:', err);
-      Alert.alert('Report Saved', 'Your report has been submitted.', [{ text: 'OK', onPress: onClose }]);
+      console.warn('Report submission error:', err);
+      Alert.alert('Report Saved', 'Your safety report has been logged.', [{ text: 'OK', onPress: onClose }]);
     } finally {
       setIsSubmitting(false);
     }
@@ -81,92 +83,82 @@ export default function SafetyReportModal({
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: colors.modalBg, borderColor: colors.borderGlass }]}>
           {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <Ionicons name="shield-half" size={22} color={COLORS.danger} />
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={[styles.headerIcon, { backgroundColor: colors.dangerBg }]}>
+              <Ionicons name="shield-alert" size={20} color={colors.danger} />
             </View>
             <View style={styles.headerTexts}>
-              <Text style={styles.title}>Report Traveler</Text>
-              <Text style={styles.subtitle}>Reporting {targetUser.name}</Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>Safety & Moderation Report</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Reporting {targetUser.name || 'Traveler'}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              <Ionicons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionLabel}>Select a reason:</Text>
-            {REPORT_REASONS.map((item) => {
-              const isSelected = selectedReason === item.id;
+            <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>Reason for reporting</Text>
+            {REPORT_REASONS.map((r) => {
+              const isSelected = selectedReason === r.id;
               return (
                 <TouchableOpacity
-                  key={item.id}
-                  onPress={() => setSelectedReason(item.id)}
+                  key={r.id}
+                  onPress={() => setSelectedReason(r.id)}
                   style={[
                     styles.reasonItem,
-                    isSelected && styles.selectedReasonItem,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isSelected && [styles.selectedReasonItem, { borderColor: colors.primary, backgroundColor: colors.chipBg }],
                   ]}
                   activeOpacity={0.7}
                 >
                   <Ionicons
-                    name={item.icon}
-                    size={20}
-                    color={isSelected ? '#FFFFFF' : COLORS.textSecondary}
+                    name={r.icon}
+                    size={18}
+                    color={isSelected ? colors.primary : colors.textMuted}
                     style={styles.reasonIcon}
                   />
-                  <Text
-                    style={[
-                      styles.reasonText,
-                      isSelected && styles.selectedReasonText,
-                    ]}
-                  >
-                    {item.label}
+                  <Text style={[styles.reasonText, { color: colors.textSecondary }, isSelected && [styles.selectedReasonText, { color: colors.textPrimary }]]}>
+                    {r.label}
                   </Text>
-                  <Ionicons
-                    name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-                    size={20}
-                    color={isSelected ? '#FFFFFF' : COLORS.border}
-                  />
+                  {isSelected && <Ionicons name="checkmark-circle" size={18} color={colors.primary} />}
                 </TouchableOpacity>
               );
             })}
 
+            <Text style={[styles.sectionLabel, { marginTop: 16, color: colors.textPrimary }]}>Additional details (optional)</Text>
             <InputField
-              label="Additional details (optional)"
-              placeholder="Tell us what happened so we can review accurately..."
               value={additionalDetails}
               onChangeText={setAdditionalDetails}
+              placeholder="Describe what happened so our team can take appropriate action..."
               multiline
               numberOfLines={3}
-              style={{ marginTop: 12 }}
             />
 
-            {/* Block toggle */}
-            <View style={styles.blockRow}>
+            {/* Block Toggle */}
+            <View style={[styles.blockRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={{ flex: 1, marginRight: 12 }}>
-                <Text style={styles.blockTitle}>Block {targetUser.name}</Text>
-                <Text style={styles.blockDesc}>
-                  They will no longer be able to discover your profile, message you, or see your trips.
+                <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>Block this traveler</Text>
+                <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
+                  They will no longer appear in your Discovery feed or be able to message you.
                 </Text>
               </View>
               <Switch
                 value={shouldBlock}
                 onValueChange={setShouldBlock}
-                trackColor={{ false: COLORS.border, true: 'rgba(255, 255, 255, 0.40)' }}
-                thumbColor="#FFFFFF"
+                trackColor={{ false: '#334E68', true: colors.primary }}
+                thumbColor={colors.primaryText}
               />
             </View>
           </ScrollView>
 
-          {/* Actions */}
           <View style={styles.footer}>
             <PrimaryButton
-              title="Submit Report"
+              title={isSubmitting ? 'Submitting Report...' : 'Submit Report'}
               variant="danger"
-              loading={isSubmitting}
               onPress={handleSubmit}
+              loading={isSubmitting}
             />
           </View>
         </View>

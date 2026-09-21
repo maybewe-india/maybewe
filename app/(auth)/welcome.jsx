@@ -7,17 +7,15 @@ import {
   Animated,
   ImageBackground,
   Image,
-  Dimensions,
   Platform,
-  Alert,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FONTS } from '../../lib/theme';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const AUTH_BG = require('../../assets/images/auth_landing_bg.jpg');
 const LOGO_MARK = require('../../assets/images/app_logo_glow.png');
 
@@ -33,40 +31,49 @@ export default function WelcomeScreen() {
   const slideButtons = useRef(new Animated.Value(18)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeBg, { toValue: 1, duration: 600, useNativeDriver: true }),
+    const useNativeDriver = Platform.OS !== 'web';
+
+    const anim = Animated.parallel([
+      Animated.timing(fadeBg, { toValue: 1, duration: 600, useNativeDriver }),
       Animated.stagger(150, [
         Animated.parallel([
-          Animated.timing(fadeBrand, { toValue: 1, duration: 750, useNativeDriver: true }),
-          Animated.timing(slideBrand, { toValue: 0, duration: 750, useNativeDriver: true }),
+          Animated.timing(fadeBrand, { toValue: 1, duration: 750, useNativeDriver }),
+          Animated.timing(slideBrand, { toValue: 0, duration: 750, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(fadeButtons, { toValue: 1, duration: 750, useNativeDriver: true }),
-          Animated.timing(slideButtons, { toValue: 0, duration: 750, useNativeDriver: true }),
+          Animated.timing(fadeButtons, { toValue: 1, duration: 750, useNativeDriver }),
+          Animated.timing(slideButtons, { toValue: 0, duration: 750, useNativeDriver }),
         ]),
       ]),
-    ]).start();
+    ]);
+
+    anim.start();
+
+    // Set page title for web
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'MaybeWe — Meet someone. Go somewhere.';
+    }
+
+    return () => {
+      anim.stop();
+    };
   }, []);
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      'Reset Password',
-      'Enter your email on the sign-in screen to receive password reset instructions.',
-      [
-        { text: 'Go to Sign In', onPress: () => router.push('/(auth)/login') },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    router.push('/(auth)/forgot-password');
   };
 
   return (
     <View style={styles.root}>
+      {/* Crisp white status bar icons against cinematic dark mountain sunrise */}
+      <StatusBar style="light" />
+
       {/* Full-Screen Cinematic Mountain Sunrise Background */}
       <Animated.View style={[styles.bgWrapper, { opacity: fadeBg }]}>
         <ImageBackground
           source={AUTH_BG}
           style={styles.bgImage}
-          imageStyle={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+          imageStyle={styles.bgImageStyle}
           resizeMode="cover"
         >
           {/* Subtle natural vignette for perfect contrast without darkening landscape */}
@@ -120,6 +127,7 @@ export default function WelcomeScreen() {
                 onPress={() => router.push('/(auth)/signup')}
                 style={styles.primaryButton}
                 activeOpacity={0.85}
+                accessibilityRole="button"
                 accessibilityLabel="Sign Up"
               >
                 <View style={styles.primaryButtonInner}>
@@ -133,6 +141,7 @@ export default function WelcomeScreen() {
                 onPress={() => router.push('/(auth)/login')}
                 style={styles.secondaryButton}
                 activeOpacity={0.85}
+                accessibilityRole="button"
                 accessibilityLabel="Sign In"
               >
                 <Text style={styles.secondaryButtonText}>Sign In</Text>
@@ -143,6 +152,7 @@ export default function WelcomeScreen() {
                 onPress={handleForgotPassword}
                 style={styles.forgotButton}
                 activeOpacity={0.7}
+                accessibilityRole="button"
                 accessibilityLabel="Forgot password"
               >
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
@@ -170,6 +180,10 @@ const styles = StyleSheet.create({
   },
   bgImage: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  bgImageStyle: {
     width: '100%',
     height: '100%',
   },
@@ -203,9 +217,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.4,
     marginBottom: 5,
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    ...Platform.select({
+      web: { textShadow: '0px 1px 4px rgba(0, 0, 0, 0.25)' },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.25)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+      },
+    }),
   },
   tagline: {
     fontFamily: FONTS.regular,
@@ -214,10 +233,16 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.90)',
     letterSpacing: 2.0,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.30)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...Platform.select({
+      web: { textShadow: '0px 1px 3px rgba(0, 0, 0, 0.30)' },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.30)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+      },
+    }),
   },
+
   /* Buttons & Footer */
   bottomSection: {
     width: '100%',
@@ -259,7 +284,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    backdropFilter: 'blur(10px)',
+    ...Platform.select({
+      web: { backdropFilter: 'blur(10px)' },
+      default: {},
+    }),
   },
   secondaryButtonText: {
     fontFamily: FONTS.semiBold,
@@ -269,9 +297,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   forgotButton: {
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: -2,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   forgotPasswordText: {
     fontFamily: FONTS.medium,
@@ -279,9 +310,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.88)',
     letterSpacing: 0.2,
-    textShadowColor: 'rgba(0, 0, 0, 0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...Platform.select({
+      web: { textShadow: '0px 1px 3px rgba(0, 0, 0, 0.35)' },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.35)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+      },
+    }),
   },
   ethosContainer: {
     alignItems: 'center',
@@ -295,8 +331,13 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
     letterSpacing: 3.2,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.40)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    ...Platform.select({
+      web: { textShadow: '0px 1px 4px rgba(0, 0, 0, 0.40)' },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.40)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+      },
+    }),
   },
 });

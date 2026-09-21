@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS } from '../../lib/theme';
 import { useAuth } from '../../lib/authContext';
+import { useTheme } from '../../lib/themeContext';
 import { submitReview } from '../../lib/reviews';
 
 const REVIEW_BG = require('../../assets/images/review_sunset_bg.jpg');
@@ -47,6 +48,7 @@ export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const { id: matchId, reviewedId, reviewedName, tripDestination, tripDates } = useLocalSearchParams();
   const { user, profile } = useAuth();
+  const { colors, isDark } = useTheme();
 
   const [rating, setRating] = useState(5);
   const [selectedTags, setSelectedTags] = useState(['Great conversation', 'Respectful', 'Would travel again']);
@@ -110,7 +112,7 @@ export default function ReviewScreen() {
   // If already successfully submitted, show confirmation state
   if (submittedSuccess) {
     return (
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         {/* Full-Screen Cinematic Warm Sunset Photography Background */}
       <ImageBackground
         source={REVIEW_BG}
@@ -119,7 +121,7 @@ export default function ReviewScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(6, 21, 34, 0.50)', 'rgba(6, 21, 34, 0.76)', 'rgba(6, 21, 34, 0.94)']}
+          colors={colors.bgGradientOverlay}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -138,21 +140,21 @@ export default function ReviewScreen() {
               </LinearGradient>
             </View>
 
-            <Text style={styles.confirmTitle}>Review submitted</Text>
-            <Text style={styles.confirmSubtitle}>
+            <Text style={[styles.confirmTitle, { color: colors.textPrimary }]}>Review submitted</Text>
+            <Text style={[styles.confirmSubtitle, { color: colors.textSecondary }]}>
               Thanks for helping keep MaybeWe trustworthy.
             </Text>
 
-            <View style={styles.confirmDetailsCard}>
+            <View style={[styles.confirmDetailsCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
               <View style={styles.confirmDetailRow}>
                 <Ionicons name="star" size={16} color={COLORS.sunset} style={{ marginRight: 8 }} />
-                <Text style={styles.confirmDetailText}>
-                  Rating: <Text style={styles.boldWhite}>{rating}.0 / 5.0</Text> for {companionName}
+                <Text style={[styles.confirmDetailText, { color: colors.textSecondary }]}>
+                  Rating: <Text style={[styles.boldWhite, { color: colors.textPrimary }]}>{rating}.0 / 5.0</Text> for {companionName}
                 </Text>
               </View>
               <View style={styles.confirmDetailRow}>
-                <Ionicons name="shield-checkmark" size={16} color={COLORS.lavender} style={{ marginRight: 8 }} />
-                <Text style={styles.confirmDetailText}>Trust Score contribution applied</Text>
+                <Ionicons name="shield-checkmark" size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.confirmDetailText, { color: colors.textSecondary }]}>Trust Score contribution applied</Text>
               </View>
             </View>
 
@@ -177,7 +179,7 @@ export default function ReviewScreen() {
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Full-Screen Cinematic Warm Sunset Photography Background */}
       <ImageBackground
         source={REVIEW_BG}
@@ -186,7 +188,7 @@ export default function ReviewScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(6, 21, 34, 0.50)', 'rgba(6, 21, 34, 0.76)', 'rgba(6, 21, 34, 0.94)']}
+          colors={colors.bgGradientOverlay}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -194,16 +196,16 @@ export default function ReviewScreen() {
 
       <View style={[styles.container, { paddingTop: Math.max(insets.top, 14) + 6, paddingBottom: insets.bottom + 20 }]}>
         {/* Top Bar with Close button */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.closeBtn}
+            style={[styles.closeBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated }]}
             accessibilityLabel="Close"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
+            <Ionicons name="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.screenHeaderTitle}>Leave a Review</Text>
+          <Text style={[styles.screenHeaderTitle, { color: colors.textPrimary }]}>Leave a Review</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -213,28 +215,28 @@ export default function ReviewScreen() {
           <View style={styles.eyebrowPill}>
             <Text style={styles.eyebrowText}>TRIP COMPLETE</Text>
           </View>
-          <Text style={styles.mainTitle}>How was your journey?</Text>
+          <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>How was your journey?</Text>
         </View>
 
         {/* Travel Companion Card */}
-        <View style={[styles.companionCard, SHADOWS.card]}>
+        <View style={[styles.companionCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.card]}>
           <Image source={{ uri: companionAvatar }} style={styles.companionAvatar} />
           <View style={styles.companionInfo}>
-            <Text style={styles.companionName}>{companionName}</Text>
+            <Text style={[styles.companionName, { color: colors.textPrimary }]}>{companionName}</Text>
             <View style={styles.destinationRow}>
               <Ionicons name="location-outline" size={13} color={COLORS.peach} style={{ marginRight: 4 }} />
-              <Text style={styles.destinationText}>{destination}</Text>
+              <Text style={[styles.destinationText, { color: colors.textSecondary }]}>{destination}</Text>
             </View>
-            <Text style={styles.datesText}>{dates}</Text>
+            <Text style={[styles.datesText, { color: colors.textMuted }]}>{dates}</Text>
           </View>
           <View style={styles.badgeVerified}>
-            <Ionicons name="shield-checkmark" size={16} color={COLORS.lavender} />
+            <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
           </View>
         </View>
 
         {/* Question: How was traveling together? */}
         <View style={styles.ratingSection}>
-          <Text style={styles.ratingQuestion}>How was traveling together?</Text>
+          <Text style={[styles.ratingQuestion, { color: colors.textPrimary }]}>How was traveling together?</Text>
 
           {/* 5 Tactile Stars */}
           <View style={styles.starsRow}>
@@ -254,7 +256,7 @@ export default function ReviewScreen() {
                     <Ionicons
                       name={isFilled ? 'star' : 'star-outline'}
                       size={38}
-                      color={isFilled ? COLORS.sunset : 'rgba(255, 255, 255, 0.25)'}
+                      color={isFilled ? COLORS.sunset : (isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.2)')}
                     />
                   </Animated.View>
                 </TouchableOpacity>
@@ -263,14 +265,14 @@ export default function ReviewScreen() {
           </View>
 
           {/* Dynamic Descriptor Pill */}
-          <View style={styles.descriptorCard}>
-            <Text style={styles.descriptorText}>{RATING_DESCRIPTORS[rating]}</Text>
+          <View style={[styles.descriptorCard, { backgroundColor: isDark ? 'rgba(16, 40, 58, 0.75)' : colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.descriptorText, { color: colors.textPrimary }]}>{RATING_DESCRIPTORS[rating]}</Text>
           </View>
         </View>
 
         {/* Experience Tags */}
         <View style={styles.tagsSection}>
-          <Text style={styles.sectionLabel}>EXPERIENCE HIGHLIGHTS</Text>
+          <Text style={[styles.sectionLabel, { color: colors.primary }]}>EXPERIENCE HIGHLIGHTS</Text>
           <View style={styles.tagsCloud}>
             {EXPERIENCE_TAGS.map((tag) => {
               const isSelected = selectedTags.includes(tag);
@@ -278,13 +280,21 @@ export default function ReviewScreen() {
                 <TouchableOpacity
                   key={tag}
                   onPress={() => toggleTag(tag)}
-                  style={[styles.tagPill, isSelected && styles.tagPillActive]}
+                  style={[
+                    styles.tagPill,
+                    { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border },
+                    isSelected && [styles.tagPillActive, { backgroundColor: isDark ? '#FFFFFF' : colors.primary, borderColor: isDark ? '#FFFFFF' : colors.primary }]
+                  ]}
                   activeOpacity={0.8}
                 >
                   {isSelected && (
-                    <Ionicons name="checkmark" size={13} color="#061522" style={{ marginRight: 5 }} />
+                    <Ionicons name="checkmark" size={13} color={isDark ? '#061522' : colors.primaryText} style={{ marginRight: 5 }} />
                   )}
-                  <Text style={[styles.tagPillText, isSelected && styles.tagPillTextActive]}>
+                  <Text style={[
+                    styles.tagPillText,
+                    { color: colors.textSecondary },
+                    isSelected && [styles.tagPillTextActive, { color: isDark ? '#061522' : colors.primaryText }]
+                  ]}>
                     {tag}
                   </Text>
                 </TouchableOpacity>
@@ -295,19 +305,19 @@ export default function ReviewScreen() {
 
         {/* Write a Review Section */}
         <View style={styles.reviewTextSection}>
-          <Text style={styles.sectionLabel}>WRITE A REVIEW</Text>
-          <View style={styles.textAreaContainer}>
+          <Text style={[styles.sectionLabel, { color: colors.primary }]}>WRITE A REVIEW</Text>
+          <View style={[styles.textAreaContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
             <TextInput
               value={comment}
               onChangeText={setComment}
               placeholder="Share reflections on your rhythm, communication, and shared adventures..."
-              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={4}
-              style={styles.textAreaField}
+              style={[styles.textAreaField, { color: colors.textPrimary }]}
               maxLength={500}
             />
-            <Text style={styles.charCount}>{comment.length} / 500</Text>
+            <Text style={[styles.charCount, { color: colors.textMuted }]}>{comment.length} / 500</Text>
           </View>
         </View>
 
@@ -336,7 +346,7 @@ export default function ReviewScreen() {
             style={styles.skipBtn}
             activeOpacity={0.7}
           >
-            <Text style={styles.skipBtnText}>Skip for now</Text>
+            <Text style={[styles.skipBtnText, { color: colors.textMuted }]}>Skip for now</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

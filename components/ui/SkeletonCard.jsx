@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { COLORS, RADII } from '../../lib/theme';
+import { RADII } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 
 function ShimmerBox({ width, height, borderRadius, style }) {
+  const { colors } = useTheme();
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -21,8 +23,7 @@ function ShimmerBox({ width, height, borderRadius, style }) {
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius: borderRadius || RADII.md, opacity },
-        styles.shimmer,
+        { width, height, borderRadius: borderRadius || RADII.md, opacity, backgroundColor: colors.chipBg },
         style,
       ]}
     />
@@ -30,8 +31,10 @@ function ShimmerBox({ width, height, borderRadius, style }) {
 }
 
 export default function SkeletonCard({ height = 280 }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={[styles.card, { height }]}>
+    <View style={[styles.card, { height, backgroundColor: colors.surface, borderColor: colors.border }]}>
       {/* Image area */}
       <ShimmerBox width="100%" height={height * 0.55} borderRadius={0} />
 
@@ -58,16 +61,11 @@ export default function SkeletonCard({ height = 280 }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surface,
     borderRadius: RADII['3xl'],
     marginHorizontal: 16,
     marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  shimmer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   content: {
     padding: 16,

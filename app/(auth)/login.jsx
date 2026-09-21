@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,14 @@ import {
   ImageBackground,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS } from '../../lib/theme';
+import { COLORS, RADII, SHADOWS, FONTS } from '../../lib/theme';
 import PrimaryButton from '../../components/ui/PrimaryButton';
 import InputField from '../../components/ui/InputField';
 import { useAuth } from '../../lib/authContext';
@@ -24,55 +26,82 @@ const LOGIN_BG = require('../../assets/images/auth_landing_bg.jpg');
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Sign In — MaybeWe';
+    }
+  }, []);
+
   const handleSignIn = async () => {
-    if (!email.trim() || !password) {
+    if (loading) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setErrorMessage('Please enter both your email address and password.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
     setLoading(true);
     setErrorMessage('');
-    const res = await login(email.trim(), password);
+    const res = await login(trimmedEmail, password);
     setLoading(false);
 
-    if (res.success) {
-      router.replace('/(tabs)');
-    } else {
+    if (!res.success) {
       setErrorMessage(res.error || 'Failed to sign in. Please verify your credentials.');
     }
-  };
-
-  const handleDemoSignIn = async () => {
-    setLoading(true);
-    await login('elena@traveler.io', 'demo1234');
-    setLoading(false);
-    router.replace('/(tabs)');
+    // On success: AuthRouteGuard in app/_layout.jsx automatically handles destination
+    // based on real verification status and theme preference.
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      'Reset Password',
-      'If an account exists for this email, password reset instructions will be sent.',
-      [{ text: 'OK' }]
-    );
+    router.push('/(auth)/forgot-password');
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (loading || googleLoading) return;
+    setGoogleLoading(true);
+    setErrorMessage('');
+    const res = await loginWithGoogle();
+    setGoogleLoading(false);
+    if (!res.success && !res.cancelled) {
+      setErrorMessage(res.error || 'Failed to sign in with Google. Please try again.');
+    }
+  };
+
+  const handleSocialNotice = (provider) => {
+    const message = `${provider} authentication will be available in production builds.`;
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') window.alert(message);
+    } else {
+      Alert.alert(`${provider} Sign-In`, message);
+    }
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.root}
     >
+      <StatusBar style="light" />
+
       <ImageBackground
         source={LOGIN_BG}
         style={styles.bg}
-        imageStyle={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+        imageStyle={styles.bgImage}
         resizeMode="cover"
       >
         {/* Atmospheric mountain sunrise gradient overlay */}
@@ -99,6 +128,7 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.backButton}
+              accessibilityRole="button"
               accessibilityLabel="Back to welcome"
             >
               <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
@@ -109,7 +139,7 @@ export default function LoginScreen() {
               <Text style={styles.brandBadgeText}>MAYBEWE</Text>
             </View>
 
-            <View style={{ width: 40 }} />
+            <View style={{ width: 44 }} />
           </View>
 
           {/* Header Texts */}
@@ -126,6 +156,10 @@ export default function LoginScreen() {
               icon="mail-outline"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
+              accessibilityLabel="Email Address"
               value={email}
               onChangeText={(text) => {
                 setEmail(text);
@@ -139,6 +173,10 @@ export default function LoginScreen() {
               placeholder="Your password"
               icon="lock-closed-outline"
               secureTextEntry
+              autoCorrect={false}
+              autoComplete="password"
+              textContentType="password"
+              accessibilityLabel="Password"
               value={password}
               onChangeText={(text) => {
                 setPassword(text);
@@ -151,6 +189,8 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={handleForgotPassword}
               style={styles.forgotRow}
+              accessibilityRole="button"
+              accessibilityLabel="Forgot password"
             >
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
@@ -165,6 +205,7 @@ export default function LoginScreen() {
             <PrimaryButton
               title="Sign In"
               loading={loading}
+              disabled={loading}
               onPress={handleSignIn}
               size="lg"
               style={styles.signInCTA}
@@ -181,36 +222,39 @@ export default function LoginScreen() {
             <View style={styles.socialRow}>
               <TouchableOpacity
                 style={styles.socialBtn}
-                onPress={() => Alert.alert('Google Sign-In', 'Google authentication is available via Supabase OAuth in production builds.')}
+                onPress={handleGoogleSignIn}
+                disabled={loading || googleLoading}
+                accessibilityRole="button"
                 accessibilityLabel="Sign in with Google"
               >
-                <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.socialBtn}
-                onPress={() => Alert.alert('Apple Sign-In', 'Apple authentication is available via Apple ID in production builds.')}
+                onPress={() => handleSocialNotice('Apple')}
+                disabled={loading || googleLoading}
+                accessibilityRole="button"
                 accessibilityLabel="Sign in with Apple"
               >
                 <Ionicons name="logo-apple" size={22} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-
-            {/* Demo Login Option */}
-            <TouchableOpacity
-              onPress={handleDemoSignIn}
-              style={styles.demoLoginBtn}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="sparkles" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.demoLoginText}>Sign in as Demo Traveler (Elena)</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Bottom Switch to Signup */}
           <View style={styles.signupPromptRow}>
             <Text style={styles.signupPromptText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/signup')}
+              style={styles.signupLinkBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Create Account"
+            >
               <Text style={styles.signupLinkText}>Create Account</Text>
             </TouchableOpacity>
           </View>
@@ -230,6 +274,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  bgImage: {
+    width: '100%',
+    height: '100%',
+  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 22,
@@ -242,9 +290,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -291,12 +339,17 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.18)',
-    backdropFilter: 'blur(16px)',
+    ...Platform.select({
+      web: { backdropFilter: 'blur(16px)' },
+      default: {},
+    }),
     ...SHADOWS.card,
   },
   forgotRow: {
     alignSelf: 'flex-end',
-    marginBottom: 16,
+    minHeight: 44,
+    justifyContent: 'center',
+    marginBottom: 12,
     marginTop: -4,
   },
   forgotText: {
@@ -360,18 +413,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  demoLoginBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
-  demoLoginText: {
-    fontFamily: FONTS.bold,
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
   signupPromptRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,6 +423,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: 14,
     color: COLORS.textSecondary,
+  },
+  signupLinkBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   signupLinkText: {
     fontFamily: FONTS.bold,

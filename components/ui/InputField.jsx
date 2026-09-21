@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, RADII, FONTS } from '../../lib/theme';
+import { RADII, FONTS } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 
 export default function InputField({
   label,
@@ -18,6 +19,10 @@ export default function InputField({
   secureTextEntry,
   keyboardType,
   autoCapitalize = 'sentences',
+  autoCorrect,
+  autoComplete,
+  textContentType,
+  accessibilityLabel,
   icon,
   error,
   style,
@@ -33,8 +38,9 @@ export default function InputField({
   returnKeyType,
   onSubmitEditing,
 }) {
-  const [isFocused, setIsFocused] = React.useState(false);
-  const [showPassword, setShowPassword] = React.useState(false);
+  const { colors, isDark } = useTheme();
+  const [isFocused, setIsFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
 
   const handleFocus = () => {
@@ -59,7 +65,7 @@ export default function InputField({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [COLORS.border, COLORS.lavender],
+    outputRange: [colors.inputBorder, colors.primary],
   });
 
   const borderWidth = borderAnim.interpolate({
@@ -69,12 +75,16 @@ export default function InputField({
 
   return (
     <View style={[styles.wrapper, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>}
       <Animated.View
         style={[
           styles.inputContainer,
-          { borderColor, borderWidth },
-          error && styles.inputError,
+          {
+            backgroundColor: colors.inputBg,
+            borderColor,
+            borderWidth,
+          },
+          error && { borderColor: colors.danger },
           !editable && styles.inputDisabled,
         ]}
       >
@@ -82,24 +92,29 @@ export default function InputField({
           <Ionicons
             name={icon}
             size={18}
-            color={isFocused ? COLORS.lavender : COLORS.textMuted}
+            color={isFocused ? colors.primary : colors.textMuted}
             style={styles.leftIcon}
           />
         )}
         <TextInput
           style={[
             styles.input,
+            { color: colors.textPrimary },
             icon && styles.inputWithIcon,
             multiline && styles.multilineInput,
             inputStyle,
           ]}
           placeholder={placeholder}
-          placeholderTextColor={COLORS.textDisabled}
+          placeholderTextColor={colors.textDisabled}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !showPassword}
           keyboardType={keyboardType || 'default'}
           autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          accessibilityLabel={accessibilityLabel || label}
           onFocus={handleFocus}
           onBlur={handleBlur}
           multiline={multiline}
@@ -108,28 +123,30 @@ export default function InputField({
           editable={editable}
           returnKeyType={returnKeyType}
           onSubmitEditing={onSubmitEditing}
-          selectionColor={COLORS.lavender}
+          selectionColor={colors.primary}
         />
         {secureTextEntry && (
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
             style={styles.rightIcon}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
           >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={18}
-              color={COLORS.textMuted}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
         )}
         {rightActionIcon && rightAction && !secureTextEntry && (
           <TouchableOpacity onPress={rightAction} style={styles.rightIcon}>
-            <Ionicons name={rightActionIcon} size={18} color={COLORS.lavender} />
+            <Ionicons name={rightActionIcon} size={18} color={colors.primary} />
           </TouchableOpacity>
         )}
       </Animated.View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
 }
@@ -142,17 +159,14 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semiBold,
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textSecondary,
     marginBottom: 7,
     letterSpacing: 0.2,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 40, 58, 0.65)',
     borderRadius: RADII.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
     minHeight: 52,
     paddingHorizontal: 14,
   },
@@ -167,7 +181,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     flex: 1,
     fontSize: 15,
-    color: COLORS.textPrimary,
     paddingVertical: 14,
     fontWeight: '400',
   },
@@ -180,16 +193,12 @@ const styles = StyleSheet.create({
     minHeight: 90,
     textAlignVertical: 'top',
   },
-  inputError: {
-    borderColor: COLORS.danger,
-  },
   inputDisabled: {
     opacity: 0.5,
   },
   errorText: {
     fontFamily: FONTS.medium,
     fontSize: 12,
-    color: COLORS.danger,
     marginTop: 5,
     marginLeft: 4,
     fontWeight: '500',

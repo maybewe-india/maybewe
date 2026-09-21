@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { DEMO_CURRENT_USER } from './demoData.js';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const AuthContext = createContext({
   session: null,
@@ -9,24 +14,31 @@ const AuthContext = createContext({
   profile: null,
   isLoading: true,
   isDemoMode: false,
-  login: async () => {},
-  signup: async () => {},
-  logout: async () => {},
-  updateProfile: async () => {},
-  submitVerification: async () => {},
-  setThemePreference: async () => {},
-  agreeToGuidelines: async () => {},
+  isPasswordRecovery: false,
+  setIsPasswordRecovery: () => { },
+  login: async () => { },
+  loginWithGoogle: async () => { },
+  signup: async () => { },
+  resetPassword: async () => { },
+  updateUserPassword: async () => { },
+  logout: async () => { },
+  updateProfile: async () => { },
+  submitVerification: async () => { },
+  setThemePreference: async () => { },
+  agreeToGuidelines: async () => { },
 });
 
 const DEMO_AUTH_KEY = '@solo_traveler_demo_auth';
 const DEMO_PROFILE_KEY = '@solo_traveler_demo_profile';
 const GUIDELINES_KEY = '@solo_traveler_guidelines_agreed';
+const isVerificationDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(!isSupabaseConfigured);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [hasAgreedToGuidelines, setHasAgreedToGuidelines] = useState(false);
 
   // Initialize auth state
@@ -38,6 +50,20 @@ export function AuthProvider({ children }) {
         const storedGuidelines = await AsyncStorage.getItem(GUIDELINES_KEY);
         if (storedGuidelines === 'true' && isMounted) {
           setHasAgreedToGuidelines(true);
+        }
+
+        // Check if Web URL contains password recovery context
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const hash = window.location.hash || '';
+          const search = window.location.search || '';
+          const pathname = window.location.pathname || '';
+          if (
+            hash.includes('type=recovery') ||
+            search.includes('type=recovery') ||
+            pathname.includes('reset-password')
+          ) {
+            if (isMounted) setIsPasswordRecovery(true);
+          }
         }
 
         if (isSupabaseConfigured) {
@@ -64,11 +90,19 @@ export function AuthProvider({ children }) {
 
     initAuth();
 
-    // Listen to Supabase auth events if configured
+    // Listen to Supabase auth events (e.g. PASSWORD_RECOVERY, SIGNED_IN, INITIAL_SESSION)
     let subscription = null;
     if (isSupabaseConfigured) {
-      const { data } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
         if (!isMounted) return;
+
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+          setSession(newSession);
+          setIsDemoMode(false);
+          return;
+        }
+
         setSession(newSession);
         if (newSession?.user) {
           setIsDemoMode(false);
@@ -80,9 +114,97 @@ export function AuthProvider({ children }) {
       subscription = data.subscription;
     }
 
+    // Handle deep links (such as solo-traveler://auth/callback with recovery tokens or PKCE codes)
+    const handleIncomingDeepLink = async ({ url }) => {
+      if (!url || !isSupabaseConfigured) return;
+      try {
+        let code = null;
+        let accessToken = null;
+        let refreshToken = null;
+        let type = null;
+        let errorParam = null;
+
+        try {
+          const parsedUrl = new URL(url.replace('#', '?'));
+          code = parsedUrl.searchParams.get('code');
+          accessToken = parsedUrl.searchParams.get('access_token');
+          refreshToken = parsedUrl.searchParams.get('refresh_token');
+          type = parsedUrl.searchParams.get('type');
+          errorParam =
+            parsedUrl.searchParams.get('error_description') ||
+            parsedUrl.searchParams.get('error');
+        } catch {
+          const codeMatch = url.match(/[?&]code=([^&#]+)/);
+          if (codeMatch) code = decodeURIComponent(codeMatch[1]);
+          const accessMatch = url.match(/[?&#]access_token=([^&#]+)/);
+          if (accessMatch) accessToken = decodeURIComponent(accessMatch[1]);
+          const refreshMatch = url.match(/[?&#]refresh_token=([^&#]+)/);
+          if (refreshMatch) refreshToken = decodeURIComponent(refreshMatch[1]);
+          const typeMatch = url.match(/[?&#]type=([^&#]+)/);
+          if (typeMatch) type = decodeURIComponent(typeMatch[1]);
+          const errorMatch =
+            url.match(/[?&#]error_description=([^&#]+)/) ||
+            url.match(/[?&#]error=([^&#]+)/);
+          if (errorMatch) errorParam = decodeURIComponent(errorMatch[1]);
+        }
+
+        if (errorParam) {
+          console.warn('Auth deep link error:', errorParam);
+          return;
+        }
+
+        const isRecovery =
+          type === 'recovery' ||
+          url.includes('type=recovery') ||
+          url.includes('reset-password');
+
+        let incomingSession = null;
+        if (code) {
+          const { data, error: exchangeErr } =
+            await supabase.auth.exchangeCodeForSession(code);
+          if (!exchangeErr && data?.session) {
+            incomingSession = data.session;
+          }
+        } else if (accessToken && refreshToken) {
+          const { data, error: setSessionErr } =
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+          if (!setSessionErr && data?.session) {
+            incomingSession = data.session;
+          }
+        }
+
+        if (isRecovery && isMounted) {
+          setIsPasswordRecovery(true);
+          if (incomingSession) {
+            setSession(incomingSession);
+          }
+          return;
+        }
+
+        if (incomingSession?.user && isMounted) {
+          setSession(incomingSession);
+          setIsDemoMode(false);
+          await fetchSupabaseProfile(incomingSession.user.id);
+        }
+      } catch (err) {
+        console.warn('Error processing auth deep link:', err);
+      }
+    };
+
+    const linkSub = Linking.addEventListener('url', handleIncomingDeepLink);
+    Linking.getInitialURL().then((initialUrl) => {
+      if (initialUrl && isMounted) {
+        handleIncomingDeepLink({ url: initialUrl });
+      }
+    });
+
     return () => {
       isMounted = false;
       if (subscription) subscription.unsubscribe();
+      linkSub.remove();
     };
   }, []);
 
@@ -109,13 +231,118 @@ export function AuthProvider({ children }) {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+        if (isDemo) {
+          if (data.verification_status === 'pending') {
+            data.verification_status = 'verified';
+            data.verified_at = data.verified_at || new Date().toISOString();
+            AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true').catch(() => {});
+          } else {
+            try {
+              const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${userId}`);
+              if (isDevApproved === 'true') {
+                data.verification_status = 'verified';
+                data.verified_at = data.verified_at || new Date().toISOString();
+              }
+            } catch {}
+          }
+        }
         setProfile(data);
-      } else {
-        console.warn('Profile fetch error or missing profile:', error);
+        return;
       }
+
+      // If public.users row is missing for the authenticated user, query user_verifications to capture real status (pending/not_started)
+      let verifStatus = 'not_started';
+      const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+      if (isDemo) {
+        try {
+          const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${userId}`);
+          if (isDevApproved === 'true') {
+            verifStatus = 'verified';
+          }
+        } catch {}
+      }
+      if (verifStatus !== 'verified') {
+        try {
+          const { data: verif } = await supabase
+            .from('user_verifications')
+            .select('status')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (verif?.status) {
+            if (isDemo && verif.status === 'pending') {
+              verifStatus = 'verified';
+              AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true').catch(() => {});
+            } else {
+              verifStatus = verif.status;
+            }
+          }
+        } catch { }
+      }
+
+      const { data: authUserData } = await supabase.auth.getUser();
+      const meta = authUserData?.user?.user_metadata || session?.user?.user_metadata || {};
+      const userEmail = authUserData?.user?.email || session?.user?.email;
+
+      const realName = meta?.name && typeof meta.name === 'string' && meta.name.trim().length > 0 ? meta.name.trim() : null;
+      const parsedAge = parseInt(meta?.age, 10);
+      const hasValidAge = !isNaN(parsedAge) && parsedAge >= 18;
+
+      // Recover ONLY when sufficient real profile data exists (real name and real age >= 18 from signup metadata)
+      // Do NOT fabricate age, gender, avatar, or other profile fields!
+      if (realName && hasValidAge) {
+        const recoveredPayload = {
+          id: userId,
+          name: realName,
+          age: parsedAge,
+          gender: meta.gender || 'Not specified',
+          bio: meta.bio || '',
+          avatar_url: meta.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+          travel_styles: Array.isArray(meta.travel_styles) ? meta.travel_styles : [],
+          languages: Array.isArray(meta.languages) ? meta.languages : ['English'],
+          verification_status: verifStatus,
+          trust_score: 5.00,
+          subscription_tier: 'free',
+          theme_preference: 'light',
+        };
+
+        const { data: createdProfile, error: createError } = await supabase
+          .from('users')
+          .upsert([recoveredPayload], { onConflict: 'id' })
+          .select()
+          .single();
+
+        if (!createError && createdProfile) {
+          if (isVerificationDemo) {
+            try {
+              const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${userId}`);
+              if (isDevApproved === 'true') {
+                createdProfile.verification_status = 'verified';
+                createdProfile.verified_at = createdProfile.verified_at || new Date().toISOString();
+              }
+            } catch {}
+          }
+          setProfile(createdProfile);
+          return;
+        }
+      }
+
+      // If sufficient real profile data does not exist in auth.users, do NOT invent fields.
+      // Clearly surface that the profile needs to be completed/repaired.
+      setProfile({
+        id: userId,
+        email: userEmail,
+        name: realName || userEmail?.split('@')[0] || 'Traveler',
+        verification_status: verifStatus,
+        theme_preference: 'light',
+        needsProfileRepair: true,
+        profileError: 'User profile row is missing in public.users and required data (name, age 18+) is incomplete. Profile completion is required.',
+      });
+
+      console.warn('Profile missing or incomplete for user:', userId, error);
     } catch (err) {
       console.warn('Error fetching user profile:', err);
     }
@@ -131,26 +358,219 @@ export function AuthProvider({ children }) {
           password,
         });
         if (error) throw error;
+        // Clear leftover demo session flags and reset profile before fetching real Supabase profile
+        await AsyncStorage.multiRemove([DEMO_AUTH_KEY, DEMO_PROFILE_KEY]);
+        setProfile(null);
         setSession(data.session);
         setIsDemoMode(false);
         await fetchSupabaseProfile(data.session.user.id);
         return { success: true };
       } else {
-        // Instant Demo Login
-        await AsyncStorage.setItem(DEMO_AUTH_KEY, 'true');
-        const customProfile = {
-          ...DEMO_CURRENT_USER,
-          email: email || DEMO_CURRENT_USER.email,
+        return {
+          success: false,
+          error: 'Supabase authentication is not configured. Real Supabase connection required.',
         };
-        await AsyncStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(customProfile));
-        setProfile(customProfile);
-        setIsDemoMode(true);
-        return { success: true };
       }
     } catch (error) {
-      // If Supabase authentication fails with network or credentials, offer demo mode gracefully
       console.warn('Login error:', error.message);
-      return { success: false, error: error.message || 'Failed to sign in. Please verify your credentials.' };
+      let userMessage = error.message || 'Failed to sign in. Please verify your credentials.';
+      if (error.message?.includes('Invalid login credentials')) {
+        userMessage = 'Invalid email or password. Please check your credentials or reset your password.';
+      } else if (error.message?.includes('Email not confirmed')) {
+        userMessage = 'Your email address has not been confirmed yet. Please check your inbox.';
+      } else if (
+        error.name === 'AuthRetryableFetchError' ||
+        error.message?.includes('fetch failed') ||
+        error.message?.includes('Network request failed')
+      ) {
+        userMessage = 'Network connection error. Please check your internet connection and try again.';
+      }
+      return { success: false, error: userMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Google OAuth sign-in via Supabase
+  const loginWithGoogle = async () => {
+    setIsLoading(true);
+    try {
+      if (!isSupabaseConfigured) {
+        return {
+          success: false,
+          error: 'Supabase authentication is not configured. Real Supabase connection required.',
+        };
+      }
+
+      if (Platform.OS === 'web') {
+        const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo,
+          },
+        });
+        if (error) throw error;
+        return { success: true };
+      } else {
+        // Native (Android / iOS)
+        const redirectUrl = Linking.createURL('auth/callback', { scheme: 'solo-traveler' });
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error) throw error;
+
+        if (data?.url) {
+          const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+          if (res.type === 'success' && res.url) {
+            const urlString = res.url;
+            let code = null;
+            let accessToken = null;
+            let refreshToken = null;
+            let errorParam = null;
+
+            try {
+              const parsedUrl = new URL(urlString.replace('#', '?'));
+              code = parsedUrl.searchParams.get('code');
+              accessToken = parsedUrl.searchParams.get('access_token');
+              refreshToken = parsedUrl.searchParams.get('refresh_token');
+              errorParam =
+                parsedUrl.searchParams.get('error_description') ||
+                parsedUrl.searchParams.get('error');
+            } catch {
+              const codeMatch = urlString.match(/[?&]code=([^&#]+)/);
+              if (codeMatch) code = decodeURIComponent(codeMatch[1]);
+              const accessMatch = urlString.match(/[?&#]access_token=([^&#]+)/);
+              if (accessMatch) accessToken = decodeURIComponent(accessMatch[1]);
+              const refreshMatch = urlString.match(/[?&#]refresh_token=([^&#]+)/);
+              if (refreshMatch) refreshToken = decodeURIComponent(refreshMatch[1]);
+              const errorMatch =
+                urlString.match(/[?&#]error_description=([^&#]+)/) ||
+                urlString.match(/[?&#]error=([^&#]+)/);
+              if (errorMatch) errorParam = decodeURIComponent(errorMatch[1]);
+            }
+
+            if (errorParam) {
+              return { success: false, error: errorParam };
+            }
+
+            if (code) {
+              const { data: sessionData, error: exchangeError } =
+                await supabase.auth.exchangeCodeForSession(code);
+              if (exchangeError) throw exchangeError;
+              if (sessionData?.session) {
+                await AsyncStorage.multiRemove([DEMO_AUTH_KEY, DEMO_PROFILE_KEY]);
+                setProfile(null);
+                setSession(sessionData.session);
+                setIsDemoMode(false);
+                await fetchSupabaseProfile(sessionData.session.user.id);
+                return { success: true };
+              }
+            } else if (accessToken && refreshToken) {
+              const { data: sessionData, error: setSessionError } =
+                await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken,
+                });
+              if (setSessionError) throw setSessionError;
+              if (sessionData?.session) {
+                await AsyncStorage.multiRemove([DEMO_AUTH_KEY, DEMO_PROFILE_KEY]);
+                setProfile(null);
+                setSession(sessionData.session);
+                setIsDemoMode(false);
+                await fetchSupabaseProfile(sessionData.session.user.id);
+                return { success: true };
+              }
+            }
+            return { success: true };
+          } else if (res.type === 'cancel' || res.type === 'dismiss') {
+            return { success: false, cancelled: true };
+          }
+          return { success: false, error: 'Google sign-in was not completed.' };
+        } else {
+          return { success: false, error: 'Failed to retrieve Google sign-in URL from Supabase.' };
+        }
+      }
+    } catch (error) {
+      console.warn('Google Sign-In error:', error.message);
+      let userMessage = error.message || 'Failed to sign in with Google. Please try again.';
+      if (
+        error.name === 'AuthRetryableFetchError' ||
+        error.message?.includes('fetch failed') ||
+        error.message?.includes('Network request failed')
+      ) {
+        userMessage = 'Network connection error. Please check your internet connection and try again.';
+      }
+      return { success: false, error: userMessage };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+  // Password reset handler via Supabase
+  const resetPassword = async (emailToReset, customRedirectUrl) => {
+    try {
+      const trimmed = emailToReset?.trim();
+      if (!trimmed) {
+        return { success: false, error: 'Please enter your email address.' };
+      }
+      if (isSupabaseConfigured) {
+        let redirectTo = customRedirectUrl;
+        if (!redirectTo) {
+          if (Platform.OS === 'web') {
+            const origin =
+              typeof window !== 'undefined' && window.location?.origin
+                ? window.location.origin
+                : undefined;
+            redirectTo = origin ? `${origin}/reset-password` : undefined;
+          } else {
+            // Mobile: preserve existing solo-traveler://auth/callback scheme/deep-link configuration
+            redirectTo = Linking.createURL('auth/callback', { scheme: 'solo-traveler' });
+          }
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+          redirectTo,
+        });
+        if (error) {
+          return { success: false, error: error.message || 'Failed to send password reset email.' };
+        }
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: 'Supabase authentication is not configured. Real Supabase connection required.',
+        };
+      }
+    } catch (error) {
+      console.warn('Password reset error:', error.message);
+      return { success: false, error: error.message || 'An unexpected error occurred. Please try again.' };
+    }
+  };
+
+  // Update password for user in recovery session
+  const updateUserPassword = async (newPassword) => {
+    setIsLoading(true);
+    try {
+      if (!isSupabaseConfigured) {
+        return { success: false, error: 'Supabase authentication is not configured.' };
+      }
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) {
+        return { success: false, error: error.message || 'Failed to update password.' };
+      }
+      setIsPasswordRecovery(false);
+      return { success: true, data };
+    } catch (err) {
+      console.warn('Update user password error:', err);
+      return { success: false, error: err.message || 'Failed to update password. Please try again.' };
     } finally {
       setIsLoading(false);
     }
@@ -170,11 +590,30 @@ export function AuthProvider({ children }) {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: userData.email,
           password: userData.password,
+          options: {
+            data: {
+              name: userData.name,
+              age: ageNum,
+              gender: userData.gender || 'Not specified',
+              bio: userData.bio || '',
+              avatar_url: userData.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+              travel_styles: userData.travel_styles || [],
+              languages: userData.languages || ['English'],
+            },
+          },
         });
 
         if (authError) throw authError;
 
         if (authData.user) {
+          // Confirm Email is OFF for development: require the returned session before attempting the authenticated upsert
+          if (!authData.session) {
+            return {
+              success: false,
+              error: 'Signup requires email confirmation before profile creation can proceed.',
+            };
+          }
+
           const profilePayload = {
             id: authData.user.id,
             name: userData.name,
@@ -187,17 +626,29 @@ export function AuthProvider({ children }) {
             verification_status: 'not_started',
             trust_score: 5.00,
             subscription_tier: 'free',
-            theme_preference: null,
+            theme_preference: 'light',
           };
 
           const { error: profileError } = await supabase
             .from('users')
-            .insert([profilePayload]);
+            .upsert([profilePayload], { onConflict: 'id' });
 
-          if (profileError) throw profileError;
+          if (profileError) {
+            console.warn('Profile creation error during signup:', profileError);
+            return {
+              success: false,
+              error: `Profile creation failed: ${profileError.message || 'Database error'}.`,
+            };
+          }
+
           setProfile(profilePayload);
           setSession(authData.session);
           setIsDemoMode(false);
+        } else {
+          return {
+            success: false,
+            error: 'User registration failed to establish session credentials.',
+          };
         }
         return { success: true };
       } else {
@@ -215,7 +666,7 @@ export function AuthProvider({ children }) {
           verification_status: 'not_started',
           trust_score: 5.00,
           subscription_tier: 'free',
-          theme_preference: null,
+          theme_preference: 'light',
           created_at: new Date().toISOString(),
         };
 
@@ -238,11 +689,16 @@ export function AuthProvider({ children }) {
     setIsLoading(true);
     try {
       if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          console.warn('Supabase signOut error, continuing with local cleanup:', signOutError);
+        }
       }
       await AsyncStorage.multiRemove([DEMO_AUTH_KEY, DEMO_PROFILE_KEY]);
       setSession(null);
       setProfile(null);
+      setIsPasswordRecovery(false);
       setIsDemoMode(!isSupabaseConfigured);
     } catch (error) {
       console.warn('Logout error:', error);
@@ -255,15 +711,139 @@ export function AuthProvider({ children }) {
   const updateProfile = async (updates) => {
     try {
       if (isSupabaseConfigured && session?.user) {
+        // Security restriction: client cannot set verified/failed/rejected or alter verified_at
+        const sanitizedUpdates = { ...updates };
+        if (
+          sanitizedUpdates.verification_status &&
+          ['verified', 'failed', 'rejected'].includes(sanitizedUpdates.verification_status)
+        ) {
+          delete sanitizedUpdates.verification_status;
+        }
+        delete sanitizedUpdates.verified_at;
+
         const { data, error } = await supabase
           .from('users')
-          .update(updates)
+          .update(sanitizedUpdates)
           .eq('id', session.user.id)
           .select()
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
-        setProfile(data);
+        if (!error && data) {
+          const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+          if (isDemo) {
+            if (data.verification_status === 'pending') {
+              data.verification_status = 'verified';
+              data.verified_at = data.verified_at || new Date().toISOString();
+            } else {
+              try {
+                const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${session.user.id}`);
+                if (isDevApproved === 'true') {
+                  data.verification_status = 'verified';
+                  data.verified_at = data.verified_at || new Date().toISOString();
+                }
+              } catch {}
+            }
+          }
+          setProfile(data);
+          return { success: true };
+        }
+
+        // Missing-profile recovery: recover ONLY when sufficient real profile data exists
+        // Do NOT invent age or required fields.
+        const meta = session.user.user_metadata || {};
+        const candName = (updates.name && typeof updates.name === 'string' && updates.name.trim().length > 0)
+          ? updates.name.trim()
+          : (meta.name && typeof meta.name === 'string' && meta.name.trim().length > 0 ? meta.name.trim() : null);
+        const candAge = parseInt(updates.age !== undefined ? updates.age : meta.age, 10);
+        const hasValidAge = !isNaN(candAge) && candAge >= 18;
+
+        if (candName && hasValidAge) {
+          // Determine preserved verification status:
+          // Must NEVER auto-verify; preserve 'pending' if user_verifications or profile indicates pending
+          let preservedVerifStatus = 'not_started';
+          if (profile?.verification_status === 'pending' || sanitizedUpdates.verification_status === 'pending') {
+            preservedVerifStatus = 'pending';
+          } else {
+            try {
+              const { data: verif } = await supabase
+                .from('user_verifications')
+                .select('status')
+                .eq('user_id', session.user.id)
+                .maybeSingle();
+              if (verif?.status === 'pending') {
+                preservedVerifStatus = 'pending';
+              }
+            } catch { }
+          }
+
+          const recoveryPayload = {
+            id: session.user.id,
+            name: candName,
+            age: candAge,
+            gender: updates.gender || meta.gender || 'Not specified',
+            bio: updates.bio !== undefined ? updates.bio : (meta.bio || ''),
+            avatar_url: updates.avatar_url || meta.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+            travel_styles: updates.travel_styles || meta.travel_styles || [],
+            languages: updates.languages || meta.languages || ['English'],
+            verification_status: preservedVerifStatus,
+            trust_score: 5.00,
+            subscription_tier: 'free',
+            theme_preference: 'light',
+            ...sanitizedUpdates,
+          };
+          delete recoveryPayload.verified_at;
+          delete recoveryPayload.needsProfileRepair;
+          delete recoveryPayload.profileError;
+          recoveryPayload.name = candName;
+          recoveryPayload.age = candAge;
+          // Guardrail: Client can NEVER self-verify; preserve status (pending or not_started)
+          recoveryPayload.verification_status = preservedVerifStatus;
+
+          const { data: upsertData, error: upsertError } = await supabase
+            .from('users')
+            .upsert([recoveryPayload], { onConflict: 'id' })
+            .select()
+            .single();
+
+          if (upsertError) {
+            return {
+              success: false,
+              error: `Failed to create profile: ${upsertError.message || 'Database error'}`,
+            };
+          }
+
+          // Also update Supabase auth user_metadata so future logins have real name and age
+          try {
+            await supabase.auth.updateUser({
+              data: {
+                name: candName,
+                age: candAge,
+                gender: recoveryPayload.gender,
+              },
+            });
+          } catch (authMetaErr) {
+            console.warn('Could not sync user_metadata with auth:', authMetaErr);
+          }
+
+          if (isVerificationDemo) {
+            try {
+              const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${session.user.id}`);
+              if (isDevApproved === 'true') {
+                upsertData.verification_status = 'verified';
+                upsertData.verified_at = upsertData.verified_at || new Date().toISOString();
+              }
+            } catch {}
+          }
+
+          setProfile(upsertData);
+          return { success: true, profile: upsertData };
+        }
+
+        // If sufficient real profile data does not exist, clearly surface error without fabricating data
+        return {
+          success: false,
+          error: 'User profile row is missing in the database and required profile information (name and age >= 18) is missing. Profile completion is required.',
+        };
       } else {
         const updated = { ...profile, ...updates };
         await AsyncStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(updated));
@@ -318,7 +898,63 @@ export function AuthProvider({ children }) {
           };
         }
 
-        // 3. ONLY after successful upload, record sensitive verification metadata in user_verifications
+        // Guard: stock photos or placeholder images cannot be submitted in live verification mode
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+        if (!isDemo && selfieUri?.includes('unsplash.com')) {
+          return {
+            success: false,
+            error: 'Stock photos or placeholder images cannot be submitted for live verification. Please take a real selfie with your camera.',
+          };
+        }
+
+        // 3. Record verification in user_verifications and public.users
+        if (isDemo) {
+          const nowIso = new Date().toISOString();
+          // Attempt development-approved upsert to public.user_verifications
+          const { error: devVerifErr } = await supabase
+            .from('user_verifications')
+            .upsert({
+              user_id: userId,
+              selfie_path: selfiePath,
+              status: 'verified',
+              submitted_at: nowIso,
+              reviewed_at: nowIso,
+            }, { onConflict: 'user_id' });
+
+          // If production RLS blocks 'verified' status, record as 'pending' so record is safely preserved
+          if (devVerifErr) {
+            await supabase
+              .from('user_verifications')
+              .upsert({
+                user_id: userId,
+                selfie_path: selfiePath,
+                status: 'pending',
+                submitted_at: nowIso,
+                reviewed_at: null,
+              }, { onConflict: 'user_id' });
+          }
+
+          // Attempt development-approved update to public.users
+          await supabase
+            .from('users')
+            .update({
+              verification_status: 'verified',
+              verified_at: nowIso,
+            })
+            .eq('id', userId);
+
+          // Update local profile and persistent storage for development mode
+          await AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true');
+          setProfile((prev) => ({
+            ...prev,
+            verification_status: 'verified',
+            verified_at: nowIso,
+          }));
+
+          return { success: true, status: 'verified', isDemo: true };
+        }
+
+        // Live Supabase mode: submission is strictly pending
         // Enforced by PostgreSQL RLS: normal authenticated users can ONLY insert/update status as 'pending'
         const { error: verifError } = await supabase
           .from('user_verifications')
@@ -339,9 +975,17 @@ export function AuthProvider({ children }) {
         }
 
         // 4. Update public profile verification status to 'pending' (RLS prevents client from setting 'verified')
-        await updateProfile({
+        const profileUpdateRes = await updateProfile({
           verification_status: 'pending',
         });
+
+        if (!profileUpdateRes?.success) {
+          console.warn('Profile update failed during verification submission:', profileUpdateRes?.error);
+          return {
+            success: false,
+            error: profileUpdateRes?.error || 'Verification selfie uploaded, but could not link to user profile. Your profile is missing or incomplete.',
+          };
+        }
 
         return { success: true, status: 'pending', isDemo: false };
       } else {
@@ -369,21 +1013,74 @@ export function AuthProvider({ children }) {
   const checkVerificationStatus = async () => {
     try {
       if (isSupabaseConfigured && session?.user) {
-        const { data, error } = await supabase
-          .from('users')
-          .select('verification_status, verified_at')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error) throw error;
-        if (data) {
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+        if (isDemo) {
+          const nowIso = new Date().toISOString();
+          await AsyncStorage.setItem(`@maybewe_dev_verified_${session.user.id}`, 'true');
           setProfile((prev) => ({
             ...prev,
-            verification_status: data.verification_status,
-            verified_at: data.verified_at,
+            verification_status: 'verified',
+            verified_at: prev?.verified_at || nowIso,
           }));
-          return { success: true, status: data.verification_status, verified_at: data.verified_at };
+          return { success: true, status: 'verified', verified_at: nowIso };
         }
+
+        let userVerificationStatus = null;
+        let userVerifiedAt = null;
+
+        // 1. Try reading verification status from public.users
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select('verification_status, verified_at')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (!error && data) {
+            userVerificationStatus = data.verification_status;
+            userVerifiedAt = data.verified_at;
+          }
+        } catch (usersErr) {
+          console.warn('Could not read verification status from users table:', usersErr);
+        }
+
+        if (userVerificationStatus) {
+          setProfile((prev) => ({
+            ...prev,
+            verification_status: userVerificationStatus,
+            verified_at: userVerifiedAt,
+          }));
+          return { success: true, status: userVerificationStatus, verified_at: userVerifiedAt };
+        }
+
+        // 2. Fallback: If public.users is missing or unreadable, query user_verifications for the real status
+        try {
+          const { data: verif, error: verifErr } = await supabase
+            .from('user_verifications')
+            .select('status')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          if (!verifErr && verif?.status) {
+            setProfile((prev) => ({
+              ...prev,
+              verification_status: verif.status,
+            }));
+            return {
+              success: true,
+              status: verif.status,
+              isPending: verif.status === 'pending',
+            };
+          }
+        } catch (verifCatchErr) {
+          console.warn('Error reading from user_verifications:', verifCatchErr);
+        }
+
+        return {
+          success: true,
+          status: profile?.verification_status || 'pending',
+          isPending: true,
+        };
       } else {
         // Demo mode simulation: tapping Check Status simulates moderator approval for testing
         const simulatedVerifiedAt = new Date().toISOString();
@@ -441,6 +1138,11 @@ export function AuthProvider({ children }) {
     setHasAgreedToGuidelines(true);
   };
 
+  // Profile repair helper for accounts missing public.users row
+  const repairProfile = async (profileData) => {
+    return await updateProfile(profileData);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -449,11 +1151,17 @@ export function AuthProvider({ children }) {
         profile,
         isLoading,
         isDemoMode,
+        isPasswordRecovery,
+        setIsPasswordRecovery,
         hasAgreedToGuidelines,
         login,
+        loginWithGoogle,
         signup,
+        resetPassword,
+        updateUserPassword,
         logout,
         updateProfile,
+        repairProfile,
         submitVerification,
         checkVerificationStatus,
         setVerificationStatus,

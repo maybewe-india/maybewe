@@ -1,22 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, GRADIENTS, RADII, FONTS } from '../../lib/theme';
+import { RADII, FONTS } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 
 /**
  * TrustBadge — displays community trust score
  * variant: 'full' | 'compact' | 'score-only'
  */
 export default function TrustBadge({ score = 0, verificationStatus, variant = 'compact', style }) {
+  const { colors, isDark } = useTheme();
   const isVerified = verificationStatus === 'verified';
   const scorePercent = Math.min(100, Math.max(0, score));
 
   const getScoreColor = () => {
-    if (scorePercent >= 80) return COLORS.success;
-    if (scorePercent >= 60) return COLORS.lavender;
-    if (scorePercent >= 40) return COLORS.sunset;
-    return COLORS.danger;
+    if (scorePercent >= 80) return colors.success;
+    if (scorePercent >= 60) return colors.primary;
+    if (scorePercent >= 40) return colors.warning;
+    return colors.danger;
   };
 
   const scoreColor = getScoreColor();
@@ -25,27 +26,27 @@ export default function TrustBadge({ score = 0, verificationStatus, variant = 'c
     return (
       <View style={[styles.scoreOnly, style]}>
         <Text style={[styles.scoreOnlyNumber, { color: scoreColor }]}>{scorePercent}</Text>
-        <Text style={styles.scoreOnlyLabel}>Trust</Text>
+        <Text style={[styles.scoreOnlyLabel, { color: colors.textMuted }]}>Trust</Text>
       </View>
     );
   }
 
   if (variant === 'full') {
     return (
-      <View style={[styles.fullContainer, style]}>
+      <View style={[styles.fullContainer, { backgroundColor: colors.surfaceGlass, borderColor: colors.border }, style]}>
         <View style={styles.fullRow}>
           <View style={[styles.scoreCircle, { borderColor: scoreColor }]}>
             <Text style={[styles.scoreNumber, { color: scoreColor }]}>{scorePercent}</Text>
           </View>
           <View style={styles.fullInfo}>
-            <Text style={styles.fullLabel}>Community Trust Score</Text>
-            <View style={styles.barTrack}>
+            <Text style={[styles.fullLabel, { color: colors.textSecondary }]}>Community Trust Score</Text>
+            <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
               <View style={[styles.barFill, { width: `${scorePercent}%`, backgroundColor: scoreColor }]} />
             </View>
             {isVerified && (
               <View style={styles.verifiedRow}>
-                <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
-                <Text style={styles.verifiedText}>Identity Verified</Text>
+                <Ionicons name="shield-checkmark" size={12} color={colors.success} />
+                <Text style={[styles.verifiedText, { color: colors.success }]}>Identity Verified</Text>
               </View>
             )}
           </View>
@@ -56,14 +57,14 @@ export default function TrustBadge({ score = 0, verificationStatus, variant = 'c
 
   // compact
   return (
-    <View style={[styles.compactContainer, style]}>
+    <View style={[styles.compactContainer, { backgroundColor: colors.chipBg, borderColor: colors.border }, style]}>
       <Ionicons
         name={isVerified ? 'shield-checkmark' : 'shield-outline'}
         size={12}
-        color={isVerified ? COLORS.success : COLORS.textMuted}
+        color={isVerified ? colors.success : colors.textMuted}
       />
       <Text style={[styles.compactScore, { color: scoreColor }]}>{scorePercent}</Text>
-      <Text style={styles.compactLabel}>Trust</Text>
+      <Text style={[styles.compactLabel, { color: colors.textMuted }]}>Trust</Text>
     </View>
   );
 }
@@ -78,16 +79,13 @@ const styles = StyleSheet.create({
   },
   scoreOnlyLabel: {
     fontSize: 10,
-    color: COLORS.textMuted,
     fontWeight: '600',
     marginTop: 1,
   },
   fullContainer: {
-    backgroundColor: COLORS.surfaceGlass,
     borderRadius: RADII.xl,
     padding: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   fullRow: {
     flexDirection: 'row',
@@ -113,13 +111,11 @@ const styles = StyleSheet.create({
   fullLabel: {
     fontFamily: FONTS.semiBold,
     fontSize: 12,
-    color: COLORS.textSecondary,
     fontWeight: '600',
     marginBottom: 6,
   },
   barTrack: {
     height: 5,
-    backgroundColor: COLORS.border,
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 6,
@@ -136,19 +132,16 @@ const styles = StyleSheet.create({
   verifiedText: {
     fontFamily: FONTS.semiBold,
     fontSize: 11,
-    color: COLORS.success,
     fontWeight: '600',
   },
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: RADII.full,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   compactScore: {
     fontFamily: FONTS.extraBold,
@@ -158,7 +151,6 @@ const styles = StyleSheet.create({
   compactLabel: {
     fontFamily: FONTS.semiBold,
     fontSize: 11,
-    color: COLORS.textMuted,
     fontWeight: '600',
   },
 });

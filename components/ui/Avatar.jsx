@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, GRADIENTS, RADII } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 
 export default function Avatar({
   uri,
@@ -13,6 +13,8 @@ export default function Avatar({
   style,
   ringVariant = 'default', // 'default' | 'lavender' | 'peach' | 'none'
 }) {
+  const { colors, isDark } = useTheme();
+
   const initials = name
     ? name
         .split(' ')
@@ -25,10 +27,10 @@ export default function Avatar({
   const ringSize = size + 6;
   const ringColors =
     ringVariant === 'lavender'
-      ? GRADIENTS.lavenderViolet
+      ? (isDark ? ['#FFFFFF', '#F0F4F8'] : ['#061522', '#10283A'])
       : ringVariant === 'peach'
-      ? [COLORS.peach, COLORS.sunset]
-      : ['rgba(255,255,255,0.35)', 'rgba(255,255,255,0.10)'];
+      ? [colors.peach, colors.sunset]
+      : (isDark ? ['rgba(255,255,255,0.35)', 'rgba(255,255,255,0.10)'] : ['rgba(6,21,34,0.30)', 'rgba(6,21,34,0.08)']);
 
   return (
     <View style={[styles.container, style]}>
@@ -39,7 +41,7 @@ export default function Avatar({
           end={{ x: 1, y: 1 }}
           style={[styles.ring, { width: ringSize, height: ringSize, borderRadius: ringSize / 2 }]}
         >
-          <View style={[styles.ringInner, { width: size, height: size, borderRadius: size / 2 }]}>
+          <View style={[styles.ringInner, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.surface }]}>
             {uri ? (
               <Image
                 source={{ uri }}
@@ -49,10 +51,16 @@ export default function Avatar({
               <View
                 style={[
                   styles.placeholder,
-                  { width: size, height: size, borderRadius: size / 2 },
+                  {
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
-                <Text style={[styles.initials, { fontSize: size * 0.35 }]}>{initials}</Text>
+                <Text style={[styles.initials, { fontSize: size * 0.35, color: colors.primary }]}>{initials}</Text>
               </View>
             )}
           </View>
@@ -63,18 +71,29 @@ export default function Avatar({
           style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]}
         />
       ) : (
-        <View style={[styles.placeholder, { width: size, height: size, borderRadius: size / 2 }]}>
-          <Text style={[styles.initials, { fontSize: size * 0.35 }]}>{initials}</Text>
+        <View
+          style={[
+            styles.placeholder,
+            {
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.initials, { fontSize: size * 0.35, color: colors.primary }]}>{initials}</Text>
         </View>
       )}
 
       {online && (
-        <View style={[styles.onlineDot, { right: 0, bottom: 0 }]} />
+        <View style={[styles.onlineDot, { right: 0, bottom: 0, backgroundColor: colors.success, borderColor: colors.background }]} />
       )}
 
       {verified && (
-        <View style={[styles.verifiedBadge, { right: -2, top: -2 }]}>
-          <Ionicons name="checkmark-circle" size={16} color={COLORS.lavender} />
+        <View style={[styles.verifiedBadge, { right: -2, top: -2, backgroundColor: colors.background }]}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
         </View>
       )}
     </View>
@@ -92,20 +111,16 @@ const styles = StyleSheet.create({
   },
   ringInner: {
     overflow: 'hidden',
-    backgroundColor: COLORS.surface,
   },
   image: {
     resizeMode: 'cover',
   },
   placeholder: {
-    backgroundColor: COLORS.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   initials: {
-    color: COLORS.lavender,
     fontWeight: '700',
   },
   onlineDot: {
@@ -113,13 +128,10 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 6,
-    backgroundColor: COLORS.success,
     borderWidth: 2,
-    borderColor: COLORS.background,
   },
   verifiedBadge: {
     position: 'absolute',
-    backgroundColor: COLORS.background,
     borderRadius: 8,
   },
 });

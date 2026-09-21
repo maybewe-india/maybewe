@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, RADII, SHADOWS, FONTS } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 import GradientHeader from '../../components/ui/GradientHeader';
 import Avatar from '../../components/ui/Avatar';
 import TrustBadge from '../../components/ui/TrustBadge';
@@ -28,6 +29,7 @@ export default function MatchesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
 
   const [activeTab, setActiveTab] = useState('connections'); // 'connections' | 'requests'
   const [matches, setMatches] = useState([]);
@@ -94,7 +96,7 @@ export default function MatchesScreen() {
   const connections = matches.filter((m) => m.status === 'accepted');
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ImageBackground
         source={MATCHES_BG}
         style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%' }]}
@@ -102,11 +104,7 @@ export default function MatchesScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={[
-            'rgba(6, 21, 34, 0.45)',
-            'rgba(6, 21, 34, 0.75)',
-            'rgba(6, 21, 34, 0.95)',
-          ]}
+          colors={colors.bgGradientOverlay}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -120,192 +118,210 @@ export default function MatchesScreen() {
           rightAction={() => router.push('/(auth)/guidelines')}
         />
 
-      {/* Segmented Control Tabs */}
-      <View style={styles.tabBarWrapper}>
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            onPress={() => setActiveTab('connections')}
-            style={[styles.tabBtn, activeTab === 'connections' && styles.activeTabBtn]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'connections' && styles.activeTabBtnText]}>
-              Connections ({connections.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setActiveTab('requests')}
-            style={[styles.tabBtn, activeTab === 'requests' && styles.activeTabBtn]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'requests' && styles.activeTabBtnText]}>
-              Requests ({pendingRequests.length})
-            </Text>
-            {pendingRequests.length > 0 && <View style={styles.tabNotificationDot} />}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollBody,
-          { paddingBottom: insets.bottom + 110 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.lavender} />
-        }
-      >
-        {loading ? (
-          <View>
-            <SkeletonCard height={180} />
-            <SkeletonCard height={180} />
-          </View>
-        ) : activeTab === 'connections' ? (
-          connections.length > 0 ? (
-            connections.map((match) => (
-              <TouchableOpacity
-                key={match.id}
-                onPress={() => openChat(match)}
-                activeOpacity={0.85}
-                style={[styles.connectionCard, SHADOWS.card]}
+        {/* Segmented Control Tabs */}
+        <View style={styles.tabBarWrapper}>
+          <View style={[styles.tabBar, { backgroundColor: colors.chipBg, borderColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={() => setActiveTab('connections')}
+              style={[
+                styles.tabBtn,
+                activeTab === 'connections' && [styles.activeTabBtn, { backgroundColor: colors.primary }],
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: colors.textMuted },
+                  activeTab === 'connections' && [styles.activeTabBtnText, { color: colors.primaryText }],
+                ]}
               >
-                <View style={styles.cardTopRow}>
-                  <Avatar
-                    uri={match.user?.avatar_url}
-                    name={match.user?.name}
-                    size={54}
-                    verified={match.user?.verification_status === 'verified'}
-                    online={true}
-                    ringVariant="lavender"
-                  />
+                Connections ({connections.length})
+              </Text>
+            </TouchableOpacity>
 
-                  <View style={styles.cardInfo}>
-                    <View style={styles.nameScoreRow}>
-                      <Text style={styles.userName}>{match.user?.name}</Text>
-                      <TrustBadge
-                        score={match.user?.trust_score || 4.9}
-                        verificationStatus={match.user?.verification_status}
-                        variant="compact"
-                      />
-                    </View>
+            <TouchableOpacity
+              onPress={() => setActiveTab('requests')}
+              style={[
+                styles.tabBtn,
+                activeTab === 'requests' && [styles.activeTabBtn, { backgroundColor: colors.primary }],
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: colors.textMuted },
+                  activeTab === 'requests' && [styles.activeTabBtnText, { color: colors.primaryText }],
+                ]}
+              >
+                Requests ({pendingRequests.length})
+              </Text>
+              {pendingRequests.length > 0 && <View style={[styles.tabNotificationDot, { backgroundColor: colors.danger }]} />}
+            </TouchableOpacity>
+          </View>
+        </View>
 
-                    <Text style={styles.tripMeta} numberOfLines={1}>
-                      📍 {match.trip?.destination || 'Upcoming Trip'} ({match.trip?.dates || 'Dates overlap'})
-                    </Text>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollBody,
+            { paddingBottom: insets.bottom + 110 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        >
+          {loading ? (
+            <View>
+              <SkeletonCard height={180} />
+              <SkeletonCard height={180} />
+            </View>
+          ) : activeTab === 'connections' ? (
+            connections.length > 0 ? (
+              connections.map((match) => (
+                <TouchableOpacity
+                  key={match.id}
+                  onPress={() => openChat(match)}
+                  activeOpacity={0.85}
+                  style={[styles.connectionCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.soft]}
+                >
+                  <View style={styles.cardTopRow}>
+                    <Avatar
+                      uri={match.user?.avatar_url}
+                      name={match.user?.name}
+                      size={54}
+                      verified={match.user?.verification_status === 'verified'}
+                      online={true}
+                      ringVariant="lavender"
+                    />
 
-                    <Text style={styles.lastMessagePreview} numberOfLines={1}>
-                      {match.lastMessage || 'Connected! Start coordinating your journey.'}
-                    </Text>
-                  </View>
+                    <View style={styles.cardInfo}>
+                      <View style={styles.nameScoreRow}>
+                        <Text style={[styles.userName, { color: colors.textPrimary }]}>{match.user?.name}</Text>
+                        <TrustBadge
+                          score={match.user?.trust_score || 4.9}
+                          verificationStatus={match.user?.verification_status}
+                          variant="compact"
+                        />
+                      </View>
 
-                  <View style={styles.chatActionIndicator}>
-                    <Ionicons name="chatbubble-ellipses" size={18} color="#FFFFFF" />
-                  </View>
-                </View>
-
-                {/* Bottom Action Bar */}
-                <View style={styles.connectionBottomBar}>
-                  <TouchableOpacity
-                    onPress={() => openReview(match)}
-                    style={styles.reviewQuickBtn}
-                  >
-                    <Ionicons name="star-outline" size={13} color={COLORS.sunset} style={{ marginRight: 4 }} />
-                    <Text style={styles.reviewQuickText}>Leave Review</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => openChat(match)}
-                    style={styles.openChatPill}
-                  >
-                    <Text style={styles.openChatPillText}>Open Chat</Text>
-                    <Ionicons name="chevron-forward" size={13} color="#061522" style={{ marginLeft: 3 }} />
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <EmptyState
-              icon="people-outline"
-              title="No connections yet"
-              description="Explore compatible travelers in Discover and send connection requests to start chatting."
-              actionTitle="Discover Travelers"
-              onAction={() => router.push('/(tabs)/discovery')}
-            />
-          )
-        ) : (
-          pendingRequests.length > 0 ? (
-            pendingRequests.map((req) => (
-              <View key={req.id} style={[styles.requestCard, SHADOWS.card]}>
-                <View style={styles.cardTopRow}>
-                  <Avatar
-                    uri={req.user?.avatar_url}
-                    name={req.user?.name}
-                    size={56}
-                    verified={req.user?.verification_status === 'verified'}
-                    ringVariant="peach"
-                  />
-
-                  <View style={styles.cardInfo}>
-                    <View style={styles.nameScoreRow}>
-                      <Text style={styles.userName}>{req.user?.name}</Text>
-                      <TrustBadge
-                        score={req.user?.trust_score || 4.8}
-                        verificationStatus={req.user?.verification_status}
-                        variant="compact"
-                      />
-                    </View>
-
-                    <Text style={styles.tripMeta} numberOfLines={1}>
-                      📍 {req.trip?.destination} ({req.trip?.dates})
-                    </Text>
-
-                    {req.user?.travel_styles && (
-                      <Text style={styles.stylesNote}>
-                        Travel styles: {req.user.travel_styles.slice(0, 2).join(', ')}
+                      <Text style={[styles.tripMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                        📍 {match.trip?.destination || 'Upcoming Trip'} ({match.trip?.dates || 'Dates overlap'})
                       </Text>
-                    )}
+
+                      <Text style={[styles.lastMessagePreview, { color: colors.textMuted }]} numberOfLines={1}>
+                        {match.lastMessage || 'Connected! Start coordinating your journey.'}
+                      </Text>
+                    </View>
+
+                    <View style={[styles.chatActionIndicator, { backgroundColor: colors.chipBg, borderColor: colors.border }]}>
+                      <Ionicons name="chatbubble-ellipses" size={18} color={colors.primary} />
+                    </View>
                   </View>
-                </View>
 
-                {/* Initial Note */}
-                {req.initialNote && (
-                  <View style={styles.noteBox}>
-                    <Text style={styles.noteText}>"{req.initialNote}"</Text>
+                  {/* Bottom Action Bar */}
+                  <View style={[styles.connectionBottomBar, { borderTopColor: colors.border }]}>
+                    <TouchableOpacity
+                      onPress={() => openReview(match)}
+                      style={styles.reviewQuickBtn}
+                    >
+                      <Ionicons name="star-outline" size={13} color={colors.warning} style={{ marginRight: 4 }} />
+                      <Text style={[styles.reviewQuickText, { color: colors.warning }]}>Leave Review</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => openChat(match)}
+                      style={[styles.openChatPill, { backgroundColor: colors.primary }]}
+                    >
+                      <Text style={[styles.openChatPillText, { color: colors.primaryText }]}>Open Chat</Text>
+                      <Ionicons name="chevron-forward" size={13} color={colors.primaryText} style={{ marginLeft: 3 }} />
+                    </TouchableOpacity>
                   </View>
-                )}
-
-                {/* Accept / Decline Action Buttons */}
-                <View style={styles.requestActionsRow}>
-                  <TouchableOpacity
-                    onPress={() => handleDecline(req.id)}
-                    style={styles.declineBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.declineBtnText}>Decline</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => handleAccept(req.id)}
-                    style={styles.acceptBtn}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="checkmark-circle" size={17} color="#061522" style={{ marginRight: 6 }} />
-                    <Text style={styles.acceptBtnText}>Accept Connection</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+                </TouchableOpacity>
+              ))
+            ) : (
+              <EmptyState
+                icon="people-outline"
+                title="No connections yet"
+                description="Explore compatible travelers in Discover and send connection requests to start chatting."
+                actionTitle="Discover Travelers"
+                onAction={() => router.push('/(tabs)/discovery')}
+              />
+            )
           ) : (
-            <EmptyState
-              icon="mail-unread-outline"
-              title="No pending requests"
-              description="When other MaybeWe travelers reach out to join your trips, their connection requests will appear here."
-            />
-          )
-        )}
-      </ScrollView>
-    </View>
+            pendingRequests.length > 0 ? (
+              pendingRequests.map((req) => (
+                <View key={req.id} style={[styles.requestCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.soft]}>
+                  <View style={styles.cardTopRow}>
+                    <Avatar
+                      uri={req.user?.avatar_url}
+                      name={req.user?.name}
+                      size={56}
+                      verified={req.user?.verification_status === 'verified'}
+                      ringVariant="peach"
+                    />
+
+                    <View style={styles.cardInfo}>
+                      <View style={styles.nameScoreRow}>
+                        <Text style={[styles.userName, { color: colors.textPrimary }]}>{req.user?.name}</Text>
+                        <TrustBadge
+                          score={req.user?.trust_score || 4.8}
+                          verificationStatus={req.user?.verification_status}
+                          variant="compact"
+                        />
+                      </View>
+
+                      <Text style={[styles.tripMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                        📍 {req.trip?.destination} ({req.trip?.dates})
+                      </Text>
+
+                      {req.user?.travel_styles && (
+                        <Text style={[styles.stylesNote, { color: colors.textMuted }]}>
+                          Travel styles: {req.user.travel_styles.slice(0, 2).join(', ')}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Initial Note */}
+                  {req.initialNote && (
+                    <View style={[styles.noteBox, { backgroundColor: isDark ? 'rgba(6, 21, 34, 0.60)' : 'rgba(237, 241, 247, 0.85)', borderColor: colors.border }]}>
+                      <Text style={[styles.noteText, { color: colors.textSecondary }]}>"{req.initialNote}"</Text>
+                    </View>
+                  )}
+
+                  {/* Accept / Decline Action Buttons */}
+                  <View style={styles.requestActionsRow}>
+                    <TouchableOpacity
+                      onPress={() => handleDecline(req.id)}
+                      style={[styles.declineBtn, { backgroundColor: colors.chipBg, borderColor: colors.border }]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.declineBtnText, { color: colors.textMuted }]}>Decline</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleAccept(req.id)}
+                      style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="checkmark-circle" size={17} color={colors.primaryText} style={{ marginRight: 6 }} />
+                      <Text style={[styles.acceptBtnText, { color: colors.primaryText }]}>Accept Connection</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <EmptyState
+                icon="mail-unread-outline"
+                title="No pending requests"
+                description="When other MaybeWe travelers reach out to join your trips, their connection requests will appear here."
+              />
+            )
+          )}
+        </ScrollView>
+      </View>
     </View>
   );
 }

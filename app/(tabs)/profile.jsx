@@ -82,15 +82,8 @@ const FAVORITE_DESTINATIONS = ['Kashmir', 'Ladakh', 'Kerala', 'Goa'];
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, logout, updateProfile, setThemePreference } = useAuth();
-  const { theme, isDark, colors, setTheme: setGlobalTheme } = useTheme();
-
-  const handleThemeChange = async (newTheme) => {
-    await setGlobalTheme(newTheme);
-    if (setThemePreference) {
-      await setThemePreference(newTheme);
-    }
-  };
+  const { profile, logout, updateProfile } = useAuth();
+  const { theme, isDark, colors } = useTheme();
 
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -115,21 +108,30 @@ export default function ProfileScreen() {
   }, [profile]);
 
   const handleLogout = () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out of MaybeWe?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/welcome');
+    const performLogout = async () => {
+      await logout();
+      router.replace('/(auth)/welcome');
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Are you sure you want to log out of MaybeWe?') : true;
+      if (confirmed) {
+        performLogout();
+      }
+    } else {
+      Alert.alert(
+        'Log Out',
+        'Are you sure you want to log out of MaybeWe?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Log Out',
+            style: 'destructive',
+            onPress: performLogout,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -152,7 +154,7 @@ export default function ProfileScreen() {
   const trustScore = profile?.trust_score || 4.95;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Full-Screen Cinematic Travel Photography Background */}
       <ImageBackground
         source={PROFILE_BG}
@@ -161,7 +163,7 @@ export default function ProfileScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(6, 21, 34, 0.45)', 'rgba(6, 21, 34, 0.72)', 'rgba(6, 21, 34, 0.94)']}
+          colors={colors.bgGradientOverlay}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -186,18 +188,18 @@ export default function ProfileScreen() {
 
           {/* Top Quick Actions */}
           <View style={[styles.topActionsBar, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
-            <View style={styles.topBadgePill}>
-              <Ionicons name="sparkles" size={13} color={COLORS.lavender} style={{ marginRight: 5 }} />
+            <View style={[styles.topBadgePill, { borderColor: colors.border }]}>
+              <Ionicons name="sparkles" size={13} color={colors.primary} style={{ marginRight: 5 }} />
               <Text style={styles.topBadgeText}>VERIFIED EXPLORER</Text>
             </View>
 
             <TouchableOpacity
               onPress={() => setEditModalVisible(true)}
-              style={styles.topEditIconBtn}
+              style={[styles.topEditIconBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : colors.surfaceElevated }]}
               activeOpacity={0.8}
               accessibilityLabel="Edit Profile"
             >
-              <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+              <Ionicons name="create-outline" size={18} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -215,23 +217,23 @@ export default function ProfileScreen() {
           </View>
 
           {/* Name & Age */}
-          <Text style={styles.userName}>
-            {displayName}, <Text style={styles.userAge}>{displayAge}</Text>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>
+            {displayName}, <Text style={[styles.userAge, { color: colors.textSecondary }]}>{displayAge}</Text>
           </Text>
 
           {/* Location */}
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={14} color={COLORS.peach} style={{ marginRight: 4 }} />
-            <Text style={styles.locationText}>{displayLocation}</Text>
+            <Text style={[styles.locationText, { color: colors.textSecondary }]}>{displayLocation}</Text>
           </View>
 
           {/* Trust Score Badge */}
-          <View style={[styles.trustScorePill, SHADOWS.card]}>
+          <View style={[styles.trustScorePill, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.card]}>
             <Ionicons name="star" size={14} color={COLORS.sunset} style={{ marginRight: 6 }} />
-            <Text style={styles.trustScoreNumber}>{Number(trustScore).toFixed(2)}</Text>
-            <Text style={styles.trustScoreLabel}>Trust Score</Text>
-            <View style={styles.trustDot} />
-            <Text style={styles.trustReviewCount}>18 Reviews</Text>
+            <Text style={[styles.trustScoreNumber, { color: colors.textPrimary }]}>{Number(trustScore).toFixed(2)}</Text>
+            <Text style={[styles.trustScoreLabel, { color: colors.textSecondary }]}>Trust Score</Text>
+            <View style={[styles.trustDot, { backgroundColor: colors.border }]} />
+            <Text style={[styles.trustReviewCount, { color: colors.textSecondary }]}>18 Reviews</Text>
           </View>
 
           {/* Action Row: Edit Profile, Verification, Settings */}
@@ -254,25 +256,25 @@ export default function ProfileScreen() {
 
             <TouchableOpacity
               onPress={() => router.push('/(auth)/verification')}
-              style={styles.secondaryActionBtn}
+              style={[styles.secondaryActionBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated, borderColor: colors.border }]}
               activeOpacity={0.8}
             >
-              <Ionicons name="shield-checkmark-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.secondaryActionText}>Verification</Text>
+              <Ionicons name="shield-checkmark-outline" size={15} color={colors.textPrimary} style={{ marginRight: 6 }} />
+              <Text style={[styles.secondaryActionText, { color: colors.textPrimary }]}>Verification</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => router.push('/settings')}
-              style={styles.settingsIconBtn}
+              style={[styles.settingsIconBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated }]}
               activeOpacity={0.8}
               accessibilityLabel="Settings"
             >
-              <Ionicons name="settings-outline" size={17} color="#FFFFFF" />
+              <Ionicons name="settings-outline" size={17} color={colors.textPrimary} />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleLogout}
-              style={styles.logoutIconBtn}
+              style={[styles.logoutIconBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated }]}
               activeOpacity={0.8}
               accessibilityLabel="Log Out"
             >
@@ -284,13 +286,13 @@ export default function ProfileScreen() {
         {/* SECTION 1: ABOUT ME */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionEyebrow}>ABOUT ME</Text>
-            <Ionicons name="person-outline" size={15} color="#FFFFFF" />
+            <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>ABOUT ME</Text>
+            <Ionicons name="person-outline" size={15} color={colors.textPrimary} />
           </View>
 
           {/* Bio Card */}
-          <View style={styles.bioCard}>
-            <Text style={styles.bioText}>
+          <View style={[styles.bioCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.bioText, { color: colors.textPrimary }]}>
               {profile?.bio ||
                 'Visual designer & coffee enthusiast wandering through architecture, quiet bookshops, and coastal hiking trails.'}
             </Text>
@@ -298,12 +300,12 @@ export default function ProfileScreen() {
 
           {/* Travel Styles */}
           <View style={styles.subCategoryBlock}>
-            <Text style={styles.subCategoryLabel}>TRAVEL STYLES</Text>
+            <Text style={[styles.subCategoryLabel, { color: colors.primary }]}>TRAVEL STYLES</Text>
             <View style={styles.chipCloud}>
               {TRAVEL_STYLES.map((style) => (
-                <View key={style} style={styles.styleChip}>
-                  <Ionicons name="sparkles" size={11} color={COLORS.lavender} style={{ marginRight: 5 }} />
-                  <Text style={styles.styleChipText}>{style}</Text>
+                <View key={style} style={[styles.styleChip, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Ionicons name="sparkles" size={11} color={colors.primary} style={{ marginRight: 5 }} />
+                  <Text style={[styles.styleChipText, { color: colors.textPrimary }]}>{style}</Text>
                 </View>
               ))}
             </View>
@@ -311,12 +313,12 @@ export default function ProfileScreen() {
 
           {/* Languages */}
           <View style={styles.subCategoryBlock}>
-            <Text style={styles.subCategoryLabel}>LANGUAGES SPOKEN</Text>
+            <Text style={[styles.subCategoryLabel, { color: colors.primary }]}>LANGUAGES SPOKEN</Text>
             <View style={styles.chipCloud}>
               {LANGUAGES.map((lang) => (
-                <View key={lang} style={styles.languageChip}>
+                <View key={lang} style={[styles.languageChip, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border }]}>
                   <Ionicons name="globe-outline" size={12} color={COLORS.peach} style={{ marginRight: 6 }} />
-                  <Text style={styles.languageChipText}>{lang}</Text>
+                  <Text style={[styles.languageChipText, { color: colors.textPrimary }]}>{lang}</Text>
                 </View>
               ))}
             </View>
@@ -324,11 +326,11 @@ export default function ProfileScreen() {
 
           {/* Interests */}
           <View style={styles.subCategoryBlock}>
-            <Text style={styles.subCategoryLabel}>INTERESTS & RHYTHMS</Text>
+            <Text style={[styles.subCategoryLabel, { color: colors.primary }]}>INTERESTS & RHYTHMS</Text>
             <View style={styles.chipCloud}>
               {INTERESTS.map((interest) => (
-                <View key={interest} style={styles.interestChip}>
-                  <Text style={styles.interestChipText}>{interest}</Text>
+                <View key={interest} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Text style={[styles.interestChipText, { color: colors.textPrimary }]}>{interest}</Text>
                 </View>
               ))}
             </View>
@@ -336,12 +338,12 @@ export default function ProfileScreen() {
 
           {/* Favorite Destinations */}
           <View style={styles.subCategoryBlock}>
-            <Text style={styles.subCategoryLabel}>FAVORITE DESTINATIONS</Text>
+            <Text style={[styles.subCategoryLabel, { color: colors.primary }]}>FAVORITE DESTINATIONS</Text>
             <View style={styles.chipCloud}>
               {FAVORITE_DESTINATIONS.map((dest) => (
-                <View key={dest} style={styles.destinationChip}>
+                <View key={dest} style={[styles.destinationChip, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : colors.surfaceElevated, borderColor: colors.border }]}>
                   <Ionicons name="pin" size={11} color={COLORS.sunset} style={{ marginRight: 5 }} />
-                  <Text style={styles.destinationChipText}>{dest}</Text>
+                  <Text style={[styles.destinationChipText, { color: colors.textPrimary }]}>{dest}</Text>
                 </View>
               ))}
             </View>
@@ -351,21 +353,21 @@ export default function ProfileScreen() {
         {/* SECTION 2: TRAVEL JOURNAL */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionEyebrow}>TRAVEL JOURNAL</Text>
-            <Ionicons name="images-outline" size={15} color={COLORS.lavender} />
+            <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>TRAVEL JOURNAL</Text>
+            <Ionicons name="images-outline" size={15} color={colors.primary} />
           </View>
-          <Text style={styles.sectionSubtitle}>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
             Memories, quiet observations, and paths crossed around the world.
           </Text>
 
           {/* Journal Entries Grid */}
           <View style={styles.journalList}>
             {JOURNAL_ENTRIES.map((entry) => (
-              <View key={entry.id} style={[styles.journalCard, SHADOWS.card]}>
+              <View key={entry.id} style={[styles.journalCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.card]}>
                 <View style={styles.journalImageWrap}>
                   <Image source={entry.image} style={styles.journalImage} resizeMode="cover" />
                   <LinearGradient
-                    colors={['transparent', 'rgba(6, 21, 34, 0.85)']}
+                    colors={['transparent', isDark ? 'rgba(6, 21, 34, 0.85)' : 'rgba(246, 248, 251, 0.85)']}
                     style={StyleSheet.absoluteFill}
                   />
                   <View style={styles.journalImageBadge}>
@@ -373,14 +375,14 @@ export default function ProfileScreen() {
                   </View>
                 </View>
 
-                <View style={styles.journalContent}>
+                <View style={[styles.journalContent, { backgroundColor: isDark ? 'rgba(10, 26, 40, 0.55)' : colors.surface }]}>
                   <View style={styles.journalHeaderRow}>
-                    <Text style={styles.journalDestination}>{entry.destination}</Text>
-                    <View style={styles.journalTagPill}>
-                      <Text style={styles.journalTagText}>{entry.tag}</Text>
+                    <Text style={[styles.journalDestination, { color: colors.textPrimary }]}>{entry.destination}</Text>
+                    <View style={[styles.journalTagPill, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.surfaceElevated, borderColor: colors.border }]}>
+                      <Text style={[styles.journalTagText, { color: colors.primary }]}>{entry.tag}</Text>
                     </View>
                   </View>
-                  <Text style={styles.journalCaption}>{entry.caption}</Text>
+                  <Text style={[styles.journalCaption, { color: colors.textSecondary }]}>{entry.caption}</Text>
                 </View>
               </View>
             ))}
@@ -390,17 +392,17 @@ export default function ProfileScreen() {
         {/* SECTION 3: VERIFICATION & COMMUNITY TRUST */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionEyebrow}>VERIFICATION & TRUST</Text>
-            <Ionicons name="shield-outline" size={15} color={COLORS.lavender} />
+            <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>VERIFICATION & TRUST</Text>
+            <Ionicons name="shield-outline" size={15} color={colors.primary} />
           </View>
 
           {/* Trust Meter Card */}
-          <View style={styles.trustMeterCard}>
+          <View style={[styles.trustMeterCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
             <View style={styles.meterHeaderRow}>
-              <Text style={styles.meterTitle}>Profile Completeness</Text>
-              <Text style={styles.meterPercent}>95%</Text>
+              <Text style={[styles.meterTitle, { color: colors.textPrimary }]}>Profile Completeness</Text>
+              <Text style={[styles.meterPercent, { color: colors.primary }]}>95%</Text>
             </View>
-            <View style={styles.progressBarBg}>
+            <View style={[styles.progressBarBg, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)' }]}>
               <LinearGradient
                 colors={GRADIENTS.lavenderViolet}
                 start={{ x: 0, y: 0 }}
@@ -408,121 +410,31 @@ export default function ProfileScreen() {
                 style={[styles.progressBarFill, { width: '95%' }]}
               />
             </View>
-            <Text style={styles.meterHint}>
+            <Text style={[styles.meterHint, { color: colors.textSecondary }]}>
               ID verified • 3 connected accounts • 4 verified past journeys
             </Text>
           </View>
 
           {/* Stats Bar */}
-          <View style={styles.statsBar}>
+          <View style={[styles.statsBar, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>12</Text>
-              <Text style={styles.statLabel}>Trips Logged</Text>
+              <Text style={[styles.statNumber, { color: colors.textPrimary }]}>12</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Trips Logged</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>18</Text>
-              <Text style={styles.statLabel}>Destinations</Text>
+              <Text style={[styles.statNumber, { color: colors.textPrimary }]}>18</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Destinations</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>4.95</Text>
-              <Text style={styles.statLabel}>Avg Trust</Text>
+              <Text style={[styles.statNumber, { color: colors.textPrimary }]}>4.95</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avg Trust</Text>
             </View>
           </View>
         </View>
 
-        {/* SECTION 4: APPEARANCE & THEME SETTINGS */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionEyebrow}>APPEARANCE & SETTINGS</Text>
-            <Ionicons name="color-palette-outline" size={15} color={isDark ? '#FFFFFF' : '#061522'} />
-          </View>
-          <Text style={styles.sectionSubtitle}>
-            Customize your MaybeWe interface aesthetics and view mode.
-          </Text>
 
-          {/* Theme Selector Card */}
-          <View
-            style={[
-              styles.themeSettingsCard,
-              {
-                backgroundColor: isDark ? 'rgba(16, 40, 58, 0.72)' : 'rgba(255, 255, 255, 0.90)',
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(6, 21, 34, 0.12)',
-              },
-            ]}
-          >
-            <View style={styles.themeSettingsHeader}>
-              <Text style={[styles.themeSettingsTitle, { color: isDark ? '#FFFFFF' : '#061522' }]}>
-                App Theme
-              </Text>
-              <Text style={[styles.themeSettingsDesc, { color: isDark ? 'rgba(255, 255, 255, 0.70)' : '#334E68' }]}>
-                {theme === 'dark' ? 'Dark Theme active (deep cinematic navy)' : 'Light Theme active (crisp, clean daytime)'}
-              </Text>
-            </View>
-
-            {/* Segmented Dual Option Buttons */}
-            <View style={[styles.themeToggleRow, { backgroundColor: isDark ? 'rgba(6, 21, 34, 0.60)' : 'rgba(6, 21, 34, 0.06)' }]}>
-              <TouchableOpacity
-                onPress={() => handleThemeChange('dark')}
-                style={[
-                  styles.themeOptionBtn,
-                  theme === 'dark' && styles.themeOptionBtnActiveDark,
-                ]}
-                activeOpacity={0.8}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: theme === 'dark' }}
-                accessibilityLabel="Switch to Dark Theme"
-              >
-                <Ionicons
-                  name="moon"
-                  size={15}
-                  color={theme === 'dark' ? '#061522' : 'rgba(255, 255, 255, 0.70)'}
-                  style={{ marginRight: 6 }}
-                />
-                <Text
-                  style={[
-                    styles.themeOptionText,
-                    theme === 'dark'
-                      ? styles.themeOptionTextActiveDark
-                      : { color: isDark ? 'rgba(255, 255, 255, 0.70)' : '#627D98' },
-                  ]}
-                >
-                  Dark
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleThemeChange('light')}
-                style={[
-                  styles.themeOptionBtn,
-                  theme === 'light' && styles.themeOptionBtnActiveLight,
-                ]}
-                activeOpacity={0.8}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: theme === 'light' }}
-                accessibilityLabel="Switch to Light Theme"
-              >
-                <Ionicons
-                  name="sunny"
-                  size={16}
-                  color={theme === 'light' ? '#FFFFFF' : (isDark ? 'rgba(255, 255, 255, 0.70)' : '#627D98')}
-                  style={{ marginRight: 6 }}
-                />
-                <Text
-                  style={[
-                    styles.themeOptionText,
-                    theme === 'light'
-                      ? styles.themeOptionTextActiveLight
-                      : { color: isDark ? 'rgba(255, 255, 255, 0.70)' : '#627D98' },
-                  ]}
-                >
-                  Light
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -532,30 +444,30 @@ export default function ProfileScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalRoot}>
-          <View style={styles.modalHeader}>
+        <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>Edit Profile</Text>
+            <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Edit Profile</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <ScrollView contentContainerStyle={styles.editModalBody} showsVerticalScrollIndicator={false}>
             {/* Avatar Preset Selector */}
-            <Text style={styles.formLabel}>CHOOSE AVATAR PRESET</Text>
+            <Text style={[styles.formLabel, { color: colors.primary }]}>CHOOSE AVATAR PRESET</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetScroll}>
               {AVATAR_PRESETS.map((uri, idx) => (
                 <TouchableOpacity
                   key={idx}
                   onPress={() => setEditAvatar(uri)}
-                  style={[styles.presetItem, editAvatar === uri && styles.presetItemActive]}
+                  style={[styles.presetItem, { borderColor: colors.border }, editAvatar === uri && [styles.presetItemActive, { borderColor: colors.primary }]]}
                   activeOpacity={0.8}
                 >
                   <Image source={{ uri }} style={styles.presetImg} />
                   {editAvatar === uri && (
-                    <View style={styles.presetCheck}>
-                      <Ionicons name="checkmark" size={12} color="#061522" />
+                    <View style={[styles.presetCheck, { backgroundColor: colors.primary }]}>
+                      <Ionicons name="checkmark" size={12} color={colors.primaryText} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -563,7 +475,7 @@ export default function ProfileScreen() {
             </ScrollView>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>NAME</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>NAME</Text>
               <InputField
                 value={editName}
                 onChangeText={setEditName}
@@ -573,7 +485,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>AGE</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>AGE</Text>
               <InputField
                 value={editAge}
                 onChangeText={setEditAge}
@@ -584,7 +496,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>LOCATION</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>LOCATION</Text>
               <InputField
                 value={editLocation}
                 onChangeText={setEditLocation}
@@ -594,7 +506,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>ABOUT YOU (BIO)</Text>
+              <Text style={[styles.formLabel, { color: colors.primary }]}>ABOUT YOU (BIO)</Text>
               <InputField
                 value={editBio}
                 onChangeText={setEditBio}
@@ -1205,57 +1117,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#061522',
     letterSpacing: 0.1,
-  },
-  themeSettingsCard: {
-    borderRadius: RADII.xl,
-    padding: 18,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  themeSettingsHeader: {
-    marginBottom: 14,
-  },
-  themeSettingsTitle: {
-    fontFamily: FONTS.bold,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  themeSettingsDesc: {
-    fontFamily: FONTS.regular,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  themeToggleRow: {
-    flexDirection: 'row',
-    borderRadius: RADII.lg,
-    padding: 4,
-  },
-  themeOptionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: RADII.md,
-  },
-  themeOptionBtnActiveDark: {
-    backgroundColor: '#FFFFFF',
-    ...SHADOWS.soft,
-  },
-  themeOptionBtnActiveLight: {
-    backgroundColor: '#061522',
-    ...SHADOWS.soft,
-  },
-  themeOptionText: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  themeOptionTextActiveDark: {
-    color: '#061522',
-  },
-  themeOptionTextActiveLight: {
-    color: '#FFFFFF',
   },
 });
