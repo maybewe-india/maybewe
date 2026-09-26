@@ -7,7 +7,7 @@ console.log('🧪 RUNNING MAYBEWE UNIT & INTEGRATION TESTS...\n');
 
 // 1. CHAT SAFETY SCANNER TESTS
 console.log('--- 1. Testing In-Chat Safety Scanner (lib/safety.js) ---');
-const { scanMessageForSafety } = require('../lib/safety');
+const { scanMessageForSafety } = require('../frontend/lib/safety');
 
 // Test phone detection
 const phoneTest1 = scanMessageForSafety('Call me at 9876543210 when you land');
@@ -42,7 +42,7 @@ console.log('✅ In-Chat Safety Scanner passed all 6 test cases.\n');
 
 // 2. DISCOVERY & DATE OVERLAP MATCHING TESTS
 console.log('--- 2. Testing Discovery Date Overlap Algorithm ---');
-const { calculateCompatibility } = require('../lib/discovery');
+const { calculateCompatibility } = require('../frontend/lib/discovery');
 
 function checkDateOverlap(tripAFrom, tripATo, tripBFrom, tripBTo) {
   const aStart = new Date(tripAFrom);
@@ -73,7 +73,7 @@ console.log(`✅ Date overlap algorithm and compatibility scoring (${compatScore
 
 // 3. DATABASE MIGRATION & RLS VERIFICATION
 console.log('--- 3. Verifying SQL Schema, Indexes, RLS & RPC ---');
-const sqlPath = path.join(__dirname, '../supabase/migrations/01_initial_schema.sql');
+const sqlPath = path.join(__dirname, '../backend/supabase/migrations/01_initial_schema.sql');
 const sqlContent = fs.readFileSync(sqlPath, 'utf8');
 
 const requiredTables = ['public.users', 'public.travel_history', 'public.trips', 'public.matches', 'public.messages', 'public.reviews', 'public.reports'];
@@ -168,7 +168,7 @@ console.log('--- 6. Asserting Zero User-Facing "Solo Traveler" Strings in UI ---
 function checkBrandIntegrity(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'test' || entry.name === 'supabase') continue;
+    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'test' || entry.name === 'supabase' || entry.name === 'backend') continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       checkBrandIntegrity(full);
@@ -185,13 +185,13 @@ function checkBrandIntegrity(dir) {
     }
   }
 }
-checkBrandIntegrity(path.join(__dirname, '../app'));
-checkBrandIntegrity(path.join(__dirname, '../components'));
+checkBrandIntegrity(path.join(__dirname, '../frontend/app'));
+checkBrandIntegrity(path.join(__dirname, '../frontend/components'));
 console.log('✅ Verified MaybeWe brand integrity across all UI screens and components.\n');
 
 // 7. THEME SYSTEM & PERSISTENCE TESTS
 console.log('--- 7. Testing Theme System & Preferences ---');
-const themePath = path.join(__dirname, '../lib/theme.js');
+const themePath = path.join(__dirname, '../frontend/lib/theme.js');
 const themeContent = fs.readFileSync(themePath, 'utf8');
 
 assert.ok(themeContent.includes('export const DARK_COLORS = {'), 'lib/theme.js must export DARK_COLORS');
@@ -204,14 +204,14 @@ assert.ok(themeContent.includes("background: '#F6F8FB'"), 'Light theme backgroun
 assert.ok(themeContent.includes("textPrimary: '#061522'"), 'Light theme textPrimary must be #061522');
 
 // Check themeContext
-const themeContextPath = path.join(__dirname, '../lib/themeContext.jsx');
+const themeContextPath = path.join(__dirname, '../frontend/lib/themeContext.jsx');
 assert.ok(fs.existsSync(themeContextPath), 'lib/themeContext.jsx must exist');
 const themeContextContent = fs.readFileSync(themeContextPath, 'utf8');
 assert.ok(themeContextContent.includes('ThemeProvider'), 'themeContext must export ThemeProvider');
 assert.ok(themeContextContent.includes('useTheme'), 'themeContext must export useTheme');
 
 // Check migration file
-const migration2Path = path.join(__dirname, '../supabase/migrations/02_theme_preference.sql');
+const migration2Path = path.join(__dirname, '../backend/supabase/migrations/02_theme_preference.sql');
 assert.ok(fs.existsSync(migration2Path), '02_theme_preference.sql migration must exist');
 const mig2Content = fs.readFileSync(migration2Path, 'utf8');
 assert.ok(mig2Content.includes('theme_preference'), 'Migration must alter users with theme_preference');
@@ -221,7 +221,7 @@ console.log('✅ Theme system tokens, dual palettes, ThemeContext, and database 
 
 // 8. INDIA LOCALIZATION VERIFICATION
 console.log('--- 8. Verifying India Localization ---');
-const indiaDataPath = path.join(__dirname, '../lib/indiaData.js');
+const indiaDataPath = path.join(__dirname, '../frontend/lib/indiaData.js');
 assert.ok(fs.existsSync(indiaDataPath), 'lib/indiaData.js must exist');
 
 // Read and evaluate indiaData.js exports via regex checks
@@ -259,7 +259,7 @@ assert.ok(indiaContent.includes('₹1,00,000'), 'Budget ranges must include ₹1
 assert.ok(indiaContent.includes("'en-IN'"), 'Formatters must use en-IN locale');
 
 // Demo data India verification
-const demoDataPath = path.join(__dirname, '../lib/demoData.js');
+const demoDataPath = path.join(__dirname, '../frontend/lib/demoData.js');
 const demoContent = fs.readFileSync(demoDataPath, 'utf8');
 
 // No international destinations in demo data
@@ -285,13 +285,13 @@ requiredIndianDests.forEach(dest => {
 });
 
 // Signup must import from indiaData
-const signupPath = path.join(__dirname, '../app/(auth)/signup.jsx');
+const signupPath = path.join(__dirname, '../frontend/app/(auth)/signup.jsx');
 const signupContent = fs.readFileSync(signupPath, 'utf8');
 assert.ok(signupContent.includes("from '../../lib/indiaData'"), 'signup.jsx must import from indiaData');
 assert.ok(signupContent.includes('INDIAN_LANGUAGES'), 'signup.jsx must use INDIAN_LANGUAGES');
 
 // Trips must use en-IN date formatting
-const tripsPath = path.join(__dirname, '../app/(tabs)/trips.jsx');
+const tripsPath = path.join(__dirname, '../frontend/app/(tabs)/trips.jsx');
 const tripsContent = fs.readFileSync(tripsPath, 'utf8');
 assert.ok(tripsContent.includes('formatTripDateRangeIN'), 'trips.jsx must use formatTripDateRangeIN (en-IN)');
 
@@ -299,7 +299,7 @@ console.log('✅ India localization verified: indiaData.js, Indian states/destin
 
 // 9. VERIFICATION DECISION SECURITY ARCHITECTURE ASSERTIONS
 console.log('--- 9. Testing Verification Decision Security Architecture ---');
-const authContextPath = path.join(__dirname, '../lib/authContext.jsx');
+const authContextPath = path.join(__dirname, '../frontend/lib/authContext.jsx');
 const authContextContent = fs.readFileSync(authContextPath, 'utf8');
 
 // Assert live mode submission is strictly pending
@@ -309,14 +309,14 @@ assert.ok(authContextContent.includes('checkVerificationStatus'), 'authContext m
 assert.ok(authContextContent.includes("status === 'verified'"), 'setVerificationStatus must guard against client self-verification');
 
 // Assert verification screen does not self-verify
-const verificationScreenPath = path.join(__dirname, '../app/(auth)/verification.jsx');
+const verificationScreenPath = path.join(__dirname, '../frontend/app/(auth)/verification.jsx');
 const verificationScreenContent = fs.readFileSync(verificationScreenPath, 'utf8');
 assert.ok(!verificationScreenContent.includes("submitVerification(selfieUri, 'verified')"), 'verification.jsx must NOT pass verified outcome to submitVerification');
 assert.ok(!verificationScreenContent.includes("setVerificationStatus('verified')"), 'verification.jsx must NOT call setVerificationStatus(verified)');
 assert.ok(verificationScreenContent.includes('checkVerificationStatus'), 'verification.jsx must use checkVerificationStatus');
 
 // Assert mandatory verification guard in _layout.jsx
-const layoutPath = path.join(__dirname, '../app/_layout.jsx');
+const layoutPath = path.join(__dirname, '../frontend/app/_layout.jsx');
 const layoutContent = fs.readFileSync(layoutPath, 'utf8');
 assert.ok(layoutContent.includes("profile?.verification_status === 'verified'"), 'Navigation guard must require verification_status === verified');
 assert.ok(layoutContent.includes("router.replace('/(auth)/verification')"), 'Unverified/pending users must be routed to verification screen');

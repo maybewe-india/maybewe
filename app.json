@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "scheme": "solo-traveler",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./frontend/assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -18,9 +18,9 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./frontend/assets/android-icon-foreground.png",
+        "backgroundImage": "./frontend/assets/android-icon-background.png",
+        "monochromeImage": "./frontend/assets/android-icon-monochrome.png"
       },
       "permissions": [
         "CAMERA",
@@ -31,11 +31,16 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./frontend/assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "root": "./frontend/app"
+        }
+      ],
       [
         "expo-camera",
         {

@@ -1,0 +1,128 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FONTS, RADII } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
+
+export default function GradientHeader({
+  title,
+  subtitle,
+  rightIcon,
+  rightAction,
+  leftIcon,
+  leftAction,
+  transparent = false,
+  style,
+}) {
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.container,
+        transparent ? styles.transparent : [styles.solid, { backgroundColor: colors.background, borderBottomColor: colors.border }],
+        { paddingTop: insets.top + 10 },
+        style,
+      ]}
+    >
+      <View style={styles.inner}>
+        {leftIcon && leftAction ? (
+          <TouchableOpacity
+            onPress={leftAction}
+            style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back or action"
+          >
+            <Ionicons name={leftIcon} size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconPlaceholder} />
+        )}
+
+        <View style={styles.titleBlock}>
+          {subtitle ? (
+            <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+          <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
+
+        {rightIcon && rightAction ? (
+          <TouchableOpacity
+            onPress={rightAction}
+            style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Action"
+          >
+            <Ionicons name={rightIcon} size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconPlaceholder} />
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    paddingBottom: 14,
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  solid: {
+    borderBottomWidth: 1,
+  },
+  transparent: {
+    backgroundColor: 'transparent',
+  },
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(251, 250, 247, 0.85)',
+    borderColor: 'rgba(215, 210, 200, 0.65)',
+  },
+  iconPlaceholder: {
+    width: 38,
+  },
+  titleBlock: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  subtitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  title: {
+    fontFamily: FONTS.bold,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+});

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./frontend/*"],
+      "@/app/*": ["./frontend/app/*"],
+      "@/components/*": ["./frontend/components/*"],
+      "@/lib/*": ["./frontend/lib/*"],
+      "@/data/*": ["./frontend/data/*"],
+      "@/assets/*": ["./frontend/assets/*"],
+      "@/hooks/*": ["./frontend/hooks/*"],
+      "@/utils/*": ["./frontend/utils/*"],
+      "@/styles/*": ["./frontend/styles/*"]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
