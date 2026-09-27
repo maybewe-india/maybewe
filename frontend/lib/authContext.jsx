@@ -891,12 +891,25 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Submit verification selfie - uploads image to private storage bucket, records pending submission in user_verifications, and sets profile status to pending
-  // NOTE: Normal clients can ONLY transition to 'pending'. Real verification decisions ('verified'/'failed'/'rejected') are strictly reserved for trusted backend/service_role.
+  // Submit verification selfie - uploads image to private storage bucket, calls validate-selfie Edge Function,
+  // and updates user profile based on Google Cloud Vision face detection.
+  // Rules:
+  // - Exactly 1 face -> VERIFIED
+  // - 0 faces -> FAILED ("No face detected. Please upload a clear photo showing your face.")
+  // - >1 faces -> FAILED ("Multiple faces detected. Please upload a photo with only you visible.")
   const submitVerification = async (selfieUri) => {
     try {
       if (!selfieUri) {
         throw new Error('Please capture your selfie before submitting verification.');
+      }
+
+      // Guard: stock photos or placeholder images cannot be submitted
+      if (selfieUri.includes('unsplash.com') || selfieUri.includes('placeholder')) {
+        return {
+          success: false,
+          status: 'failed',
+          error: 'Stock photos or placeholder images cannot be submitted for verification. Please take a real selfie with your camera.',
+        };
       }
 
       if (isSupabaseConfigured && session?.user) {
@@ -913,6 +926,7 @@ export function AuthProvider({ children }) {
           console.warn('Error reading selfie URI for upload:', fetchErr);
           return {
             success: false,
+            status: 'failed',
             error: 'Failed to process verification selfie image. Please recapture and try again.',
           };
         }
@@ -927,72 +941,15 @@ export function AuthProvider({ children }) {
 
         if (uploadError) {
           console.warn('Verification selfie upload failed:', uploadError.message);
-          // If upload fails, do NOT mark submission. Return clear error.
           return {
             success: false,
+            status: 'failed',
             error: `Failed to upload verification selfie: ${uploadError.message || 'Storage error'}. Please retry.`,
           };
         }
 
-        // Guard: stock photos or placeholder images cannot be submitted in live verification mode
-        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
-        if (!isDemo && selfieUri?.includes('unsplash.com')) {
-          return {
-            success: false,
-            error: 'Stock photos or placeholder images cannot be submitted for live verification. Please take a real selfie with your camera.',
-          };
-        }
-
-        // 3. Record verification in user_verifications and public.users
-        if (isDemo) {
-          const nowIso = new Date().toISOString();
-          // Attempt development-approved upsert to public.user_verifications
-          const { error: devVerifErr } = await supabase
-            .from('user_verifications')
-            .upsert({
-              user_id: userId,
-              selfie_path: selfiePath,
-              status: 'verified',
-              submitted_at: nowIso,
-              reviewed_at: nowIso,
-            }, { onConflict: 'user_id' });
-
-          // If production RLS blocks 'verified' status, record as 'pending' so record is safely preserved
-          if (devVerifErr) {
-            await supabase
-              .from('user_verifications')
-              .upsert({
-                user_id: userId,
-                selfie_path: selfiePath,
-                status: 'pending',
-                submitted_at: nowIso,
-                reviewed_at: null,
-              }, { onConflict: 'user_id' });
-          }
-
-          // Attempt development-approved update to public.users
-          await supabase
-            .from('users')
-            .update({
-              verification_status: 'verified',
-              verified_at: nowIso,
-            })
-            .eq('id', userId);
-
-          // Update local profile and persistent storage for development mode
-          await AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true');
-          setProfile((prev) => ({
-            ...prev,
-            verification_status: 'verified',
-            verified_at: nowIso,
-          }));
-
-          return { success: true, status: 'verified', isDemo: true };
-        }
-
-        // Live Supabase mode: submission is strictly pending
-        // Enforced by PostgreSQL RLS: normal authenticated users can ONLY insert/update status as 'pending'
-        const { error: verifError } = await supabase
+        // 3. Record pending state in user_verifications and user profile
+        await supabase
           .from('user_verifications')
           .upsert({
             user_id: userId,
@@ -1002,46 +959,94 @@ export function AuthProvider({ children }) {
             reviewed_at: null,
           }, { onConflict: 'user_id' });
 
-        if (verifError) {
-          console.warn('Error recording private verification record:', verifError);
-          return {
-            success: false,
-            error: `Verification record error: ${verifError.message || 'Database error'}.`,
-          };
-        }
-
-        // 4. Update public profile verification status to 'pending' (RLS prevents client from setting 'verified')
-        const profileUpdateRes = await updateProfile({
+        await updateProfile({
           verification_status: 'pending',
         });
 
-        if (!profileUpdateRes?.success) {
-          console.warn('Profile update failed during verification submission:', profileUpdateRes?.error);
+        // Isolated demo mode check (only active if explicitly set to 'demo')
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+        if (isDemo) {
+          const nowIso = new Date().toISOString();
+          await AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true');
+          setProfile((prev) => ({
+            ...prev,
+            verification_status: 'verified',
+            verified_at: nowIso,
+          }));
+          return { success: true, status: 'verified', faceCount: 1, isDemo: true };
+        }
+
+        // 4. Call server-side 'validate-selfie' Edge Function
+        const { data: edgeData, error: edgeError } = await supabase.functions.invoke('validate-selfie', {
+          body: { selfiePath },
+        });
+
+        if (edgeError) {
+          console.warn('validate-selfie invocation error:', edgeError);
           return {
             success: false,
-            error: profileUpdateRes?.error || 'Verification selfie uploaded, but could not link to user profile. Your profile is missing or incomplete.',
+            status: 'failed',
+            error: edgeError.message || 'Face verification service unavailable. Please retry.',
           };
         }
 
-        return { success: true, status: 'pending', isDemo: false };
-      } else {
-        // =========================================================================
-        // DEMO MODE ONLY (Offline / Development Simulation)
-        // IMPORTANT: In production, taking/uploading a selfie does NOT constitute
-        // identity verification. In demo mode, we simulate an immediate verification
-        // result solely to allow offline developers to preview Theme Selection and
-        // downstream application screens without an external moderation backend.
-        // =========================================================================
-        const simulatedVerifiedAt = new Date().toISOString();
-        const updates = {
-          verification_status: 'verified',
-          verified_at: simulatedVerifiedAt,
+        if (edgeData?.success && edgeData?.status === 'verified') {
+          // Re-fetch profile from database to reflect server-side verification status and timestamp
+          await fetchProfile(userId);
+          return {
+            success: true,
+            status: 'verified',
+            faceCount: 1,
+            message: edgeData.message || 'Face verified successfully. Welcome to MaybeWe!',
+          };
+        }
+
+        // Specific rejection responses from server-side face detection
+        if (edgeData?.faceCount === 0) {
+          return {
+            success: false,
+            status: 'failed',
+            faceCount: 0,
+            error: 'No face detected. Please upload a clear photo showing your face.',
+          };
+        }
+
+        if (edgeData?.faceCount > 1) {
+          return {
+            success: false,
+            status: 'failed',
+            faceCount: edgeData.faceCount,
+            error: 'Multiple faces detected. Please upload a photo with only you visible.',
+          };
+        }
+
+        return {
+          success: false,
+          status: edgeData?.status || 'failed',
+          faceCount: edgeData?.faceCount,
+          error: edgeData?.error || 'Face verification could not verify your photo. Please retry.',
         };
-        await updateProfile(updates);
-        return { success: true, status: 'verified', isDemo: true, simulated: true };
+      } else {
+        // Isolated offline development fallback
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+        if (isDemo) {
+          const simulatedVerifiedAt = new Date().toISOString();
+          const updates = {
+            verification_status: 'verified',
+            verified_at: simulatedVerifiedAt,
+          };
+          await updateProfile(updates);
+          return { success: true, status: 'verified', faceCount: 1, isDemo: true, simulated: true };
+        }
+
+        return {
+          success: false,
+          status: 'failed',
+          error: 'Verification service requires an active network session.',
+        };
       }
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, status: 'failed', error: error.message };
     }
   };
 

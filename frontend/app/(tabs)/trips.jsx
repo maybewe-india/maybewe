@@ -28,6 +28,7 @@ import { useTheme } from '../../lib/themeContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import CalendarPickerModal from '../../components/ui/CalendarPickerModal';
 import { getDestinationImage, resolveDestinationImageUri } from '../../lib/destinationImageResolver';
+import TripTimelineView from '../../components/TripTimelineView';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const TRIPS_STORAGE_KEY = '@solo_traveler_stored_trips';
@@ -546,74 +547,23 @@ export default function TripsScreen() {
         )}
       </ScrollView>
 
-      {/* View Trip Details Modal */}
+      {/* View Trip Details Modal — Trip Planner Plus */}
       <Modal
         visible={viewModalVisible}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setViewModalVisible(false)}
       >
-        <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
-          {selectedTrip && (
-            <>
-              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => setViewModalVisible(false)} style={styles.modalCloseBtn}>
-                  <Ionicons name="close" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Trip Itinerary</Text>
-                <TouchableOpacity onPress={() => { setViewModalVisible(false); openEditModal(selectedTrip); }}>
-                  <Text style={[styles.modalHeaderAction, { color: colors.primary }]}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView contentContainerStyle={styles.viewModalBody} showsVerticalScrollIndicator={false}>
-                <View style={styles.viewModalHero}>
-                  <Image
-                    source={getDestinationImage(selectedTrip.destination, selectedTrip.cover_url)}
-                    style={styles.viewModalImage}
-                    resizeMode="cover"
-                  />
-                  <LinearGradient
-                    colors={['transparent', 'rgba(246, 248, 251, 0.95)']}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <View style={styles.viewModalHeroInfo}>
-                    <Text style={[styles.viewModalDestination, { color: colors.textPrimary }]}>{selectedTrip.destination}</Text>
-                    <Text style={styles.viewModalDates}>{formatTripDates(selectedTrip.date_from, selectedTrip.date_to)}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.viewModalCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
-                  <Text style={[styles.viewModalSectionTitle, { color: colors.primary }]}>TRIP STYLE</Text>
-                  <Text style={[styles.viewModalSectionText, { color: colors.textPrimary }]}>{selectedTrip.travel_style || 'Culture & Food'}</Text>
-                </View>
-
-                <View style={[styles.viewModalCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
-                  <Text style={[styles.viewModalSectionTitle, { color: colors.primary }]}>LOOKING FOR</Text>
-                  <Text style={[styles.viewModalSectionText, { color: colors.textPrimary }]}>{selectedTrip.looking_for}</Text>
-                </View>
-
-                <View style={[styles.viewModalCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
-                  <Text style={[styles.viewModalSectionTitle, { color: colors.primary }]}>COMPATIBLE TRAVELERS</Text>
-                  <Text style={[styles.viewModalSectionSubtitle, { color: colors.textSecondary }]}>
-                    {selectedTrip.matched_count || 3} travelers are visiting {selectedTrip.destination?.split(',')[0]} during your dates.
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.findBuddiesBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}
-                    onPress={() => {
-                      setViewModalVisible(false);
-                      router.push('/(tabs)/discovery');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="sparkles" size={15} color="#0F172A" style={{ marginRight: 6 }} />
-                    <Text style={[styles.findBuddiesBtnText, { color: '#0F172A' }]}>Browse Overlapping Travelers</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </>
-          )}
-        </View>
+        {selectedTrip && (
+          <TripTimelineView
+            trip={selectedTrip}
+            onClose={() => setViewModalVisible(false)}
+            onEditTrip={() => {
+              setViewModalVisible(false);
+              openEditModal(selectedTrip);
+            }}
+          />
+        )}
       </Modal>
 
       {/* Plan A Trip Modal */}

@@ -486,3 +486,7 @@ export const POPULAR_PLACES = [
     rating: 4.93,
   },
 ];
+
+export function getDemoTravelers() {
+  return [...DEMO_TRAVELERS];
+}

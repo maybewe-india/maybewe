@@ -21,6 +21,12 @@ import SkeletonCard from '../../components/ui/SkeletonCard';
 import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../lib/authContext';
 import { getMatches, updateMatchStatus } from '../../lib/matches';
+import HangoutsListView from '../../components/HangoutsListView.jsx';
+import CreateHangoutModal from '../../components/CreateHangoutModal.jsx';
+import HangoutDetailModal from '../../components/HangoutDetailModal.jsx';
+import AddToTripModal from '../../components/AddToTripModal.jsx';
+import PlaceDetailModal from '../../components/PlaceDetailModal.jsx';
+import ChatInboxView from '../../components/ChatInboxView.jsx';
 
 export default function MatchesScreen() {
   const router = useRouter();
@@ -28,10 +34,17 @@ export default function MatchesScreen() {
   const { user } = useAuth();
   const { colors, isDark } = useTheme();
 
+  const [mainSection, setMainSection] = useState('chats'); // 'chats' | 'hangouts'
   const [activeTab, setActiveTab] = useState('connections'); // 'connections' | 'requests'
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [createHangoutVisible, setCreateHangoutVisible] = useState(false);
+  const [selectedHangout, setSelectedHangout] = useState(null);
+  const [addToTripPlace, setAddToTripPlace] = useState(null);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [hangoutsKey, setHangoutsKey] = useState(0);
 
   const fetchMatches = useCallback(async () => {
     try {
@@ -102,139 +115,119 @@ export default function MatchesScreen() {
           rightAction={() => router.push('/(auth)/guidelines')}
         />
 
-        {/* Segmented Control Tabs */}
-        <View style={styles.tabBarWrapper}>
-          <View style={[styles.tabBar, { backgroundColor: 'rgba(251, 250, 247, 0.92)', borderColor: '#D7D2C8', borderWidth: 1 }]}>
+        {/* Main Section Switcher: Inbox & Circles vs Hangouts vs Requests */}
+        <View style={styles.mainSwitcherWrapper}>
+          <View style={[styles.mainSwitcherContainer, { backgroundColor: 'rgba(251, 250, 247, 0.95)', borderColor: '#D7D2C8' }]}>
             <TouchableOpacity
-              onPress={() => setActiveTab('connections')}
+              onPress={() => setMainSection('chats')}
               style={[
-                styles.tabBtn,
-                activeTab === 'connections' && [styles.activeTabBtn, { backgroundColor: '#171817', borderColor: '#171817' }],
+                styles.mainSwitcherBtn,
+                mainSection === 'chats' && styles.mainSwitcherBtnActive,
               ]}
               activeOpacity={0.8}
             >
+              <Ionicons
+                name="chatbubbles"
+                size={14}
+                color={mainSection === 'chats' ? '#FAF8F3' : '#756345'}
+                style={{ marginRight: 5 }}
+              />
               <Text
                 style={[
-                  styles.tabBtnText,
-                  { color: '#77766F' },
-                  activeTab === 'connections' && [styles.activeTabBtnText, { color: '#FBFAF7' }],
+                  styles.mainSwitcherTxt,
+                  mainSection === 'chats' && styles.mainSwitcherTxtActive,
                 ]}
               >
-                Connections ({connections.length})
+                Inbox & Circles
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setActiveTab('requests')}
+              onPress={() => setMainSection('hangouts')}
               style={[
-                styles.tabBtn,
-                activeTab === 'requests' && [styles.activeTabBtn, { backgroundColor: '#171817', borderColor: '#171817' }],
+                styles.mainSwitcherBtn,
+                mainSection === 'hangouts' && styles.mainSwitcherBtnActive,
               ]}
               activeOpacity={0.8}
             >
+              <Ionicons
+                name="wine"
+                size={14}
+                color={mainSection === 'hangouts' ? '#FAF8F3' : '#756345'}
+                style={{ marginRight: 5 }}
+              />
               <Text
                 style={[
-                  styles.tabBtnText,
-                  { color: '#77766F' },
-                  activeTab === 'requests' && [styles.activeTabBtnText, { color: '#FBFAF7' }],
+                  styles.mainSwitcherTxt,
+                  mainSection === 'hangouts' && styles.mainSwitcherTxtActive,
                 ]}
               >
-                Requests ({pendingRequests.length})
+                Hangouts
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setMainSection('requests')}
+              style={[
+                styles.mainSwitcherBtn,
+                mainSection === 'requests' && styles.mainSwitcherBtnActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={14}
+                color={mainSection === 'requests' ? '#FAF8F3' : '#756345'}
+                style={{ marginRight: 5 }}
+              />
+              <Text
+                style={[
+                  styles.mainSwitcherTxt,
+                  mainSection === 'requests' && styles.mainSwitcherTxtActive,
+                ]}
+              >
+                Requests {pendingRequests.length > 0 ? `(${pendingRequests.length})` : ''}
               </Text>
               {pendingRequests.length > 0 && <View style={[styles.tabNotificationDot, { backgroundColor: '#B99A5E' }]} />}
             </TouchableOpacity>
           </View>
         </View>
 
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollBody,
-            { paddingBottom: Math.max(insets.bottom, 24) + 160 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-          }
-        >
-          {loading ? (
-            <View>
-              <SkeletonCard height={180} />
-              <SkeletonCard height={180} />
-            </View>
-          ) : activeTab === 'connections' ? (
-            connections.length > 0 ? (
-              connections.map((match) => (
-                <TouchableOpacity
-                  key={match.id}
-                  onPress={() => openChat(match)}
-                  activeOpacity={0.85}
-                  style={[styles.connectionCard, { backgroundColor: 'rgba(251, 250, 247, 0.95)', borderColor: '#D7D2C8' }, SHADOWS.card]}
-                >
-                  <View style={styles.cardTopRow}>
-                    <Avatar
-                      uri={match.user?.avatar_url}
-                      name={match.user?.name}
-                      size={54}
-                      verified={match.user?.verification_status === 'verified'}
-                      online={true}
-                      ringVariant="lavender"
-                    />
-
-                    <View style={styles.cardInfo}>
-                      <View style={styles.nameScoreRow}>
-                        <Text style={[styles.userName, { color: colors.textPrimary }]}>{match.user?.name}</Text>
-                        <TrustBadge
-                          score={match.user?.trust_score || 4.9}
-                          verificationStatus={match.user?.verification_status}
-                          variant="compact"
-                        />
-                      </View>
-
-                      <Text style={[styles.tripMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                        📍 {match.trip?.destination || 'Upcoming Trip'} ({match.trip?.dates || 'Dates overlap'})
-                      </Text>
-
-                      <Text style={[styles.lastMessagePreview, { color: colors.textMuted }]} numberOfLines={1}>
-                        {match.lastMessage || 'Connected! Start coordinating your journey.'}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.chatActionIndicator, { backgroundColor: colors.chipBg, borderColor: colors.border }]}>
-                      <Ionicons name="chatbubble-ellipses" size={18} color="#171817" />
-                    </View>
-                  </View>
-
-                  {/* Bottom Action Bar */}
-                  <View style={[styles.connectionBottomBar, { borderTopColor: '#D7D2C8' }]}>
-                    <TouchableOpacity
-                      onPress={() => openReview(match)}
-                      style={styles.reviewQuickBtn}
-                    >
-                      <Ionicons name="star-outline" size={13} color="#B99A5E" style={{ marginRight: 4 }} />
-                      <Text style={[styles.reviewQuickText, { color: '#171817' }]}>Leave Review</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => openChat(match)}
-                      style={[styles.openChatPill, { backgroundColor: '#171817', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }]}
-                    >
-                      <Text style={[styles.openChatPillText, { color: '#FBFAF7' }]}>Open Chat</Text>
-                      <Ionicons name="chevron-forward" size={13} color="#B99A5E" style={{ marginLeft: 3 }} />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))
-            ) : (
-              <EmptyState
-                icon="people-outline"
-                title="No connections yet"
-                description="Explore compatible travelers in Discover and send connection requests to start chatting."
-                actionTitle="Discover Travelers"
-                onAction={() => router.push('/(tabs)/discovery')}
-              />
-            )
-          ) : (
-            pendingRequests.length > 0 ? (
+        {mainSection === 'hangouts' ? (
+          <HangoutsListView
+            key={hangoutsKey}
+            onSelectHangout={(h) => setSelectedHangout(h)}
+            onCreateHangout={() => setCreateHangoutVisible(true)}
+          />
+        ) : mainSection === 'chats' ? (
+          <ChatInboxView
+            userId={user?.id || 'user-demo-priya'}
+            onSelectConversation={(conv) => {
+              router.push({
+                pathname: `/chat/${conv.id}`,
+                params: {
+                  partnerName: conv.name,
+                  partnerAvatar: conv.avatar_url,
+                  destination: conv.destination,
+                  isGroup: !conv.is_direct ? 'true' : 'false',
+                  dates: 'Upcoming Journey',
+                },
+              });
+            }}
+            onCreateHangout={() => setCreateHangoutVisible(true)}
+          />
+        ) : (
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollBody,
+              { paddingBottom: Math.max(insets.bottom, 24) + 160 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            }
+          >
+            {pendingRequests.length > 0 ? (
               pendingRequests.map((req) => (
                 <View key={req.id} style={[styles.requestCard, { backgroundColor: 'rgba(251, 250, 247, 0.95)', borderColor: '#D7D2C8' }, SHADOWS.card]}>
                   <View style={styles.cardTopRow}>
@@ -302,10 +295,49 @@ export default function MatchesScreen() {
                 title="No pending requests"
                 description="When other MaybeWe travelers reach out to join your trips, their connection requests will appear here."
               />
-            )
-          )}
-        </ScrollView>
+            )}
+          </ScrollView>
+        )}
       </View>
+
+      {/* Create Hangout Modal */}
+      <CreateHangoutModal
+        visible={createHangoutVisible}
+        onClose={() => setCreateHangoutVisible(false)}
+        onCreated={(hangout) => {
+          setHangoutsKey((k) => k + 1);
+          setSelectedHangout(hangout);
+        }}
+      />
+
+      {/* Hangout Detail Modal */}
+      <HangoutDetailModal
+        hangout={selectedHangout}
+        visible={!!selectedHangout}
+        onClose={() => setSelectedHangout(null)}
+        onUpdate={() => setHangoutsKey((k) => k + 1)}
+        onAddToTrip={(place) => {
+          setAddToTripPlace(place);
+        }}
+        onSelectPlace={(place) => {
+          setSelectedPlace(place);
+        }}
+      />
+
+      {/* Add To Trip Modal */}
+      <AddToTripModal
+        place={addToTripPlace}
+        visible={!!addToTripPlace}
+        onClose={() => setAddToTripPlace(null)}
+      />
+
+      {/* Place Detail Modal */}
+      <PlaceDetailModal
+        place={selectedPlace}
+        visible={!!selectedPlace}
+        onClose={() => setSelectedPlace(null)}
+        onAddToTrip={(place) => setAddToTripPlace(place)}
+      />
     </View>
   );
 }
@@ -524,5 +556,43 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
+  },
+
+  /* Main Switcher */
+  mainSwitcherWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  mainSwitcherContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: RADII.xl,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  mainSwitcherBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: RADII.lg,
+  },
+  mainSwitcherBtnActive: {
+    backgroundColor: '#171817',
+    borderWidth: 1,
+    borderColor: '#171817',
+  },
+  mainSwitcherTxt: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#77766F',
+  },
+  mainSwitcherTxtActive: {
+    color: '#FBFAF7',
+    fontWeight: '700',
   },
 });

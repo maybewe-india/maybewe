@@ -1,3 +1,9 @@
+// ============================================================================
+// MAYBEWE SAFETY & MODERATION REPORT MODAL (components/SafetyReportModal.jsx)
+// Supports reporting users, messages, and hangouts with complete privacy
+// Zero TypeScript, Pure JavaScript/JSX
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -10,96 +16,98 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, RADII, PALETTE } from '../lib/theme';
+import { PALETTE, RADII } from '../lib/theme';
 import PrimaryButton from './ui/PrimaryButton';
 import InputField from './ui/InputField';
-import { blockUser } from '../lib/discovery';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { blockUser, submitSafetyReport } from '../lib/safetyBlocks.js';
 import { useTheme } from '../lib/themeContext';
 
 const REPORT_REASONS = [
   { id: 'harassment', label: 'Harassment or offensive behavior', icon: 'hand-left-outline' },
-  { id: 'fake_profile', label: 'Fake profile or stolen photos', icon: 'person-remove-outline' },
-  { id: 'spam', label: 'Spam, scams or commercial activity', icon: 'megaphone-outline' },
-  { id: 'safety_concern', label: 'Safety or physical concern', icon: 'warning-outline' },
-  { id: 'inappropriate', label: 'Inappropriate language or photos', icon: 'alert-circle-outline' },
-  { id: 'other', label: 'Other community guideline breach', icon: 'help-circle-outline' },
+  { id: 'fake_profile', label: 'Fake profile or misleading details', icon: 'person-remove-outline' },
+  { id: 'spam', label: 'Spam, commercial solicitations or scams', icon: 'megaphone-outline' },
+  { id: 'safety_concern', label: 'Safety, security or physical concern', icon: 'warning-outline' },
+  { id: 'inappropriate', label: 'Inappropriate content or photos', icon: 'alert-circle-outline' },
+  { id: 'other', label: 'Other community trust breach', icon: 'help-circle-outline' },
 ];
 
 export default function SafetyReportModal({
   visible,
   onClose,
-  targetUser,
-  currentUserId,
+  targetUser = null,
+  reportedUserId = null,
+  reportedUserName = 'Traveler',
+  messageId = null,
+  hangoutId = null,
+  currentUserId = 'user-demo-priya',
   onUserBlocked,
 }) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [selectedReason, setSelectedReason] = useState('harassment');
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [shouldBlock, setShouldBlock] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!targetUser) return null;
+  const effectiveReportedId = reportedUserId || targetUser?.id || 'target-user';
+  const effectiveDisplayName = targetUser?.name || reportedUserName;
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      if (isSupabaseConfigured && currentUserId && targetUser.id) {
-        await supabase.from('reports').insert([
-          {
-            reporter_id: currentUserId,
-            reported_id: targetUser.id,
-            reason: `${selectedReason}: ${additionalDetails || 'No details provided'}`,
-            status: 'pending',
-          },
-        ]);
-      }
+      await submitSafetyReport({
+        reporterId: currentUserId,
+        reportedId: effectiveReportedId,
+        reason: selectedReason,
+        messageId,
+        hangoutId,
+        details: additionalDetails,
+      });
 
-      if (shouldBlock && targetUser.id) {
-        await blockUser(targetUser.id);
+      if (shouldBlock && effectiveReportedId && effectiveReportedId !== currentUserId) {
+        await blockUser(currentUserId, effectiveReportedId);
         if (onUserBlocked) {
-          onUserBlocked(targetUser.id);
+          onUserBlocked(effectiveReportedId);
         }
       }
 
       Alert.alert(
-        'Report Submitted',
-        'Thank you for helping keep the MaybeWe community safe. Our safety team will review this report within 24 hours.',
-        [{ text: 'OK', onPress: onClose }]
+        'Report Submitted Confidentially',
+        'Thank you for upholding MaybeWe community trust. Our moderation team reviews all safety reports securely. The reported traveler is never notified of your identity.',
+        [{ text: 'Understood', onPress: onClose }]
       );
     } catch (err) {
       console.warn('Report submission error:', err);
-      Alert.alert('Report Saved', 'Your safety report has been logged.', [{ text: 'OK', onPress: onClose }]);
+      Alert.alert('Report Received', 'Your safety report has been logged confidentially.', [
+        { text: 'OK', onPress: onClose },
+      ]);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.modalContent, { backgroundColor: PALETTE.white, borderColor: PALETTE.borderGrey }]}>
+        <View style={[styles.modalContent, { backgroundColor: '#FAF8F3', borderColor: '#E8E3D8' }]}>
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: PALETTE.borderGrey }]}>
-            <View style={[styles.headerIcon, { backgroundColor: PALETTE.warmOffWhite }]}>
-              <Ionicons name="shield-alert" size={20} color={PALETTE.nearBlack} />
+          <View style={[styles.header, { borderBottomColor: '#EBE6DC' }]}>
+            <View style={[styles.headerIcon, { backgroundColor: '#FDECEC' }]}>
+              <Ionicons name="shield-alert" size={20} color="#D32F2F" />
             </View>
             <View style={styles.headerTexts}>
-              <Text style={[styles.title, { color: PALETTE.nearBlack }]}>Safety & Moderation Report</Text>
-              <Text style={[styles.subtitle, { color: PALETTE.mediumGrey }]}>Reporting {targetUser.name || 'Traveler'}</Text>
+              <Text style={[styles.title, { color: '#171817' }]}>Safety & Moderation Report</Text>
+              <Text style={[styles.subtitle, { color: '#77766F' }]}>
+                Confidential report regarding {effectiveDisplayName}
+                {messageId ? ' (Message)' : hangoutId ? ' (Hangout)' : ''}
+              </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={PALETTE.mediumGrey} />
+              <Ionicons name="close" size={22} color="#77766F" />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <Text style={[styles.sectionLabel, { color: PALETTE.nearBlack }]}>Reason for reporting</Text>
+            <Text style={[styles.sectionLabel, { color: '#171817' }]}>Reason for reporting</Text>
             {REPORT_REASONS.map((r) => {
               const isSelected = selectedReason === r.id;
               return (
@@ -108,46 +116,54 @@ export default function SafetyReportModal({
                   onPress={() => setSelectedReason(r.id)}
                   style={[
                     styles.reasonItem,
-                    { backgroundColor: PALETTE.white, borderColor: PALETTE.borderGrey },
-                    isSelected && [styles.selectedReasonItem, { borderColor: PALETTE.nearBlack, backgroundColor: PALETTE.softIvory }],
+                    { backgroundColor: '#FFFFFF', borderColor: '#E5E0D8' },
+                    isSelected && [styles.selectedReasonItem, { borderColor: '#171817', backgroundColor: '#F5F2EB' }],
                   ]}
                   activeOpacity={0.7}
                 >
                   <Ionicons
                     name={r.icon}
                     size={18}
-                    color={isSelected ? PALETTE.nearBlack : PALETTE.mediumGrey}
+                    color={isSelected ? '#171817' : '#77766F'}
                     style={styles.reasonIcon}
                   />
-                  <Text style={[styles.reasonText, { color: PALETTE.mediumGrey }, isSelected && [styles.selectedReasonText, { color: PALETTE.nearBlack }]]}>
+                  <Text
+                    style={[
+                      styles.reasonText,
+                      { color: '#55544E' },
+                      isSelected && [styles.selectedReasonText, { color: '#171817' }],
+                    ]}
+                  >
                     {r.label}
                   </Text>
-                  {isSelected && <Ionicons name="checkmark-circle" size={18} color={PALETTE.nearBlack} />}
+                  {isSelected && <Ionicons name="checkmark-circle" size={18} color="#171817" />}
                 </TouchableOpacity>
               );
             })}
 
-            <Text style={[styles.sectionLabel, { marginTop: 16, color: colors.textPrimary }]}>Additional details (optional)</Text>
+            <Text style={[styles.sectionLabel, { marginTop: 14, color: '#171817' }]}>
+              Additional details (Confidential)
+            </Text>
             <InputField
               value={additionalDetails}
               onChangeText={setAdditionalDetails}
-              placeholder="Describe what happened so our team can take appropriate action..."
+              placeholder="Provide any context to help our safety team take appropriate action..."
               multiline
               numberOfLines={3}
             />
 
-            {/* Block Toggle */}
-            <View style={[styles.blockRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {/* Mutual Block Toggle */}
+            <View style={[styles.blockRow, { backgroundColor: '#F0ECE1', borderColor: '#E2DCD1' }]}>
               <View style={{ flex: 1, marginRight: 12 }}>
-                <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>Block this traveler</Text>
-                <Text style={[styles.blockDesc, { color: colors.textSecondary }]}>
-                  They will no longer appear in your Discovery feed or be able to message you.
+                <Text style={[styles.blockTitle, { color: '#171817' }]}>Block this traveler</Text>
+                <Text style={[styles.blockDesc, { color: '#77766F' }]}>
+                  Instantly prevents direct messages, live location visibility, and connection requests.
                 </Text>
               </View>
               <Switch
                 value={shouldBlock}
                 onValueChange={setShouldBlock}
-                trackColor={{ false: '#CBD5E1', true: colors.primary }}
+                trackColor={{ false: '#CBD5E1', true: '#171817' }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -155,7 +171,7 @@ export default function SafetyReportModal({
 
           <View style={styles.footer}>
             <PrimaryButton
-              title={isSubmitting ? 'Submitting Report...' : 'Submit Report'}
+              title={isSubmitting ? 'Submitting Confidentially...' : 'Submit Report'}
               variant="danger"
               onPress={handleSubmit}
               loading={isSubmitting}
@@ -170,30 +186,26 @@ export default function SafetyReportModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.60)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: COLORS.backgroundSecondary,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '85%',
     paddingBottom: 24,
     borderWidth: 1,
-    borderColor: COLORS.borderGlass,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   headerIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 125, 138, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -202,14 +214,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+    fontSize: 12,
     marginTop: 2,
   },
   closeBtn: {
@@ -219,61 +229,50 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 12,
-    letterSpacing: 0.1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
   },
   reasonItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: RADII.xl,
-    borderWidth: 1.2,
-    borderColor: COLORS.border,
-    marginBottom: 10,
-    backgroundColor: COLORS.surface,
+    padding: 13,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
   },
-  selectedReasonItem: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-  },
+  selectedReasonItem: {},
   reasonIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   reasonText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   selectedReasonText: {
-    color: '#FFFFFF',
     fontWeight: '700',
   },
   blockRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: RADII.xl,
-    backgroundColor: COLORS.surface,
-    marginTop: 8,
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
   },
   blockTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: COLORS.textPrimary,
   },
   blockDesc: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+    fontSize: 11,
     marginTop: 2,
-    lineHeight: 16,
+    lineHeight: 15,
   },
   footer: {
     paddingHorizontal: 20,

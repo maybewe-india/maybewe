@@ -28,6 +28,9 @@ import { sendConnectionRequest } from '../../lib/matches';
 import CinematicDestinationZoom from '../../components/CinematicDestinationZoom';
 import CinematicSearchModal from '../../components/CinematicSearchModal';
 import StaggeredCardWrapper from '../../components/StaggeredCardWrapper';
+import PlaceDiscoveryView from '../../components/PlaceDiscoveryView';
+import PlaceDetailModal from '../../components/PlaceDetailModal';
+import AddToTripModal from '../../components/AddToTripModal';
 
 const FILTER_STYLES = ['All', 'Culture', 'Food', 'Adventure', 'Photography', 'Nature', 'Wellness', 'Backpacking', 'Luxury', 'Beach', 'Nightlife'];
 const GENDERS = ['All', 'Female', 'Male', 'Non-binary'];
@@ -51,6 +54,11 @@ export default function DiscoveryScreen() {
   const [minAge, setMinAge] = useState(18);
   const [maxAge, setMaxAge] = useState(60);
   const [onlyVerified, setOnlyVerified] = useState(false);
+
+  // Discovery Mode: 'travelers' | 'places'
+  const [discoveryMode, setDiscoveryMode] = useState(params?.mode === 'places' ? 'places' : 'travelers');
+  const [activePlaceDetail, setActivePlaceDetail] = useState(null);
+  const [addToTripTargetPlace, setAddToTripTargetPlace] = useState(null);
 
   // Cinematic Destination Search Transition
   const [cinematicZoomVisible, setCinematicZoomVisible] = useState(false);
@@ -291,55 +299,118 @@ export default function DiscoveryScreen() {
             </ScrollView>
           </View>
 
-          {/* Feed Header */}
-          <View style={styles.feedHeaderRow}>
-            <View>
-              <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>Compatible Travelers</Text>
-              <Text style={[styles.feedSubtitle, { color: colors.textSecondary }]}>
-                {travelers.length} traveler{travelers.length === 1 ? '' : 's'} matching your travel criteria
-              </Text>
-            </View>
+          {/* Mode Switcher: Companions vs Places & Experiences */}
+          <View style={[styles.modeSegmentWrapper, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1EEE6', borderColor: colors.border }]}>
             <TouchableOpacity
-              onPress={() => setFilterModalVisible(true)}
-              style={[styles.filterPillBtn, { backgroundColor: colors.chipBg, borderColor: colors.chipBorder }]}
+              style={[
+                styles.modeSegmentBtn,
+                discoveryMode === 'travelers' && [styles.modeSegmentBtnActive, { backgroundColor: '#171817' }],
+              ]}
+              onPress={() => setDiscoveryMode('travelers')}
+              activeOpacity={0.8}
             >
-              <Ionicons name="filter" size={14} color={colors.primary} />
-              <Text style={[styles.filterPillText, { color: colors.primary }]}>Filters</Text>
+              <Ionicons
+                name="people-outline"
+                size={14}
+                color={discoveryMode === 'travelers' ? '#B99A5E' : colors.textSecondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.modeSegmentBtnText,
+                  { color: discoveryMode === 'travelers' ? '#FBFAF7' : colors.textSecondary },
+                  discoveryMode === 'travelers' && styles.modeSegmentBtnTextActive,
+                ]}
+              >
+                Companions
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modeSegmentBtn,
+                discoveryMode === 'places' && [styles.modeSegmentBtnActive, { backgroundColor: '#171817' }],
+              ]}
+              onPress={() => setDiscoveryMode('places')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="compass-outline"
+                size={14}
+                color={discoveryMode === 'places' ? '#B99A5E' : colors.textSecondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.modeSegmentBtnText,
+                  { color: discoveryMode === 'places' ? '#FBFAF7' : colors.textSecondary },
+                  discoveryMode === 'places' && styles.modeSegmentBtnTextActive,
+                ]}
+              >
+                Places & Spots
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Discovery Feed */}
-          {loading ? (
-            <View>
-              <SkeletonCard height={380} />
-              <SkeletonCard height={380} />
-            </View>
-          ) : travelers.length > 0 ? (
-            travelers.map((traveler, index) => (
-              <StaggeredCardWrapper key={traveler.id} index={index} style={styles.cardWrapper}>
-                <DiscoveryCard
-                  traveler={traveler}
-                  onConnect={handleConnect}
-                  onPass={handlePass}
-                />
-                <TouchableOpacity
-                  onPress={() => handleOpenReport(traveler)}
-                  style={styles.reportBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="flag-outline" size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
-                  <Text style={[styles.reportBtnText, { color: colors.textMuted }]}>Report traveler</Text>
-                </TouchableOpacity>
-              </StaggeredCardWrapper>
-            ))
-          ) : (
-            <EmptyState
-              icon="earth-outline"
-              title="No travelers found yet"
-              description="Try changing your search destination, clearing active filters, or posting a trip to attract fellow travelers."
-              actionTitle="Reset All Filters"
-              onAction={resetFilters}
+          {discoveryMode === 'places' ? (
+            <PlaceDiscoveryView
+              searchDestination={searchDestination}
+              onSelectPlace={(p) => setActivePlaceDetail(p)}
+              onAddToTrip={(p) => setAddToTripTargetPlace(p)}
             />
+          ) : (
+            <>
+              {/* Feed Header */}
+              <View style={styles.feedHeaderRow}>
+                <View>
+                  <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>Compatible Travelers</Text>
+                  <Text style={[styles.feedSubtitle, { color: colors.textSecondary }]}>
+                    {travelers.length} traveler{travelers.length === 1 ? '' : 's'} matching your travel criteria
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setFilterModalVisible(true)}
+                  style={[styles.filterPillBtn, { backgroundColor: colors.chipBg, borderColor: colors.chipBorder }]}
+                >
+                  <Ionicons name="filter" size={14} color={colors.primary} />
+                  <Text style={[styles.filterPillText, { color: colors.primary }]}>Filters</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Discovery Feed */}
+              {loading ? (
+                <View>
+                  <SkeletonCard height={380} />
+                  <SkeletonCard height={380} />
+                </View>
+              ) : travelers.length > 0 ? (
+                travelers.map((traveler, index) => (
+                  <StaggeredCardWrapper key={traveler.id} index={index} style={styles.cardWrapper}>
+                    <DiscoveryCard
+                      traveler={traveler}
+                      onConnect={handleConnect}
+                      onPass={handlePass}
+                    />
+                    <TouchableOpacity
+                      onPress={() => handleOpenReport(traveler)}
+                      style={styles.reportBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="flag-outline" size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={[styles.reportBtnText, { color: colors.textMuted }]}>Report traveler</Text>
+                    </TouchableOpacity>
+                  </StaggeredCardWrapper>
+                ))
+              ) : (
+                <EmptyState
+                  icon="earth-outline"
+                  title="No travelers found yet"
+                  description="Try changing your search destination, clearing active filters, or posting a trip to attract fellow travelers."
+                  actionTitle="Reset All Filters"
+                  onAction={resetFilters}
+                />
+              )}
+            </>
           )}
         </ScrollView>
 
@@ -447,6 +518,22 @@ export default function DiscoveryScreen() {
         initialQuery={searchDestination}
         onSelectDestination={handleStartCinematicJourney}
         onClose={() => setSearchModalVisible(false)}
+      />
+
+      {/* Place Detail Modal */}
+      <PlaceDetailModal
+        visible={!!activePlaceDetail}
+        place={activePlaceDetail}
+        onClose={() => setActivePlaceDetail(null)}
+        onAddToTrip={(p) => setAddToTripTargetPlace(p)}
+      />
+
+      {/* Add to Trip Modal */}
+      <AddToTripModal
+        visible={!!addToTripTargetPlace}
+        place={addToTripTargetPlace}
+        onClose={() => setAddToTripTargetPlace(null)}
+        onAdded={() => showToast(`Added to your trip! ✨`)}
       />
     </View>
     </View>
@@ -664,5 +751,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.textMuted,
+  },
+  modeSegmentWrapper: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 14,
+    borderRadius: RADII.full,
+    padding: 3,
+    borderWidth: 1,
+  },
+  modeSegmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: RADII.full,
+  },
+  modeSegmentBtnActive: {
+    borderRadius: RADII.full,
+  },
+  modeSegmentBtnText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modeSegmentBtnTextActive: {
+    fontFamily: FONTS.bold,
+    fontWeight: '700',
   },
 });

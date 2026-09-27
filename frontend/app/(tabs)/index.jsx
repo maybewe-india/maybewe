@@ -32,6 +32,9 @@ import SkeletonCard from '../../components/ui/SkeletonCard';
 import PrimaryButton from '../../components/ui/PrimaryButton';
 import GlassCard from '../../components/ui/GlassCard';
 import IndiaTravelMap from '../../components/IndiaTravelMap';
+import NotificationCenterModal from '../../components/NotificationCenterModal.jsx';
+import DestinationDetailModal from '../../components/DestinationDetailModal.jsx';
+import { getUnreadNotificationsCount } from '../../lib/notifications.js';
 import {
   INDIA_STATES_DATA,
   MAJOR_INDIAN_CITIES,
@@ -300,6 +303,10 @@ export default function HomeDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [notifModalVisible, setNotifModalVisible] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [destinationDetailModalVisible, setDestinationDetailModalVisible] = useState(false);
+  const [selectedDestinationForDetail, setSelectedDestinationForDetail] = useState('Goa');
 
   const isMountedRef = useRef(true);
   const cachedLocationRef = useRef(null);
@@ -630,6 +637,9 @@ export default function HomeDashboardScreen() {
           communityTrips: cTrips,
         })
       ).catch(() => {});
+
+      const notifCount = await getUnreadNotificationsCount(user?.id || 'user-demo-priya');
+      if (isMountedRef.current) setUnreadNotifCount(notifCount);
     } catch (err) {
       console.warn('Dashboard data fetch error:', err);
       if (isMountedRef.current) {
@@ -848,6 +858,21 @@ export default function HomeDashboardScreen() {
                   {userLocation.city || 'India Base'}
                 </Text>
                 <Ionicons name="chevron-down" size={12} color="#77766F" />
+              </TouchableOpacity>
+
+              {/* Concierge Notification Bell */}
+              <TouchableOpacity
+                onPress={() => setNotifModalVisible(true)}
+                style={[styles.locationPill, { paddingHorizontal: 10, position: 'relative' }]}
+                activeOpacity={0.8}
+                accessibilityLabel="Travel Concierge Notifications"
+              >
+                <Ionicons name="notifications-outline" size={15} color="#B99A5E" />
+                {unreadNotifCount > 0 && (
+                  <View style={{ position: 'absolute', top: -3, right: -3, backgroundColor: '#8C4351', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1, minWidth: 16, alignItems: 'center' }}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 9, color: '#FAF8F3' }}>{unreadNotifCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1089,12 +1114,15 @@ export default function HomeDashboardScreen() {
               </Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push({ pathname: '/(tabs)/discovery', params: { destination: selectedState } })}
+              onPress={() => {
+                setSelectedDestinationForDetail(selectedState);
+                setDestinationDetailModalVisible(true);
+              }}
               style={styles.sectionLinkBtn}
               activeOpacity={0.7}
             >
               <Text style={styles.sectionLinkText}>Explore {selectedState}</Text>
-              <Ionicons name="chevron-forward" size={13} color="#171817" />
+              <Ionicons name="sparkles" size={12} color="#B99A5E" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           </View>
 
@@ -1698,6 +1726,44 @@ export default function HomeDashboardScreen() {
             </Pressable>
           </Pressable>
         </Modal>
+
+        {/* Concierge Notification Center */}
+        <NotificationCenterModal
+          visible={notifModalVisible}
+          onClose={() => {
+            setNotifModalVisible(false);
+            loadDashboardData(false);
+          }}
+          userId={user?.id || 'user-demo-priya'}
+          onOpenPlace={(placeId) => {
+            router.push({
+              pathname: '/(tabs)/discovery',
+              params: { mode: 'places', placeId },
+            });
+          }}
+        />
+
+        {/* Destination Detail Experience */}
+        <DestinationDetailModal
+          visible={destinationDetailModalVisible}
+          onClose={() => setDestinationDetailModalVisible(false)}
+          destination={selectedDestinationForDetail}
+          onOpenPlace={(placeId) => {
+            router.push({
+              pathname: '/(tabs)/discovery',
+              params: { mode: 'places', placeId },
+            });
+          }}
+          onOpenHangout={(hangoutId) => {
+            router.push({
+              pathname: `/chat/group-hangout-${hangoutId}`,
+              params: { isGroup: 'true', partnerName: 'Hangout Circle' },
+            });
+          }}
+          onOpenTraveler={(_traveler) => {
+            router.push('/(tabs)/discovery');
+          }}
+        />
       </View>
     </View>
   );

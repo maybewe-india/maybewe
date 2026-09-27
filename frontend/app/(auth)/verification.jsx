@@ -73,7 +73,6 @@ export default function VerificationScreen() {
   }, [profile?.verification_status]);
 
   const handleCaptureSelfie = async () => {
-    const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
     try {
       if (Platform.OS === 'web') {
         // In browser environments, try camera or file upload
@@ -109,14 +108,7 @@ export default function VerificationScreen() {
           console.log('Web photo picker error:', webLibErr);
         }
 
-        if (!isDemo) {
-          Alert.alert('Camera or Photo Required', 'Please capture or upload a clear photo of your face to verify your identity.');
-          return;
-        }
-
-        // Demo fallback only in development mode when camera is unavailable
-        setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
-        setVerificationState('CAPTURED');
+        Alert.alert('Camera or Photo Required', 'Please capture or upload a clear photo of your face to verify your identity.');
         return;
       }
 
@@ -137,13 +129,7 @@ export default function VerificationScreen() {
             return;
           }
         }
-        if (!isDemo) {
-          Alert.alert('Camera Permission Required', 'Please grant camera access in your device settings to take your verification selfie.');
-          return;
-        }
-        // Graceful fallback portrait ONLY in demo mode
-        setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
-        setVerificationState('CAPTURED');
+        Alert.alert('Camera Permission Required', 'Please grant camera access in your device settings to take your verification selfie.');
         return;
       }
 
@@ -157,45 +143,36 @@ export default function VerificationScreen() {
       if (!result.canceled && result.assets?.[0]?.uri) {
         setSelfieUri(result.assets[0].uri);
         setVerificationState('CAPTURED');
-      } else if (isDemo) {
-        // Fallback only permitted in demo mode
-        setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
-        setVerificationState('CAPTURED');
       }
     } catch (err) {
       console.warn('Camera capture error:', err);
-      if (!isDemo) {
-        Alert.alert('Camera Error', 'Could not open camera. Please check your permissions and try again.');
-        return;
-      }
-      // Realistic front-facing traveler verification portrait in demo mode only
-      setSelfieUri('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80');
-      setVerificationState('CAPTURED');
+      Alert.alert('Camera Error', 'Could not open camera. Please check your permissions and try again.');
     }
   };
 
   const handleSubmit = async () => {
+    if (!selfieUri) {
+      Alert.alert('Selfie Required', 'Please take or choose a selfie before submitting.');
+      return;
+    }
     setVerificationState('IN_PROGRESS');
 
-    setTimeout(async () => {
-      try {
-        const res = await submitVerification(selfieUri);
-        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
-        if (!res.success) {
-          setFailureReason(res.error || 'Face could not be verified clearly.');
-          setVerificationState('FAILED');
-        } else if (res.status === 'verified' || isDemo) {
-          // Demo simulation mode: immediately show existing "Verification Successful" state
-          setVerificationState('VERIFIED');
-        } else {
-          // Live Supabase mode: submission is strictly 'pending', awaiting trusted decision
-          setVerificationState('PENDING');
-        }
-      } catch (err) {
-        setFailureReason('Verification service unavailable. Please retry.');
+    try {
+      const res = await submitVerification(selfieUri);
+      if (res?.success && res?.status === 'verified') {
+        // Strictly set verified only when server response confirms verified status
+        setVerificationState('VERIFIED');
+      } else if (!res?.success) {
+        setFailureReason(res?.error || 'Face could not be verified clearly.');
         setVerificationState('FAILED');
+      } else {
+        // Live mode pending review
+        setVerificationState('PENDING');
       }
-    }, 1000);
+    } catch (err) {
+      setFailureReason('Verification service unavailable. Please retry.');
+      setVerificationState('FAILED');
+    }
   };
 
   const handleRetry = () => {
