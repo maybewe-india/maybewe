@@ -26,7 +26,8 @@ import {
 } from '../lib/posts.js';
 import { followUser, unfollowUser, getFollowStatus } from '../lib/social.js';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: WINDOW_W } = Dimensions.get('window');
+const PHOTO_W = Math.min(WINDOW_W - 40, 480);
 
 export default function PostDetailModal({
   visible,
@@ -75,9 +76,18 @@ export default function PostDetailModal({
 
   const isAuthor = (currentUser?.id || 'current-user') === post.user_id;
   const taggedPlace = post.place_id ? getPlaceById(post.place_id) : null;
-  const mediaList = post.media && post.media.length > 0 ? post.media : [
-    { id: 'default', media_url: 'https://images.unsplash.com/photo-1600100397608-f010f4439c04?w=1000&auto=format&fit=crop&q=80' }
+  const rawMediaList = post.media && post.media.length > 0 ? post.media : [
+    { id: 'default', media_url: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80' }
   ];
+  const mediaList = rawMediaList.map((m) => {
+    let url = m.media_url;
+    if (!url || typeof url !== 'string' || url.includes('1600100397608')) {
+      url = 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80';
+    } else if (url.includes('1603262110263')) {
+      url = 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80';
+    }
+    return { ...m, media_url: url };
+  });
 
   const handleLike = async () => {
     const userId = currentUser?.id || 'current-user';
@@ -201,7 +211,7 @@ export default function PostDetailModal({
                 showsHorizontalScrollIndicator={false}
                 onScroll={(e) => {
                   const x = e.nativeEvent.contentOffset.x;
-                  const idx = Math.round(x / (SCREEN_W - 40));
+                  const idx = Math.round(x / PHOTO_W);
                   setActiveMediaIndex(idx);
                 }}
                 scrollEventThrottle={16}
@@ -328,6 +338,9 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     maxHeight: '94%',
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
@@ -407,8 +420,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   heroPhoto: {
-    width: SCREEN_W - 40,
-    height: SCREEN_W - 40,
+    width: PHOTO_W,
+    height: PHOTO_W,
     borderRadius: 20,
   },
   paginationDots: {

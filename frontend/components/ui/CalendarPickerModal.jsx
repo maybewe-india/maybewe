@@ -227,15 +227,15 @@ export default function CalendarPickerModal({
           style={[
             styles.calendarCard,
             {
-              backgroundColor: isDark ? colors.modalBg || '#1E1F1E' : '#FBFAF7',
-              borderColor: isDark ? colors.border : '#D7D2C8',
+              backgroundColor: isDark ? colors.modalBg || '#1E1F1E' : '#FFFDFC',
+              borderColor: isDark ? colors.border : '#EDE5DA',
             },
           ]}
         >
           {/* Top Header Row */}
-          <View style={[styles.headerRow, { borderBottomColor: isDark ? colors.border : '#E5D8C8' }]}>
+          <View style={[styles.headerRow, { borderBottomColor: isDark ? colors.border : '#EDE5DA' }]}>
             <View style={styles.headerTitleWrap}>
-              <Ionicons name="calendar" size={18} color="#B99A5E" style={{ marginRight: 8 }} />
+              <Ionicons name="calendar" size={18} color="#E7D3B5" style={{ marginRight: 8 }} />
               <Text style={[styles.modalTitle, { color: isDark ? '#FFFFFF' : '#171817' }]}>
                 {title}
               </Text>
@@ -250,7 +250,7 @@ export default function CalendarPickerModal({
           </View>
 
           {/* Travel Range Summary Banner */}
-          <View style={[styles.rangeSummaryBanner, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F1EEE6' }]}>
+          <View style={[styles.rangeSummaryBanner, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#F5EEE5' }]}>
             <View style={styles.rangePillBox}>
               <View style={styles.dateBlock}>
                 <Text style={styles.dateBlockLabel}>DEPARTURE</Text>
@@ -260,7 +260,7 @@ export default function CalendarPickerModal({
               </View>
 
               <View style={styles.rangeDividerLine}>
-                <Ionicons name="airplane" size={14} color="#B99A5E" />
+                <Ionicons name="airplane" size={14} color="#E7D3B5" />
                 {nightsCount > 0 && (
                   <Text style={styles.nightsBadge}>{nightsCount} {nightsCount === 1 ? 'night' : 'nights'}</Text>
                 )}
@@ -290,7 +290,7 @@ export default function CalendarPickerModal({
               onPress={() => setPickerMode((m) => (m === 'calendar' ? 'yearMonthPicker' : 'calendar'))}
               style={[
                 styles.monthYearSelectorBtn,
-                pickerMode === 'yearMonthPicker' && { backgroundColor: '#E6D5AF' },
+                pickerMode === 'yearMonthPicker' && { backgroundColor: '#E7D3B5' },
               ]}
               activeOpacity={0.8}
             >
@@ -300,7 +300,7 @@ export default function CalendarPickerModal({
               <Ionicons
                 name={pickerMode === 'yearMonthPicker' ? 'chevron-up' : 'chevron-down'}
                 size={14}
-                color={isDark && pickerMode !== 'yearMonthPicker' ? '#B99A5E' : '#171817'}
+                color={isDark && pickerMode !== 'yearMonthPicker' ? '#E7D3B5' : '#171817'}
                 style={{ marginLeft: 6 }}
               />
             </TouchableOpacity>
@@ -328,7 +328,7 @@ export default function CalendarPickerModal({
                     onPress={() => setViewYear(yr)}
                     style={[
                       styles.yearChip,
-                      { borderColor: isDark ? colors.border : '#D7D2C8' },
+                      { borderColor: isDark ? colors.border : '#EDE5DA' },
                       viewYear === yr && styles.activeYearChip,
                     ]}
                   >
@@ -355,7 +355,7 @@ export default function CalendarPickerModal({
                     onPress={() => handleJumpYearMonth(viewYear, idx)}
                     style={[
                       styles.monthGridCell,
-                      { borderColor: isDark ? colors.border : '#D7D2C8' },
+                      { borderColor: isDark ? colors.border : '#EDE5DA' },
                       viewMonth === idx && styles.activeMonthCell,
                     ]}
                   >
@@ -446,19 +446,19 @@ export default function CalendarPickerModal({
               <View style={styles.quickPresetsRow}>
                 <TouchableOpacity
                   onPress={() => handleQuickPreset(3)}
-                  style={[styles.presetBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1EEE6' }]}
+                  style={[styles.presetBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F5EEE5' }]}
                 >
                   <Text style={[styles.presetBtnText, { color: isDark ? '#FFFFFF' : '#171817' }]}>Weekend (3d)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleQuickPreset(7)}
-                  style={[styles.presetBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1EEE6' }]}
+                  style={[styles.presetBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F5EEE5' }]}
                 >
                   <Text style={[styles.presetBtnText, { color: isDark ? '#FFFFFF' : '#171817' }]}>1 Week (7d)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleQuickPreset(14)}
-                  style={[styles.presetBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F1EEE6' }]}
+                  style={[styles.presetBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F5EEE5' }]}
                 >
                   <Text style={[styles.presetBtnText, { color: isDark ? '#FFFFFF' : '#171817' }]}>2 Weeks (14d)</Text>
                 </TouchableOpacity>
@@ -467,7 +467,7 @@ export default function CalendarPickerModal({
           )}
 
           {/* Bottom Actions Bar */}
-          <View style={[styles.footerRow, { borderTopColor: isDark ? colors.border : '#E5D8C8' }]}>
+          <View style={[styles.footerRow, { borderTopColor: isDark ? colors.border : '#EDE5DA' }]}>
             <TouchableOpacity onPress={handleClear} style={styles.clearBtn} activeOpacity={0.7}>
               <Text style={styles.clearBtnText}>Clear</Text>
             </TouchableOpacity>
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 10,
     fontWeight: '700',
-    color: '#B99A5E',
+    color: '#E7D3B5',
     letterSpacing: 0.5,
     marginBottom: 2,
   },
@@ -632,17 +632,17 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   dayCellStart: {
-    backgroundColor: '#E6D5AF',
+    backgroundColor: '#E7D3B5',
     borderTopLeftRadius: DAY_SIZE / 2,
     borderBottomLeftRadius: DAY_SIZE / 2,
   },
   dayCellEnd: {
-    backgroundColor: '#E6D5AF',
+    backgroundColor: '#E7D3B5',
     borderTopRightRadius: DAY_SIZE / 2,
     borderBottomRightRadius: DAY_SIZE / 2,
   },
   dayCellInRange: {
-    backgroundColor: 'rgba(230, 213, 175, 0.45)',
+    backgroundColor: 'rgba(231, 211, 181, 0.45)',
   },
   dayInnerCircle: {
     width: DAY_SIZE - 4,
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   },
   todayInnerCircle: {
     borderWidth: 1.5,
-    borderColor: '#B99A5E',
+    borderColor: '#E7D3B5',
   },
   selectedDayCircle: {
     backgroundColor: '#171817',
@@ -668,11 +668,11 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   todayText: {
-    color: '#B99A5E',
+    color: '#171817',
     fontWeight: '700',
   },
   selectedDayText: {
-    color: '#FBFAF7',
+    color: '#171817',
     fontWeight: '800',
   },
   inRangeDayText: {

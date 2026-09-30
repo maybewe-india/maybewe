@@ -24,9 +24,9 @@ export default function FilterChip({
         style={[
           styles.base,
           {
-            backgroundColor: '#1D1D1B',
+            backgroundColor: '#E7D3B5',
             borderWidth: 1,
-            borderColor: 'rgba(255, 255, 255, 0.12)',
+            borderColor: '#EDE5DA',
             paddingVertical: paddingV,
             paddingHorizontal: paddingH,
           },
@@ -36,7 +36,7 @@ export default function FilterChip({
         accessibilityState={{ selected: true }}
         accessibilityLabel={label}
       >
-        <Text style={[styles.selectedText, { fontSize, color: '#FAF8F3' }]}>{label}</Text>
+        <Text style={[styles.selectedText, { fontSize, color: '#171817' }]}>{label}</Text>
       </TouchableOpacity>
     );
   }
@@ -48,8 +48,8 @@ export default function FilterChip({
       style={[
         styles.base,
         {
-          backgroundColor: 'rgba(250, 248, 243, 0.92)',
-          borderColor: 'rgba(216, 212, 203, 0.75)',
+          backgroundColor: '#FFFDFC',
+          borderColor: '#EDE5DA',
           borderWidth: 1,
           paddingVertical: paddingV,
           paddingHorizontal: paddingH,
@@ -60,7 +60,7 @@ export default function FilterChip({
       accessibilityState={{ selected: false }}
       accessibilityLabel={label}
     >
-      <Text style={[styles.unselectedText, { fontSize, color: '#66645F' }]}>{label}</Text>
+      <Text style={[styles.unselectedText, { fontSize, color: '#45453F' }]}>{label}</Text>
     </TouchableOpacity>
   );
 }

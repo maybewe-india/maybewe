@@ -56,6 +56,25 @@ export default function GuidelinesScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
+        {/* Top Bar with Back Button */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/(tabs)/profile');
+              }
+            }}
+            style={styles.backButton}
+            activeOpacity={0.7}
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={20} color={PALETTE.nearBlack} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.header}>
           <View style={styles.badge}>
             <Ionicons name="shield-checkmark" size={16} color={PALETTE.nearBlack} />
@@ -104,6 +123,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     paddingHorizontal: 22,
+  },
+  topBar: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: PALETTE.white,
+    borderWidth: 1,
+    borderColor: PALETTE.borderGrey,
+  },
+  backButtonText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 14,
+    color: PALETTE.nearBlack,
+    marginLeft: 6,
   },
   header: {
     marginBottom: 20,

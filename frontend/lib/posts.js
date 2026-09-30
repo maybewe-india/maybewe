@@ -7,6 +7,50 @@ const POSTS_STORAGE_KEY = '@maybewe_travel_posts_v1';
 const POST_LIKES_STORAGE_KEY = '@maybewe_post_likes_v1';
 const POST_SAVES_STORAGE_KEY = '@maybewe_post_saves_v1';
 
+export const HAMPI_FALLBACK_URL =
+  'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80';
+export const JAIPUR_FALLBACK_URL =
+  'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80';
+
+export function sanitizePostMediaUrl(url) {
+  if (!url || typeof url !== 'string') return HAMPI_FALLBACK_URL;
+  if (url.includes('1600100397608')) return HAMPI_FALLBACK_URL;
+  if (url.includes('1603262110263')) return JAIPUR_FALLBACK_URL;
+  return url;
+}
+
+export function healPost(post) {
+  if (!post) return post;
+  const mediaList = Array.isArray(post.media) && post.media.length > 0 ? post.media : null;
+
+  if (!mediaList) {
+    return {
+      ...post,
+      media: [
+        {
+          id: `media-${post.id}-0`,
+          media_url: HAMPI_FALLBACK_URL,
+          caption: post.destination || 'Travel moment',
+          display_order: 0,
+        },
+      ],
+    };
+  }
+
+  const healedMedia = mediaList.map((m) => {
+    const cleanUrl = sanitizePostMediaUrl(m.media_url);
+    if (cleanUrl !== m.media_url) {
+      return { ...m, media_url: cleanUrl };
+    }
+    return m;
+  });
+
+  return {
+    ...post,
+    media: healedMedia,
+  };
+}
+
 // Seed editorial travel stories with authentic Indian photography
 const DEMO_POSTS = [
   {
@@ -25,7 +69,7 @@ const DEMO_POSTS = [
     media: [
       {
         id: 'media-hampi-1',
-        media_url: 'https://images.unsplash.com/photo-1600100397608-f010f4439c04?w=1000&auto=format&fit=crop&q=80',
+        media_url: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80',
         caption: 'Golden hour at the monolithic boulders',
         display_order: 0,
       },
@@ -75,7 +119,7 @@ const DEMO_POSTS = [
     media: [
       {
         id: 'media-hawa-1',
-        media_url: 'https://images.unsplash.com/photo-1603262110263-fb010d6e59d4?w=1000&auto=format&fit=crop&q=80',
+        media_url: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80',
         caption: 'Sunrise light on the 953 jharokhas',
         display_order: 0,
       },
@@ -149,7 +193,7 @@ export async function fetchPosts({ destination, placeId, userId } = {}) {
           save_count,
           visibility,
           created_at,
-          user:users(id, name, avatar_url, city),
+          user:users(id, name, avatar_url),
           media:post_media(id, media_url, caption, display_order)
         `)
         .order('created_at', { ascending: false });
@@ -177,13 +221,26 @@ export async function fetchPosts({ destination, placeId, userId } = {}) {
       const raw = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
       if (raw) {
         posts = JSON.parse(raw);
+        let cacheUpdated = false;
+        posts = posts.map((p) => {
+          const healed = healPost(p);
+          if (JSON.stringify(healed.media) !== JSON.stringify(p.media)) {
+            cacheUpdated = true;
+          }
+          return healed;
+        });
+        if (cacheUpdated) {
+          AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts)).catch(() => {});
+        }
       } else {
-        posts = DEMO_POSTS;
-        await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(DEMO_POSTS));
+        posts = DEMO_POSTS.map(healPost);
+        await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts));
       }
     } catch {
-      posts = DEMO_POSTS;
+      posts = DEMO_POSTS.map(healPost);
     }
+  } else {
+    posts = posts.map(healPost);
   }
 
   // Client-side filtering

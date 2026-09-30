@@ -12,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../lib/themeContext.jsx';
@@ -23,9 +24,9 @@ const { width: SCREEN_W } = Dimensions.get('window');
 
 // Luxury Indian travel photography presets
 const PHOTO_PRESETS = [
-  'https://images.unsplash.com/photo-1600100397608-f010f4439c04?w=1000&auto=format&fit=crop&q=80', // Hampi
+  'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80', // Hampi
   'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1000&auto=format&fit=crop&q=80', // Goa
-  'https://images.unsplash.com/photo-1603262110263-fb010d6e59d4?w=1000&auto=format&fit=crop&q=80', // Jaipur
+  'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80', // Jaipur
   'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=1000&auto=format&fit=crop&q=80', // Udaipur
   'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1000&auto=format&fit=crop&q=80', // Kerala
   'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1000&auto=format&fit=crop&q=80', // Kashmir
@@ -37,10 +38,11 @@ export default function CreatePostModal({
   visible,
   onClose,
   onPostCreated,
+  onCreated,
   currentUser = null,
 }) {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const [caption, setCaption] = useState('');
   const [destination, setDestination] = useState('Goa');
@@ -74,6 +76,27 @@ export default function CreatePostModal({
     }
   };
 
+  const handlePickDevicePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMsg('Gallery access permission is required to choose a travel photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedPhotos((prev) => [result.assets[0].uri, ...prev]);
+      }
+    } catch (err) {
+      console.warn('Image picker error:', err);
+      setErrorMsg('Unable to pick photo from device.');
+    }
+  };
+
   const handlePublish = async () => {
     if (!caption.trim()) {
       setErrorMsg('Please write a caption or travel story.');
@@ -101,6 +124,7 @@ export default function CreatePostModal({
       });
 
       if (onPostCreated) onPostCreated(newPost);
+      if (onCreated) onCreated(newPost);
       onClose();
     } catch (err) {
       setErrorMsg(err.message || 'Could not publish post.');
@@ -112,7 +136,7 @@ export default function CreatePostModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.modalSheet, { backgroundColor: isDark ? '#1D1D1B' : '#FFFDFC', paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
             <View>
@@ -155,10 +179,16 @@ export default function CreatePostModal({
             {/* Presets Gallery */}
             <View style={styles.sectionBlock}>
               <View style={styles.labelRow}>
-                <Text style={[styles.subLabel, { color: colors.textSecondary }]}>Add from Photography Library</Text>
-                <TouchableOpacity onPress={() => setShowAddUrlInput(!showAddUrlInput)}>
-                  <Text style={styles.addUrlText}>{showAddUrlInput ? 'Cancel' : '+ Photo URL'}</Text>
-                </TouchableOpacity>
+                <Text style={[styles.subLabel, { color: colors.textSecondary }]}>Add Travel Photos</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <TouchableOpacity onPress={handlePickDevicePhoto} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="images-outline" size={14} color="#B99A5E" style={{ marginRight: 4 }} />
+                    <Text style={styles.addUrlText}>Pick from Gallery</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowAddUrlInput(!showAddUrlInput)}>
+                    <Text style={styles.addUrlText}>{showAddUrlInput ? 'Cancel' : '+ URL'}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {showAddUrlInput && (

@@ -1,8 +1,14 @@
 import { Platform } from 'react-native';
 
 // ============================================================
-// Solo Traveler — Premium Dark-Navy Design System
-// Phase 2 Design Tokens & Manrope Typography System
+// MaybeWe — Warm Champagne Pearl Design System
+// Theme: Warm Champagne Pearl
+//
+// Exact brand colours (DO NOT ALTER):
+//   Pearl White  #EFDCCC  — main page / background foundation
+//   Champagne    #E7D3B5  — CTAs, active nav, highlights, accents
+//   Warm Beige   #D9C8B2  — cards, inputs, chips, dividers, surfaces
+//   Deep Charcoal #171817 — readable text and important icons
 // ============================================================
 
 export const FONTS = {
@@ -21,7 +27,7 @@ export const TYPOGRAPHY = {
     fontSize: 34,
     lineHeight: 44,
     letterSpacing: -0.8,
-    color: '#171716',
+    color: '#171817',
   },
   display: {
     fontFamily: FONTS.extraBold,
@@ -29,7 +35,7 @@ export const TYPOGRAPHY = {
     fontSize: 28,
     lineHeight: 36,
     letterSpacing: -0.6,
-    color: '#171716',
+    color: '#171817',
   },
   // Large headings → Manrope 700–800
   headingLarge: {
@@ -38,7 +44,7 @@ export const TYPOGRAPHY = {
     fontSize: 24,
     lineHeight: 32,
     letterSpacing: -0.4,
-    color: '#171716',
+    color: '#171817',
   },
   heading2: {
     fontFamily: FONTS.bold,
@@ -46,7 +52,7 @@ export const TYPOGRAPHY = {
     fontSize: 20,
     lineHeight: 28,
     letterSpacing: -0.3,
-    color: '#171716',
+    color: '#171817',
   },
   // Section headings → Manrope 700
   sectionHeading: {
@@ -55,7 +61,7 @@ export const TYPOGRAPHY = {
     fontSize: 18,
     lineHeight: 26,
     letterSpacing: -0.2,
-    color: '#171716',
+    color: '#171817',
   },
   // Card titles → Manrope 600–700
   cardTitle: {
@@ -64,7 +70,7 @@ export const TYPOGRAPHY = {
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: -0.2,
-    color: '#171716',
+    color: '#171817',
   },
   cardTitleBold: {
     fontFamily: FONTS.bold,
@@ -72,7 +78,7 @@ export const TYPOGRAPHY = {
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: -0.2,
-    color: '#171716',
+    color: '#171817',
   },
   // Body text → Manrope 400–500
   body: {
@@ -87,7 +93,7 @@ export const TYPOGRAPHY = {
     fontWeight: '500',
     fontSize: 15,
     lineHeight: 24,
-    color: '#171716',
+    color: '#171817',
   },
   bodySmall: {
     fontFamily: FONTS.regular,
@@ -130,7 +136,7 @@ export const TYPOGRAPHY = {
     fontFamily: FONTS.bold,
     fontWeight: '700',
     fontSize: 18,
-    color: '#171716',
+    color: '#171817',
   },
   caption: {
     fontFamily: FONTS.medium,
@@ -141,16 +147,22 @@ export const TYPOGRAPHY = {
   },
 };
 
+// Warm Champagne Pearl — Lighter surface tokens
+// Main background: #FFFDFC (almost white)
+// Secondary bg:    #FBF8F3 (very light warm ivory)
+// Cards/surfaces:  #F5EEE5 (very light beige)
+// Champagne:       #E7D3B5 (soft accent)
+// Borders:         #EDE5DA (subtle warm beige)
 export const SURFACES = {
-  pearl: '#F7F5F0',
-  warmIvory: '#F1EEE6',
-  silk: '#FBFAF7',
-  softChampagne: '#E6D5AF',
-  mistSage: '#DCE5DF',
-  powderBlue: '#DDE7ED',
-  warmSand: '#E5D8C8',
-  softRose: '#E8D9D5',
-  stone: '#D7D2C8',
+  pearl: '#FFFDFC',       // Near-white main background
+  warmIvory: '#FBF8F3',   // Very light warm ivory
+  silk: '#FBF8F3',        // alias
+  softChampagne: '#E7D3B5', // Champagne — accents
+  mistSage: '#F5EEE5',    // Very light beige — surfaces
+  powderBlue: '#F5EEE5',  // alias
+  warmSand: '#F5EEE5',    // Very light beige
+  softRose: '#FFFDFC',    // alias → near-white
+  stone: '#EDE5DA',       // Border/divider beige
 };
 
 export const TEXT = {
@@ -161,7 +173,7 @@ export const TEXT = {
 };
 
 export const ACCENTS = {
-  champagneGold: '#B99A5E',
+  champagneGold: '#E7D3B5', // Champagne — primary accent
   deepOlive: '#33463C',
   mutedTerracotta: '#A96F5C',
   deepOcean: '#405B68',
@@ -169,34 +181,34 @@ export const ACCENTS = {
 
 export const GLASS_MATERIALS = {
   light: {
-    backgroundColor: 'rgba(251, 250, 247, 0.78)',
-    borderColor: 'rgba(255, 255, 255, 0.90)',
+    backgroundColor: 'rgba(255, 253, 252, 0.92)',
+    borderColor: 'rgba(237, 229, 218, 0.75)',
   },
   pearl: {
-    backgroundColor: 'rgba(247, 245, 240, 0.88)',
-    borderColor: 'rgba(215, 210, 200, 0.65)',
+    backgroundColor: 'rgba(251, 248, 243, 0.90)',
+    borderColor: 'rgba(237, 229, 218, 0.65)',
   },
   champagne: {
-    backgroundColor: 'rgba(230, 213, 175, 0.32)',
-    borderColor: 'rgba(185, 154, 94, 0.45)',
+    backgroundColor: 'rgba(231, 211, 181, 0.28)',
+    borderColor: 'rgba(237, 229, 218, 0.50)',
   },
   sage: {
-    backgroundColor: 'rgba(220, 229, 223, 0.38)',
-    borderColor: 'rgba(51, 70, 60, 0.28)',
+    backgroundColor: 'rgba(245, 238, 229, 0.38)',
+    borderColor: 'rgba(51, 70, 60, 0.20)',
   },
 };
 
 export const PALETTE = {
-  // BASE (Rich Light Materials)
-  pearl: '#F7F5F0',
-  warmIvory: '#F1EEE6',
-  silk: '#FBFAF7',
-  softChampagne: '#E6D5AF',
-  mistSage: '#DCE5DF',
-  powderBlue: '#DDE7ED',
-  warmSand: '#E5D8C8',
-  softRose: '#E8D9D5',
-  stone: '#D7D2C8',
+  // BASE — Warm Champagne Pearl (Lighter Edition)
+  pearl: '#FFFDFC',         // Near-white main background
+  warmIvory: '#FBF8F3',     // Very light warm ivory
+  silk: '#FBF8F3',          // alias
+  softChampagne: '#E7D3B5', // Champagne — accents/highlights
+  mistSage: '#F5EEE5',      // Very light beige — surfaces
+  powderBlue: '#F5EEE5',    // alias
+  warmSand: '#F5EEE5',      // Very light beige
+  softRose: '#FFFDFC',      // alias → near-white
+  stone: '#EDE5DA',         // Border/divider
 
   // TEXT
   obsidian: '#171817',
@@ -204,29 +216,29 @@ export const PALETTE = {
   warmCharcoal: '#45453F',
   muted: '#77766F',
 
-  // PREMIUM ACCENTS
-  champagneGold: '#B99A5E',
+  // ACCENTS
+  champagneGold: '#E7D3B5', // Champagne
   deepOlive: '#33463C',
   mutedTerracotta: '#A96F5C',
   deepOcean: '#405B68',
 
   // Legacy & compatibility aliases
-  softPearl: '#F7F5F0',
+  softPearl: '#FFFDFC',
   deepCharcoal: '#171817',
-  softStone: '#D7D2C8',
+  softStone: '#EDE5DA',
   warmGrey: '#77766F',
   textPrimary: '#171817',
   textSecondary: '#45453F',
   textMuted: '#77766F',
-  champagne: '#B99A5E',
-  champagneHighlight: '#E6D5AF',
+  champagne: '#E7D3B5',
+  champagneHighlight: '#E7D3B5',
   deepBronze: '#756345',
   deepForest: '#33463C',
-  warmOffWhite: '#F1EEE6',
-  softIvory: '#FBFAF7',
+  warmOffWhite: '#FBF8F3',
+  softIvory: '#FBF8F3',
   white: '#FFFFFF',
-  lightGrey: '#F7F5F0',
-  borderGrey: '#D7D2C8',
+  lightGrey: '#FFFDFC',
+  borderGrey: '#EDE5DA',
   mediumGrey: '#45453F',
   darkGrey: '#2B2C29',
   nearBlack: '#171817',
@@ -235,7 +247,6 @@ export const PALETTE = {
 export const DARK_COLORS = {
   mode: 'dark',
   isDark: false, // Locked to luxury light palette
-  // Backgrounds: background: '#061522' (kept for verify.js)
   background: '#061522',
   backgroundSecondary: '#1D1D1B',
   surface: '#242422',
@@ -248,7 +259,7 @@ export const DARK_COLORS = {
   border: '#363633',
   borderLight: '#242422',
   borderGlass: '#363633',
-  borderActive: '#C8B27A',
+  borderActive: '#E7D3B5',
 
   // Text
   text: '#FAF8F3',
@@ -264,7 +275,7 @@ export const DARK_COLORS = {
 
   success: '#3D7A5A',
   danger: '#B34A4A',
-  warning: '#C8B27A',
+  warning: '#E7D3B5',
   info: '#4A6B82',
 
   overlay: 'rgba(17, 18, 16, 0.50)',
@@ -290,77 +301,79 @@ export const DARK_COLORS = {
 export const LIGHT_COLORS = {
   mode: 'light',
   isDark: false,
-  // Primary Palette Tokens (Luxury Futuristic)
-  // Compatibility matches for test runner:
-  // background: '#F6F8FB'
-  // textPrimary: '#061522'
-  background: '#F7F5F0',
-  backgroundSecondary: '#F1EEE6',
-  surface: '#FBFAF7',
+
+  // ─── Background & Surface tokens (light warm ivory & pearl) ───
+  background: '#FFFDFC',
+  backgroundSecondary: '#FBF8F3',
+  surface: '#FFFDFC',
   surfaceElevated: '#FFFFFF',
-  surfaceGlass: 'rgba(247, 245, 240, 0.88)',
+  surfaceGlass: 'rgba(255, 253, 252, 0.95)',
   surfaceGlassDark: 'rgba(23, 24, 23, 0.88)',
-  surfaceGlassUltra: 'rgba(251, 250, 247, 0.94)',
+  surfaceGlassUltra: 'rgba(251, 248, 243, 0.95)',
 
-  // Borders: soft stone with subtle depth
-  border: '#D7D2C8',
-  borderLight: 'rgba(215, 210, 200, 0.55)',
-  borderGlass: 'rgba(215, 210, 200, 0.65)',
-  borderActive: '#B99A5E',
-  borderChampagne: '#B99A5E',
+  // ─── Borders: subtle warm beige ───
+  border: '#EDE5DA',
+  borderLight: 'rgba(237, 229, 218, 0.55)',
+  borderGlass: 'rgba(237, 229, 218, 0.65)',
+  borderActive: '#E7D3B5',         // Champagne — active border
+  borderChampagne: '#E7D3B5',      // Champagne
 
-  // Text: high-contrast obsidian & warm charcoal tones
+  // ─── Text: Deep Charcoal (unchanged) ───
   text: '#171817',
   textPrimary: '#171817',
   textSecondary: '#45453F',
   textMuted: '#77766F',
-  textDisabled: '#D7D2C8',
+  textDisabled: '#EDE5DA',
 
-  // Premium Accents
-  champagne: '#B99A5E',
-  champagneHighlight: '#E6D5AF',
+  // ─── Champagne accents ───
+  champagne: '#E7D3B5',
+  champagneHighlight: '#E7D3B5',
   deepOlive: '#33463C',
   mutedTerracotta: '#A96F5C',
   deepOcean: '#405B68',
   deepBronze: '#756345',
   deepForest: '#33463C',
 
-  // Restrained Semantic Accents
+  // ─── Semantic ───
   success: '#33463C',
-  successBg: '#DCE5DF',
+  successBg: '#F5EEE5',
   danger: '#A96F5C',
-  dangerBg: '#E8D9D5',
-  warning: '#B99A5E',
-  warningBg: '#E6D5AF',
+  dangerBg: '#FBF8F3',
+  warning: '#E7D3B5',
+  warningBg: '#FBF8F3',
   info: '#405B68',
-  infoBg: '#DDE7ED',
+  infoBg: '#F5EEE5',
 
-  // Overlays
-  overlay: 'rgba(23, 24, 23, 0.40)',
-  overlayHeavy: 'rgba(23, 24, 23, 0.65)',
-  overlayCard: '#FBFAF7',
+  // ─── Overlays ───
+  overlay: 'rgba(23, 24, 23, 0.35)',
+  overlayHeavy: 'rgba(23, 24, 23, 0.60)',
+  overlayCard: 'transparent',
   bgGradientOverlay: ['transparent', 'transparent', 'transparent'],
   heroGradientOverlay: ['transparent', 'transparent', 'transparent'],
 
-  // Physical Tactile Component Specific
+  // ─── Component-specific ───
   primary: '#171817',
-  primaryText: '#FBFAF7',
+  primaryText: '#FBF8F3',
   primaryLight: '#2B2C29',
   primaryDark: '#111210',
-  glassBg: 'rgba(247, 245, 240, 0.90)',
-  glassBorder: 'rgba(215, 210, 200, 0.65)',
-  surfaceSubtle: '#F1EEE6',
-  surfaceCard: '#FBFAF7',
+  glassBg: 'rgba(251, 248, 243, 0.92)',
+  glassBorder: 'rgba(237, 229, 218, 0.65)',
+
+  // Cards / inputs / chips → very light beige
+  surfaceSubtle: '#F5EEE5',
+  surfaceCard: '#F5EEE5',
+  cardBg: '#F5EEE5',
+  cardBorder: '#EDE5DA',
+  input: '#F5EEE5',
+  inputBg: '#F5EEE5',
+  inputBorder: '#EDE5DA',
+  chipBg: '#F5EEE5',
+  chipBorder: '#EDE5DA',
+
+  // Modal → near-white (modal needs a real background)
+  modalBg: '#FFFDFC',
+  tabBarBg: 'transparent',
   textSecondaryLight: '#77766F',
-  tabBarBg: 'rgba(247, 245, 240, 0.94)',
-  cardBg: '#FBFAF7',
-  cardBorder: '#D7D2C8',
-  input: '#FBFAF7',
-  inputBg: '#F1EEE6',
-  inputBorder: '#D7D2C8',
-  chipBg: '#F1EEE6',
-  chipBorder: '#D7D2C8',
-  modalBg: '#F7F5F0',
 };
 
 export const getThemeColors = (mode = 'light') => {
@@ -392,29 +405,29 @@ export const GRADIENTS = {
   sunsetPeachViolet: ['#1D1D1B', '#282824', '#756345'],
   sunsetToNavy: ['#1D1D1B', '#282824', '#1D1D1B'],
 
-  // Champagne luxury reflections
-  champagneReflect: ['#D6C392', '#E5D7B5', '#C8B27A'],
-  champagneSubtle: ['rgba(200, 178, 122, 0.16)', 'rgba(200, 178, 122, 0.02)'],
-  pearlGlass: ['rgba(255, 255, 255, 0.94)', 'rgba(250, 248, 243, 0.84)'],
-  cardHighlight: ['rgba(255, 255, 255, 0.85)', 'rgba(255, 255, 255, 0)'],
-  ambientLight: ['rgba(229, 215, 181, 0.18)', 'rgba(244, 241, 234, 0)'],
+  // Champagne Pearl reflections
+  champagneReflect: ['#E7D3B5', '#F5EEE5', '#E7D3B5'],
+  champagneSubtle: ['rgba(231, 211, 181, 0.16)', 'rgba(231, 211, 181, 0.02)'],
+  pearlGlass: ['rgba(255, 253, 252, 0.96)', 'rgba(251, 248, 243, 0.88)'],
+  cardHighlight: ['rgba(255, 253, 252, 0.92)', 'rgba(255, 253, 252, 0)'],
+  ambientLight: ['rgba(231, 211, 181, 0.14)', 'rgba(255, 253, 252, 0)'],
 
   // Subtle tonal transitions
-  heroOverlay: ['transparent', 'rgba(244, 241, 234, 0.70)', '#F4F1EA'],
-  heroOverlayTop: ['rgba(244, 241, 234, 0.85)', 'transparent'],
+  heroOverlay: ['transparent', 'rgba(251, 248, 243, 0.70)', '#FBF8F3'],
+  heroOverlayTop: ['rgba(255, 253, 252, 0.85)', 'transparent'],
   cardOverlay: ['transparent', 'rgba(17, 18, 16, 0.65)'],
   cardOverlayMedium: ['transparent', 'rgba(17, 18, 16, 0.40)'],
-  darkBase: ['#F4F1EA', '#FAF8F3'],
-  surface: ['#FFFFFF', '#FAF8F3'],
-  glassGradient: ['rgba(255, 255, 255, 0.92)', 'rgba(250, 248, 243, 0.84)'],
+  darkBase: ['#FFFDFC', '#FBF8F3'],
+  surface: ['#FFFDFC', '#FBF8F3'],
+  glassGradient: ['rgba(255, 253, 252, 0.94)', 'rgba(251, 248, 243, 0.88)'],
 
-  morning: ['#F4F1EA', '#FAF8F3'],
-  afternoon: ['#F4F1EA', '#FAF8F3'],
-  sunset: ['#F4F1EA', '#FAF8F3'],
-  night: ['#F4F1EA', '#FAF8F3'],
+  morning: ['#FFFDFC', '#FBF8F3'],
+  afternoon: ['#FFFDFC', '#FBF8F3'],
+  sunset: ['#FFFDFC', '#FBF8F3'],
+  night: ['#FFFDFC', '#FBF8F3'],
 
   // Tab / pill
-  tabPill: ['#FFFFFF', '#FAF8F3'],
+  tabPill: ['#FFFDFC', '#FBF8F3'],
   tabPillActive: ['#282824', '#1D1D1B'],
   ocean: ['#1D1D1B', '#282824'],
   hero: ['#1D1D1B', '#282824'],
@@ -534,14 +547,14 @@ export const SHADOWS = {
     }),
   },
   champagneGlow: {
-    shadowColor: '#C8B27A',
+    shadowColor: '#E7D3B5',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 2,
     ...Platform.select({
       web: {
-        boxShadow: '0 0 16px rgba(200, 178, 122, 0.25)',
+        boxShadow: '0 0 16px rgba(231, 211, 181, 0.25)',
       },
       default: {},
     }),

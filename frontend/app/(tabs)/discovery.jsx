@@ -245,8 +245,8 @@ export default function DiscoveryScreen() {
                 style={[
                   styles.searchLauncherContent,
                   {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.inputBorder,
+                    backgroundColor: '#FFFFFF',
+                    borderColor: '#EDE5DA',
                   },
                 ]}
               >

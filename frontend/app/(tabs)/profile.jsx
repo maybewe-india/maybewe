@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/theme';
 import InputField from '../../components/ui/InputField';
 import { useAuth } from '../../lib/authContext';
@@ -34,19 +35,10 @@ import PrivacySettingsModal from '../../components/PrivacySettingsModal.jsx';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-const COVER_IMAGE = require('../../assets/images/dest_rajasthan.jpg');
 const GOA_IMAGE = require('../../assets/images/dest_goa.jpg');
 const LADAKH_IMAGE = require('../../assets/images/dest_ladakh.jpg');
 const KERALA_IMAGE = require('../../assets/images/dest_kerala.jpg');
 const HAMPI_IMAGE = require('../../assets/images/journal_hampi.jpg');
-
-const AVATAR_PRESETS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=500&auto=format&fit=crop&q=80',
-];
 
 // Curated travel journal entries — Indian destinations
 const JOURNAL_ENTRIES = [
@@ -97,14 +89,18 @@ export default function ProfileScreen() {
 
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editName, setEditName] = useState(profile?.name || 'Priya Sharma');
+  const [editName, setEditName] = useState(profile?.name || '');
   const [editAge, setEditAge] = useState(String(profile?.age || 24));
-  const [editLocation, setEditLocation] = useState(profile?.city || 'Bengaluru');
+  const [editLocation, setEditLocation] = useState(
+    profile?.city
+      ? (profile.state ? `${profile.city}, ${profile.state}` : profile.city)
+      : 'Chittoor, Andhra Pradesh'
+  );
   const [editBio, setEditBio] = useState(
     profile?.bio ||
       'Visual designer & coffee enthusiast wandering through architecture, quiet bookshops, and coastal hiking trails.'
   );
-  const [editAvatar, setEditAvatar] = useState(profile?.avatar_url || AVATAR_PRESETS[0]);
+  const [editAvatar, setEditAvatar] = useState(profile?.avatar_url || '');
   const [saving, setSaving] = useState(false);
 
   const [profileTab, setProfileTab] = useState('stories'); // stories | saved | trips | about
@@ -173,8 +169,82 @@ export default function ProfileScreen() {
       if (profile.age) setEditAge(String(profile.age));
       if (profile.bio) setEditBio(profile.bio);
       if (profile.avatar_url) setEditAvatar(profile.avatar_url);
+      if (profile.city) {
+        setEditLocation(profile.state ? `${profile.city}, ${profile.state}` : profile.city);
+      }
     }
   }, [profile]);
+
+  const openEditModal = () => {
+    setEditName(profile?.name || '');
+    setEditAge(profile?.age ? String(profile.age) : '24');
+    setEditLocation(
+      profile?.city
+        ? (profile.state ? `${profile.city}, ${profile.state}` : profile.city)
+        : 'Chittoor, Andhra Pradesh'
+    );
+    setEditBio(profile?.bio || '');
+    setEditAvatar(profile?.avatar_url || '');
+    setEditModalVisible(true);
+  };
+
+  const handlePickAvatarFromLibrary = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Gallery access is needed to select a profile photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const pickedUri = result.assets[0].uri;
+        setEditAvatar(pickedUri);
+        // Also save directly if edit modal is not open
+        if (!editModalVisible) {
+          const res = await updateProfile({ avatar_url: pickedUri });
+          if (res?.success) {
+            Alert.alert('Photo Updated', 'Your profile photo has been updated.');
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Gallery pick error:', err);
+      Alert.alert('Error', 'Unable to pick photo from gallery.');
+    }
+  };
+
+  const handleTakeAvatarWithCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Camera permission is needed to take a profile photo.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const pickedUri = result.assets[0].uri;
+        setEditAvatar(pickedUri);
+        if (!editModalVisible) {
+          const res = await updateProfile({ avatar_url: pickedUri });
+          if (res?.success) {
+            Alert.alert('Photo Updated', 'Your profile photo has been updated.');
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Camera take error:', err);
+      Alert.alert('Error', 'Unable to capture photo.');
+    }
+  };
 
   const handleLogout = () => {
     const performLogout = async () => {
@@ -205,21 +275,43 @@ export default function ProfileScreen() {
 
   const handleSaveProfile = async () => {
     setSaving(true);
-    await updateProfile({
-      name: editName,
-      bio: editBio,
-      avatar_url: editAvatar || profile?.avatar_url,
-      age: parseInt(editAge, 10) || 27,
-    });
-    setSaving(false);
-    setEditModalVisible(false);
-    Alert.alert('Profile Saved', 'Your traveler profile has been updated.');
+    try {
+      let city = 'Chittoor';
+      let state = 'Andhra Pradesh';
+      if (editLocation && editLocation.trim()) {
+        const parts = editLocation.split(',').map((s) => s.trim());
+        city = parts[0] || 'Chittoor';
+        state = parts[1] || 'Andhra Pradesh';
+      }
+
+      const res = await updateProfile({
+        name: editName.trim() || profile?.name || 'Traveler',
+        bio: editBio,
+        avatar_url: editAvatar || profile?.avatar_url,
+        age: parseInt(editAge, 10) || profile?.age || 24,
+        city,
+        state,
+      });
+
+      if (res && res.error) {
+        Alert.alert('Save Failed', res.error);
+      } else {
+        setEditModalVisible(false);
+        Alert.alert('Profile Saved', 'Your traveler profile has been updated.');
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to save changes.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const currentAvatar = profile?.avatar_url || editAvatar || AVATAR_PRESETS[0];
-  const displayName = profile?.name || 'Priya Sharma';
+  const currentAvatar = profile?.avatar_url || editAvatar || null;
+  const displayName = profile?.name || 'Traveler';
   const displayAge = profile?.age || 24;
-  const displayLocation = profile?.city ? `${profile.city}, ${profile.state || 'Karnataka'}` : 'Bengaluru, Karnataka';
+  const displayLocation = profile?.city
+    ? `${profile.city}, ${profile.state || 'Andhra Pradesh'}`
+    : 'Chittoor, Andhra Pradesh';
   const trustScore = profile?.trust_score || 4.95;
   const verificationStatus = profile?.verification_status || (profile?.is_verified ? 'verified' : 'pending');
   const verificationLabel =
@@ -239,18 +331,9 @@ export default function ProfileScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Cinematic Cover Background */}
-          <View style={styles.coverWrapper}>
-            <Image source={COVER_IMAGE} style={styles.coverImage} resizeMode="cover" />
-            <LinearGradient
-              colors={['rgba(15, 23, 42, 0.25)', 'rgba(15, 23, 42, 0.65)', 'transparent']}
-              locations={[0, 0.6, 1]}
-              style={StyleSheet.absoluteFill}
-            />
-
-          {/* Top Quick Actions */}
+          {/* Top Quick Actions Bar (Clean, no background image) */}
           <View style={[styles.topActionsBar, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
-            <View style={[styles.topBadgePill, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}>
+            <View style={[styles.topBadgePill, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA' }]}>
               <Ionicons name="sparkles" size={12} color="#C8B27A" style={{ marginRight: 5 }} />
               <Text style={[styles.topBadgeText, { color: '#756345' }]}>VERIFIED EXPLORER</Text>
             </View>
@@ -259,11 +342,11 @@ export default function ProfileScreen() {
               {/* Notification Bell */}
               <TouchableOpacity
                 onPress={() => setNotifModalVisible(true)}
-                style={[styles.topEditIconBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)', position: 'relative' }]}
+                style={[styles.topEditIconBtn, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA', position: 'relative' }]}
                 activeOpacity={0.8}
                 accessibilityLabel="Notifications"
               >
-                <Ionicons name="notifications-outline" size={18} color="#171715" />
+                <Ionicons name="notifications-outline" size={18} color="#171817" />
                 {unreadNotifCount > 0 && (
                   <View style={{ position: 'absolute', top: -3, right: -3, backgroundColor: '#8C4351', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1, minWidth: 16, alignItems: 'center' }}>
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 9, color: '#FAF8F3' }}>{unreadNotifCount}</Text>
@@ -274,37 +357,52 @@ export default function ProfileScreen() {
               {/* Privacy & Safety Settings */}
               <TouchableOpacity
                 onPress={() => setPrivacyModalVisible(true)}
-                style={[styles.topEditIconBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}
+                style={[styles.topEditIconBtn, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA' }]}
                 activeOpacity={0.8}
                 accessibilityLabel="Privacy & Safety Settings"
               >
-                <Ionicons name="shield-outline" size={18} color="#171715" />
+                <Ionicons name="shield-outline" size={18} color="#171817" />
               </TouchableOpacity>
 
               {/* Edit Profile */}
               <TouchableOpacity
-                onPress={() => setEditModalVisible(true)}
-                style={[styles.topEditIconBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}
+                onPress={openEditModal}
+                style={[styles.topEditIconBtn, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA' }]}
                 activeOpacity={0.8}
                 accessibilityLabel="Edit Profile"
               >
-                <Ionicons name="create-outline" size={18} color="#171715" />
+                <Ionicons name="create-outline" size={18} color="#171817" />
               </TouchableOpacity>
             </View>
           </View>
-        </View>
 
         {/* Top Profile Area: Large Avatar, Verification Badge, Name, Age, Location, Trust Score */}
         <View style={styles.profileHeader}>
-          {/* Avatar with verified ring and camera badge */}
-          <View style={styles.avatarContainer}>
-            <View style={[styles.avatarRing, { borderColor: 'rgba(216, 212, 203, 0.8)' }]}>
-              <Image source={{ uri: currentAvatar }} style={styles.avatarImage} />
+          {/* Avatar with tap-to-change photo and camera edit badge */}
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={handlePickAvatarFromLibrary}
+            activeOpacity={0.85}
+            accessibilityLabel="Change profile photo"
+          >
+            <View style={[styles.avatarRing, { borderColor: '#EDE5DA', backgroundColor: '#F5EEE5' }]}>
+              {currentAvatar ? (
+                <Image source={{ uri: currentAvatar }} style={styles.avatarImage} />
+              ) : (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5EEE5' }}>
+                  <Ionicons name="person" size={48} color="#B99A5E" />
+                </View>
+              )}
             </View>
-            <View style={[styles.verifiedBadge, { backgroundColor: '#C8B27A', borderColor: '#FAF8F3', borderWidth: 2 }]}>
-              <Ionicons name="shield-checkmark" size={15} color="#FAF8F3" />
+            <View style={[styles.avatarEditBadge, { backgroundColor: '#171817', borderColor: '#FAF8F3' }]}>
+              <Ionicons name="camera" size={13} color="#FAF8F3" />
             </View>
-          </View>
+            {verificationStatus === 'verified' && (
+              <View style={[styles.verifiedBadge, { backgroundColor: '#2E7D32', borderColor: '#FAF8F3' }]}>
+                <Ionicons name="shield-checkmark" size={13} color="#FAF8F3" />
+              </View>
+            )}
+          </TouchableOpacity>
 
           {/* Name & Age */}
           <Text style={[styles.userName, { color: colors.textPrimary }]}>
@@ -363,8 +461,8 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setEditModalVisible(true)}
-              style={[styles.secondaryActionBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.85)' }]}
+              onPress={openEditModal}
+              style={[styles.secondaryActionBtn, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA' }]}
               activeOpacity={0.8}
             >
               <Ionicons name="create-outline" size={15} color="#1D1D1B" style={{ marginRight: 6 }} />
@@ -455,7 +553,12 @@ export default function ProfileScreen() {
               <View style={styles.threeColGrid}>
                 {userPosts.map((post) => {
                   const media = post.media && post.media.length > 0 ? post.media[0] : null;
-                  const imgUri = media?.media_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800';
+                  let imgUri = media?.media_url;
+                  if (!imgUri || imgUri.includes('1600100397608')) {
+                    imgUri = 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80';
+                  } else if (imgUri.includes('1603262110263')) {
+                    imgUri = 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80';
+                  }
                   return (
                     <TouchableOpacity
                       key={post.id}
@@ -463,7 +566,12 @@ export default function ProfileScreen() {
                       activeOpacity={0.85}
                       onPress={() => setSelectedPost(post)}
                     >
-                      <Image source={{ uri: imgUri }} style={styles.gridImg} resizeMode="cover" />
+                      <Image
+                        source={{ uri: imgUri }}
+                        style={styles.gridImg}
+                        resizeMode="cover"
+                        defaultSource={HAMPI_IMAGE}
+                      />
                       <LinearGradient
                         colors={['transparent', 'rgba(15, 23, 42, 0.65)']}
                         style={StyleSheet.absoluteFill}
@@ -476,7 +584,7 @@ export default function ProfileScreen() {
                         ) : null}
                         <View style={styles.gridLikeRow}>
                           <Ionicons name="heart" size={11} color="#C8B27A" style={{ marginRight: 3 }} />
-                          <Text style={styles.gridLikeTxt}>{post.likes_count || 0}</Text>
+                          <Text style={styles.gridLikeTxt}>{post.like_count || post.likes_count || 0}</Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -582,7 +690,12 @@ export default function ProfileScreen() {
                   <View style={styles.threeColGrid}>
                     {savedPosts.map((post) => {
                       const media = post.media && post.media.length > 0 ? post.media[0] : null;
-                      const imgUri = media?.media_url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800';
+                      let imgUri = media?.media_url;
+                      if (!imgUri || imgUri.includes('1600100397608')) {
+                        imgUri = 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80';
+                      } else if (imgUri.includes('1603262110263')) {
+                        imgUri = 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80';
+                      }
                       return (
                         <TouchableOpacity
                           key={post.id}
@@ -590,7 +703,16 @@ export default function ProfileScreen() {
                           activeOpacity={0.85}
                           onPress={() => setSelectedPost(post)}
                         >
-                          <Image source={{ uri: imgUri }} style={styles.gridImg} resizeMode="cover" />
+                          <Image
+                            source={{ uri: imgUri }}
+                            style={styles.gridImg}
+                            resizeMode="cover"
+                            defaultSource={HAMPI_IMAGE}
+                          />
+                          <LinearGradient
+                            colors={['transparent', 'rgba(15, 23, 42, 0.65)']}
+                            style={StyleSheet.absoluteFill}
+                          />
                           <View style={styles.gridOverlay}>
                             <Text style={styles.gridDestTxt} numberOfLines={1}>{post.destination}</Text>
                           </View>
@@ -854,25 +976,48 @@ export default function ProfileScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.editModalBody} showsVerticalScrollIndicator={false}>
-            {/* Avatar Preset Selector */}
-            <Text style={[styles.formLabel, { color: colors.primary }]}>CHOOSE AVATAR PRESET</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetScroll}>
-              {AVATAR_PRESETS.map((uri, idx) => (
+            {/* Profile Photo Uploader */}
+            <Text style={[styles.formLabel, { color: colors.primary }]}>YOUR PROFILE PHOTO</Text>
+            <View style={styles.photoUploadContainer}>
+              <View style={styles.photoPreviewWrap}>
+                {editAvatar ? (
+                  <Image source={{ uri: editAvatar }} style={styles.photoPreviewImg} />
+                ) : (
+                  <View style={styles.photoPreviewEmpty}>
+                    <Ionicons name="person" size={32} color="#B99A5E" />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.photoActionButtons}>
                 <TouchableOpacity
-                  key={idx}
-                  onPress={() => setEditAvatar(uri)}
-                  style={[styles.presetItem, { borderColor: colors.border }, editAvatar === uri && [styles.presetItemActive, { borderColor: colors.primary }]]}
+                  style={styles.photoUploadBtn}
+                  onPress={handlePickAvatarFromLibrary}
                   activeOpacity={0.8}
                 >
-                  <Image source={{ uri }} style={styles.presetImg} />
-                  {editAvatar === uri && (
-                    <View style={[styles.presetCheck, { backgroundColor: '#059669' }]}>
-                      <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                    </View>
-                  )}
+                  <Ionicons name="images-outline" size={15} color="#FAF8F3" style={{ marginRight: 6 }} />
+                  <Text style={styles.photoUploadBtnText}>Choose from Gallery</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+
+                <TouchableOpacity
+                  style={styles.photoCameraBtn}
+                  onPress={handleTakeAvatarWithCamera}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera-outline" size={15} color="#171817" style={{ marginRight: 6 }} />
+                  <Text style={styles.photoCameraBtnText}>Take Selfie / Photo</Text>
+                </TouchableOpacity>
+
+                {editAvatar ? (
+                  <TouchableOpacity
+                    onPress={() => setEditAvatar('')}
+                    style={styles.photoRemoveBtn}
+                  >
+                    <Text style={styles.photoRemoveBtnText}>Remove Photo</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
 
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: colors.primary }]}>NAME</Text>
@@ -889,18 +1034,26 @@ export default function ProfileScreen() {
               <InputField
                 value={editAge}
                 onChangeText={setEditAge}
-                placeholder="27"
+                placeholder="24"
                 keyboardType="numeric"
                 icon="calendar-outline"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.primary }]}>LOCATION</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>LOCATION</Text>
+                <TouchableOpacity
+                  onPress={() => setEditLocation('Chittoor, Andhra Pradesh')}
+                  style={{ marginBottom: 6 }}
+                >
+                  <Text style={{ fontFamily: FONTS.semiBold, fontSize: 11, color: '#B99A5E' }}>Set Chittoor, AP</Text>
+                </TouchableOpacity>
+              </View>
               <InputField
                 value={editLocation}
                 onChangeText={setEditLocation}
-                placeholder="e.g. San Francisco, CA / Tokyo, Japan"
+                placeholder="e.g. Chittoor, Andhra Pradesh"
                 icon="location-outline"
               />
             </View>
@@ -932,6 +1085,10 @@ export default function ProfileScreen() {
       <CreatePostModal
         visible={createPostVisible}
         onClose={() => setCreatePostVisible(false)}
+        currentUser={profile}
+        onPostCreated={(newPost) => {
+          setUserPosts((prev) => [newPost, ...prev]);
+        }}
         onCreated={(newPost) => {
           setUserPosts((prev) => [newPost, ...prev]);
         }}
@@ -1006,7 +1163,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: 'transparent',
   },
   container: {
     flex: 1,
@@ -1016,61 +1173,48 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  /* Cover Image Header */
-  coverWrapper: {
-    width: '100%',
-    height: 230,
-    position: 'relative',
-    justifyContent: 'space-between',
-  },
-  coverImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
   topActionsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    marginBottom: 16,
     zIndex: 10,
   },
   topBadgePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.90)',
+    backgroundColor: '#F5EEE5',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: RADII.full,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backdropFilter: 'blur(8px)',
+    borderColor: '#EDE5DA',
   },
   topBadgeText: {
     fontFamily: FONTS.bold,
     fontSize: 10,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#171817',
     letterSpacing: 1.2,
   },
   topEditIconBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.90)',
+    backgroundColor: '#F5EEE5',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#EDE5DA',
     alignItems: 'center',
     justifyContent: 'center',
-    backdropFilter: 'blur(8px)',
   },
 
   /* Profile Identity Header */
   profileHeader: {
     alignItems: 'center',
-    marginTop: -54,
+    marginTop: 10,
     paddingHorizontal: 20,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   avatarContainer: {
     position: 'relative',
@@ -1081,26 +1225,41 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: 48,
     borderWidth: 3,
-    borderColor: '#CBD5E1',
+    borderColor: '#EDE5DA',
     overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F5EEE5',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
   },
-  verifiedBadge: {
+  avatarEditBadge: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#059669',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#171817',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: '#FAF8F3',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 5,
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#2E7D32',
+    borderWidth: 2,
+    borderColor: '#FAF8F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
   },
   userName: {
     fontFamily: FONTS.extraBold,
@@ -1531,37 +1690,80 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginBottom: 8,
   },
-  presetScroll: {
+  photoUploadContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
+    backgroundColor: '#F5EEE5',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE5DA',
   },
-  presetItem: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  photoPreviewWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     overflow: 'hidden',
-    marginRight: 12,
     borderWidth: 2,
-    borderColor: 'transparent',
-    position: 'relative',
+    borderColor: '#EDE5DA',
+    marginRight: 16,
+    backgroundColor: '#FFFDFC',
   },
-  presetItemActive: {
-    borderColor: '#B99A5E',
-  },
-  presetImg: {
+  photoPreviewImg: {
     width: '100%',
     height: '100%',
   },
-  presetCheck: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#B99A5E',
+  photoPreviewEmpty: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F5EEE5',
+  },
+  photoActionButtons: {
+    flex: 1,
+    gap: 8,
+  },
+  photoUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#171817',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  photoUploadBtnText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    color: '#FAF8F3',
+  },
+  photoCameraBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAF8F3',
+    borderWidth: 1,
+    borderColor: '#EDE5DA',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  photoCameraBtnText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    color: '#171817',
+  },
+  photoRemoveBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  photoRemoveBtnText: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: '#9E3A3A',
   },
   formGroup: {
     marginBottom: 16,
@@ -1704,15 +1906,15 @@ const styles = StyleSheet.create({
   threeColGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 6,
   },
   gridItem: {
-    width: (SCREEN_W - 32 - 8) / 3,
-    height: (SCREEN_W - 32 - 8) / 3,
-    borderRadius: 10,
+    width: '31.8%',
+    aspectRatio: 1,
+    borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#F5EEE5',
   },
   gridImg: {
     width: '100%',

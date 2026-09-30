@@ -326,6 +326,25 @@ export default function VerificationScreen() {
     <View style={styles.root}>
       <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Top Bar with Back Button */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(tabs)/profile');
+                }
+              }}
+              style={styles.backButton}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="arrow-back" size={20} color="#171817" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Top Header */}
           <View style={styles.header}>
             <View style={styles.headerIconWrapper}>
@@ -532,6 +551,28 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
+  },
+  topBar: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#F5EEE5',
+    borderWidth: 1,
+    borderColor: '#EDE5DA',
+  },
+  backButtonText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 14,
+    color: '#171817',
+    marginLeft: 6,
   },
   header: {
     alignItems: 'center',

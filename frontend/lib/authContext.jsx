@@ -436,11 +436,20 @@ export function AuthProvider({ children }) {
       }
 
       if (Platform.OS === 'web') {
-        const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+        // Use the full current URL origin so it works on both localhost AND tunnel URLs (ngrok, etc.)
+        const currentOrigin = typeof window !== 'undefined'
+          ? window.location.origin
+          : undefined;
+        // Build redirect back to the app root so Supabase returns to the correct host
+        const redirectTo = currentOrigin || undefined;
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
             redirectTo,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'select_account',
+            },
           },
         });
         if (error) throw error;
@@ -757,32 +766,82 @@ export function AuthProvider({ children }) {
         }
         delete sanitizedUpdates.verified_at;
 
-        const { data, error } = await supabase
-          .from('users')
-          .update(sanitizedUpdates)
-          .eq('id', session.user.id)
-          .select()
-          .maybeSingle();
-
-        if (!error && data) {
-          const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
-          if (isDemo) {
-            if (data.verification_status === 'pending') {
-              data.verification_status = 'verified';
-              data.verified_at = data.verified_at || new Date().toISOString();
-            } else {
-              try {
-                const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${session.user.id}`);
-                if (isDevApproved === 'true') {
-                  data.verification_status = 'verified';
-                  data.verified_at = data.verified_at || new Date().toISOString();
-                }
-              } catch {}
-            }
+        // DB columns strictly present in public.users table
+        const VALID_DB_COLUMNS = [
+          'name', 'age', 'gender', 'bio', 'avatar_url',
+          'travel_styles', 'languages', 'theme_preference',
+          'subscription_tier'
+        ];
+        const dbUpdates = {};
+        for (const key of Object.keys(sanitizedUpdates)) {
+          if (VALID_DB_COLUMNS.includes(key)) {
+            dbUpdates[key] = sanitizedUpdates[key];
           }
-          setProfile(data);
-          return { success: true };
         }
+
+        let updatedDbData = null;
+        if (Object.keys(dbUpdates).length > 0) {
+          const { data, error } = await supabase
+            .from('users')
+            .update(dbUpdates)
+            .eq('id', session.user.id)
+            .select()
+            .maybeSingle();
+
+          if (!error && data) {
+            updatedDbData = data;
+          }
+        }
+
+        // Always sync Supabase auth user_metadata so custom fields (city, state, location, avatar) persist
+        try {
+          await supabase.auth.updateUser({
+            data: {
+              ...(session?.user?.user_metadata || {}),
+              ...updates,
+            },
+          });
+        } catch (authMetaErr) {
+          console.warn('Sync auth user_metadata note:', authMetaErr);
+        }
+
+        if (updates.city) {
+          const locObj = {
+            city: updates.city,
+            district: updates.city,
+            state: updates.state || 'Andhra Pradesh',
+            country: 'India',
+            status: 'granted',
+            isGPS: false,
+          };
+          AsyncStorage.setItem('@maybewe_user_location', JSON.stringify(locObj)).catch(() => {});
+        }
+
+        const merged = {
+          ...(profile || {}),
+          ...(updatedDbData || {}),
+          ...updates,
+        };
+
+        const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
+        if (isDemo) {
+          if (merged.verification_status === 'pending') {
+            merged.verification_status = 'verified';
+            merged.verified_at = merged.verified_at || new Date().toISOString();
+          } else {
+            try {
+              const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${session.user.id}`);
+              if (isDevApproved === 'true') {
+                merged.verification_status = 'verified';
+                merged.verified_at = merged.verified_at || new Date().toISOString();
+              }
+            } catch {}
+          }
+        }
+
+        setProfile(merged);
+        AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(merged)).catch(() => {});
+        return { success: true, profile: merged };
 
         // Missing-profile recovery: recover ONLY when sufficient real profile data exists
         // Do NOT invent age or required fields.

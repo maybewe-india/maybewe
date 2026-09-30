@@ -115,40 +115,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(250, 248, 243, 0.92)', // Frosted Ivory Glass
+    backgroundColor: 'transparent',
     borderRadius: RADII.xl,
     paddingVertical: 6,
     paddingHorizontal: 6,
     width: '100%',
     maxWidth: 450,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 212, 203, 0.75)', // Soft stone border
+    borderWidth: 0,
     position: 'relative',
     overflow: 'hidden',
     ...Platform.select({
-      ios: {
-        shadowColor: '#1D1D1B',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 18,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        backdropFilter: 'blur(24px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-        boxShadow: '0 16px 36px -4px rgba(29, 29, 27, 0.12), 0 4px 12px -2px rgba(29, 29, 27, 0.06)',
-      },
+      ios: {},
+      android: {},
+      web: {},
     }),
   },
   tabBarTopHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    display: 'none',
   },
   tabItem: {
     flex: 1,
@@ -160,7 +143,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1D1D1B', // Deep graphite physical surface
+    backgroundColor: '#171817', // Deep Charcoal active surface
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: RADII.lg,
@@ -186,7 +169,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#C8B27A', // Champagne active indicator
+    backgroundColor: '#E7D3B5', // Champagne active indicator
   },
   activeLabel: {
     color: '#FAF8F3', // Soft pearl text

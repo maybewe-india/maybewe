@@ -304,7 +304,7 @@ export default function NotificationCenterModal({
           style={[
             styles.modalSheet,
             {
-              backgroundColor: colors.background,
+              backgroundColor: isDark ? '#1D1D1B' : '#FFFDFC',
               borderColor: colors.border,
               paddingTop: Math.max(insets.top, 16),
               paddingBottom: Math.max(insets.bottom, 20),

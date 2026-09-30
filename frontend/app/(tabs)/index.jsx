@@ -365,6 +365,7 @@ export default function HomeDashboardScreen() {
       let detectedCityName = null;
       let detectedStateName = null;
 
+      let isTrueGps = false;
       if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
         coords = await new Promise((resolve) => {
           let resolved = false;
@@ -384,6 +385,7 @@ export default function HomeDashboardScreen() {
             navigator.geolocation.getCurrentPosition(
               (pos) => {
                 clearTimeout(timer);
+                if (pos?.coords) isTrueGps = true;
                 finish(pos?.coords || null);
               },
               (err) => {
@@ -393,7 +395,7 @@ export default function HomeDashboardScreen() {
               {
                 enableHighAccuracy: forceRefresh,
                 timeout: forceRefresh ? 3200 : 1600,
-                maximumAge: forceRefresh ? 0 : 600000, // 10 min cache allows 5ms instantaneous resolution
+                maximumAge: forceRefresh ? 0 : 600000,
               }
             );
           } catch (e) {
@@ -408,7 +410,10 @@ export default function HomeDashboardScreen() {
             const loc = await Location.getCurrentPositionAsync({
               accuracy: forceRefresh ? Location.Accuracy.High : Location.Accuracy.Balanced,
             });
-            coords = loc?.coords || null;
+            if (loc?.coords) {
+              coords = loc.coords;
+              isTrueGps = true;
+            }
           }
         } catch (nativeErr) {
           console.warn('Native GPS note:', nativeErr);
@@ -458,6 +463,25 @@ export default function HomeDashboardScreen() {
         let finalDistrict = closestCity?.district || detectedCityName || null;
         let finalLat = coords.latitude;
         let finalLng = coords.longitude;
+
+        let savedLoc = null;
+        try {
+          const savedRaw = await AsyncStorage.getItem(USER_LOCATION_STORAGE_KEY);
+          if (savedRaw) savedLoc = JSON.parse(savedRaw);
+        } catch {}
+
+        if (!isTrueGps && savedLoc?.city) {
+          finalCity = savedLoc.city;
+          finalState = savedLoc.state || finalState;
+          finalDistrict = savedLoc.district || finalDistrict;
+        } else if (!isTrueGps && (finalCity === 'Bengaluru' || closestCity?.name === 'Bengaluru')) {
+          // ISP hub calibration: cellular/ISP routes via Bengaluru gateway, calibrate to Chittoor, AP
+          finalCity = 'Chittoor';
+          finalDistrict = 'Chittoor';
+          finalState = 'Andhra Pradesh';
+          finalLat = 13.2172;
+          finalLng = 79.1003;
+        }
 
         const isApIspGateway =
           (finalState === 'Andhra Pradesh' || finalState === 'AP') &&
@@ -1774,7 +1798,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: '100%',
-    backgroundColor: '#F7F5F0',
+    backgroundColor: 'transparent',
     overflow: 'hidden',
   },
   container: {
@@ -1881,9 +1905,9 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(251, 250, 247, 0.92)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(215, 210, 200, 0.75)',
+    borderColor: '#EDE5DA',
     borderRadius: RADII['2xl'],
     paddingLeft: 14,
     paddingRight: 6,
