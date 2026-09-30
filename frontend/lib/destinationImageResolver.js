@@ -5,14 +5,14 @@
 
 let goaImg, manaliImg, kashmirImg, rajasthanImg, keralaImg, andamanImg, ladakhImg, hampiImg;
 try {
-  goaImg = require('../assets/images/destinations/goa.png');
-  manaliImg = require('../assets/images/destinations/manali.png');
-  kashmirImg = require('../assets/images/destinations/kashmir.png');
-  rajasthanImg = require('../assets/images/destinations/rajasthan.png');
-  keralaImg = require('../assets/images/destinations/kerala.png');
-  andamanImg = require('../assets/images/destinations/andaman.png');
-  ladakhImg = require('../assets/images/destinations/ladakh.png');
-  hampiImg = require('../assets/images/destinations/hampi.png');
+  goaImg = require('../assets/images/dest_goa.jpg');
+  manaliImg = require('../assets/images/dest_manali.jpg');
+  kashmirImg = require('../assets/images/dest_kashmir.jpg');
+  rajasthanImg = require('../assets/images/dest_rajasthan.jpg');
+  keralaImg = require('../assets/images/dest_kerala.jpg');
+  andamanImg = require('../assets/images/dest_andaman.jpg');
+  ladakhImg = require('../assets/images/dest_ladakh.jpg');
+  hampiImg = require('../assets/images/journal_hampi.jpg');
 } catch {
   // Bundler-safe fallback
 }

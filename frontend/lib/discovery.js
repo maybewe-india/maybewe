@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { DEMO_TRAVELERS } from './demoData.js';
+import { resolveDestinationImageUri } from './destinationImageResolver.js';
 
 const BLOCKED_USERS_KEY = '@solo_traveler_blocked_users';
 
@@ -118,7 +119,8 @@ export async function discoverTravelers({
             age: t.user_age,
             gender: t.user_gender,
             bio: t.user_bio,
-            avatar_url: t.user_avatar_url,
+            avatar_url: t.user_avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+            cover_url: t.user_cover_url || t.cover_url || resolveDestinationImageUri(t.destination),
             travel_styles: t.user_travel_styles || [],
             languages: t.user_languages || [],
             verification_status: t.user_verification_status,

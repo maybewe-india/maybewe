@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GRADIENTS, RADII, SHADOWS, FONTS, PALETTE } from '../lib/theme';
 import { useTheme } from '../lib/themeContext';
 import TrustBadge from './ui/TrustBadge';
+import { getDestinationImage } from '../lib/destinationImageResolver.js';
 
 export default function DiscoveryCard({
   traveler,
@@ -54,7 +55,13 @@ export default function DiscoveryCard({
     });
   };
 
-  const imageSource = traveler.cover_url || traveler.avatar_url;
+  const initialCover = getDestinationImage(traveler.destination, traveler.cover_url);
+  const [coverSource, setCoverSource] = useState(initialCover);
+
+  useEffect(() => {
+    setCoverSource(getDestinationImage(traveler.destination, traveler.cover_url));
+  }, [traveler.destination, traveler.cover_url]);
+
   const matchPercentage = traveler.compatibility || 84;
 
   // Dynamic match checklist reasons
@@ -87,15 +94,19 @@ export default function DiscoveryCard({
         style={styles.cardInner}
       >
         {/* Top Hero Image Section */}
-        <View style={[styles.imageWrapper, { backgroundColor: colors.backgroundSecondary }]}>
+        <View style={[styles.imageWrapper, { backgroundColor: '#EDE5DA' }]}>
           <Image
-            source={{ uri: imageSource }}
+            source={coverSource}
             style={styles.coverImage}
             resizeMode="cover"
+            onError={() => {
+              // Local asset fallback when remote URL fails
+              setCoverSource(require('../assets/images/dest_goa.jpg'));
+            }}
           />
-          {/* Neutral Atmospheric Gradient Overlay for Readability on the photo */}
+          {/* Subtle atmospheric gradient overlay at bottom of photo for destination text legibility */}
           <LinearGradient
-            colors={['rgba(15, 23, 42, 0.05)', 'rgba(15, 23, 42, 0.55)', 'rgba(15, 23, 42, 0.88)']}
+            colors={['transparent', 'rgba(15, 23, 42, 0.15)', 'rgba(15, 23, 42, 0.72)']}
             style={styles.imageGradient}
           />
 
@@ -137,15 +148,28 @@ export default function DiscoveryCard({
 
         {/* Content Section */}
         <View style={[styles.contentSection, { backgroundColor: colors.cardBg }]}>
-          {/* Header Row: Name, Age & TrustBadge */}
+          {/* Header Row: Avatar, Name, Age & TrustBadge */}
           <View style={styles.nameHeaderRow}>
-            <View style={styles.nameContainer}>
-              <Text style={[styles.nameText, { color: colors.textPrimary }]}>
-                {traveler.name}, <Text style={[styles.ageText, { color: colors.textSecondary }]}>{traveler.age}</Text>
-              </Text>
-              {traveler.gender && traveler.gender !== 'Not specified' && (
-                <Text style={[styles.genderSubtitle, { color: colors.textMuted }]}>{traveler.gender}</Text>
-              )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+              <View style={styles.avatarWrap}>
+                {traveler.avatar_url ? (
+                  <Image source={{ uri: traveler.avatar_url }} style={styles.userAvatar} />
+                ) : (
+                  <View style={[styles.userAvatarFallback, { backgroundColor: '#E7D3B5' }]}>
+                    <Text style={styles.avatarInitial}>
+                      {(traveler.name || 'T')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.nameContainer}>
+                <Text style={[styles.nameText, { color: colors.textPrimary }]}>
+                  {traveler.name}, <Text style={[styles.ageText, { color: colors.textSecondary }]}>{traveler.age}</Text>
+                </Text>
+                {traveler.gender && traveler.gender !== 'Not specified' && (
+                  <Text style={[styles.genderSubtitle, { color: colors.textMuted }]}>{traveler.gender}</Text>
+                )}
+              </View>
             </View>
             <TrustBadge
               score={traveler.trust_score || 4.92}
@@ -233,7 +257,7 @@ export default function DiscoveryCard({
 const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: RADII.xl,
-    marginBottom: 28,
+    marginBottom: 18,
     marginHorizontal: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -244,7 +268,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   imageWrapper: {
-    height: 240,
+    height: 210,
     width: '100%',
     position: 'relative',
   },
@@ -307,13 +331,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   contentSection: {
-    padding: 20,
+    padding: 16,
   },
   nameHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  avatarWrap: {
+    marginRight: 10,
+  },
+  userAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#EDE5DA',
+  },
+  userAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#EDE5DA',
+  },
+  avatarInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#171817',
+    fontFamily: FONTS.bold,
   },
   nameContainer: {
     flex: 1,
