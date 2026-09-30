@@ -63,7 +63,7 @@ export function AuthProvider({ children }) {
               setIsLoading(false);
             }
           }
-        } catch (e) {}
+        } catch (e) { }
 
         // Check if Web URL contains password recovery context
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -80,18 +80,14 @@ export function AuthProvider({ children }) {
         }
 
         if (isSupabaseConfigured) {
-          // Timeout race: prevent slow network or dormant Supabase from stalling app startup
-          const sessionPromise = supabase.auth.getSession();
-          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: { session: null }, timeout: true }), 2500));
-          const { data, timeout } = await Promise.race([sessionPromise, timeoutPromise]);
-          const initialSession = data?.session;
+          const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+          const initialSession = sessionData?.session;
 
           if (isMounted) {
-            if (initialSession) {
+            if (initialSession?.user) {
               setSession(initialSession);
-              if (initialSession.user) {
-                await fetchSupabaseProfile(initialSession.user.id);
-              }
+              setIsDemoMode(false);
+              await fetchSupabaseProfile(initialSession.user.id);
             } else {
               // Check if local demo session was active or fallback to demo
               await checkLocalDemoSession();
@@ -110,7 +106,7 @@ export function AuthProvider({ children }) {
 
     initAuth();
 
-    // Listen to Supabase auth events (e.g. PASSWORD_RECOVERY, SIGNED_IN, INITIAL_SESSION)
+    // Listen to Supabase auth events (e.g. PASSWORD_RECOVERY, SIGNED_IN, INITIAL_SESSION, SIGNED_OUT)
     let subscription = null;
     if (isSupabaseConfigured) {
       const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
@@ -123,12 +119,14 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        setSession(newSession);
         if (newSession?.user) {
+          setSession(newSession);
           setIsDemoMode(false);
           await fetchSupabaseProfile(newSession.user.id);
-        } else {
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
           setProfile(null);
+          AsyncStorage.removeItem('@maybewe_cached_profile').catch(() => { });
         }
       });
       subscription = data.subscription;
@@ -263,7 +261,7 @@ export function AuthProvider({ children }) {
           if (data.verification_status === 'pending') {
             data.verification_status = 'verified';
             data.verified_at = data.verified_at || new Date().toISOString();
-            AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true').catch(() => {});
+            AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true').catch(() => { });
           } else {
             try {
               const isDevApproved = await AsyncStorage.getItem(`@maybewe_dev_verified_${userId}`);
@@ -271,11 +269,11 @@ export function AuthProvider({ children }) {
                 data.verification_status = 'verified';
                 data.verified_at = data.verified_at || new Date().toISOString();
               }
-            } catch {}
+            } catch { }
           }
         }
         setProfile(data);
-        AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(data)).catch(() => {});
+        AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(data)).catch(() => { });
         return;
       }
 
@@ -288,7 +286,7 @@ export function AuthProvider({ children }) {
           if (isDevApproved === 'true') {
             verifStatus = 'verified';
           }
-        } catch {}
+        } catch { }
       }
       if (verifStatus !== 'verified') {
         try {
@@ -300,7 +298,7 @@ export function AuthProvider({ children }) {
           if (verif?.status) {
             if (isDemo && verif.status === 'pending') {
               verifStatus = 'verified';
-              AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true').catch(() => {});
+              AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true').catch(() => { });
             } else {
               verifStatus = verif.status;
             }
@@ -348,7 +346,7 @@ export function AuthProvider({ children }) {
                 createdProfile.verification_status = 'verified';
                 createdProfile.verified_at = createdProfile.verified_at || new Date().toISOString();
               }
-            } catch {}
+            } catch { }
           }
           setProfile(createdProfile);
           return;
@@ -755,7 +753,16 @@ export function AuthProvider({ children }) {
   // Update profile
   const updateProfile = async (updates) => {
     try {
-      if (isSupabaseConfigured && session?.user) {
+      let activeUser = session?.user;
+      if (!activeUser && isSupabaseConfigured) {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) activeUser = userData.user;
+        } catch {}
+      }
+
+      if (isSupabaseConfigured && activeUser) {
+        const userId = activeUser.id;
         // Security restriction: client cannot set verified/failed/rejected or alter verified_at
         const sanitizedUpdates = { ...updates };
         if (
@@ -784,7 +791,7 @@ export function AuthProvider({ children }) {
           const { data, error } = await supabase
             .from('users')
             .update(dbUpdates)
-            .eq('id', session.user.id)
+            .eq('id', userId)
             .select()
             .maybeSingle();
 
@@ -814,7 +821,7 @@ export function AuthProvider({ children }) {
             status: 'granted',
             isGPS: false,
           };
-          AsyncStorage.setItem('@maybewe_user_location', JSON.stringify(locObj)).catch(() => {});
+          AsyncStorage.setItem('@maybewe_user_location', JSON.stringify(locObj)).catch(() => { });
         }
 
         const merged = {
@@ -835,12 +842,12 @@ export function AuthProvider({ children }) {
                 merged.verification_status = 'verified';
                 merged.verified_at = merged.verified_at || new Date().toISOString();
               }
-            } catch {}
+            } catch { }
           }
         }
 
         setProfile(merged);
-        AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(merged)).catch(() => {});
+        AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(merged)).catch(() => { });
         return { success: true, profile: merged };
 
         // Missing-profile recovery: recover ONLY when sufficient real profile data exists
@@ -927,7 +934,7 @@ export function AuthProvider({ children }) {
                 upsertData.verification_status = 'verified';
                 upsertData.verified_at = upsertData.verified_at || new Date().toISOString();
               }
-            } catch {}
+            } catch { }
           }
 
           setProfile(upsertData);
@@ -957,7 +964,36 @@ export function AuthProvider({ children }) {
   // - 0 faces -> FAILED ("No face detected. Please upload a clear photo showing your face.")
   // - >1 faces -> FAILED ("Multiple faces detected. Please upload a photo with only you visible.")
   const submitVerification = async (selfieUri) => {
+    let activeSession = session;
+    if (!activeSession && isSupabaseConfigured) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          activeSession = sessionData.session;
+          setSession(activeSession);
+        }
+      } catch (err) {
+        console.warn('[Verification] Error retrieving session from Supabase:', err);
+      }
+    }
+
+    let activeUser = activeSession?.user;
+    if (!activeUser && isSupabaseConfigured) {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          activeUser = userData.user;
+        }
+      } catch (err) {
+        console.warn('[Verification] Error retrieving user from Supabase:', err);
+      }
+    }
+
+    console.log('[Verification] session exists:', !!activeSession);
+    console.log('[Verification] user exists:', !!activeUser);
+    console.log('[Verification] user ID:', activeUser?.id || 'NONE');
     try {
+
       if (!selfieUri) {
         throw new Error('Please capture your selfie before submitting verification.');
       }
@@ -971,8 +1007,8 @@ export function AuthProvider({ children }) {
         };
       }
 
-      if (isSupabaseConfigured && session?.user) {
-        const userId = session.user.id;
+      if (isSupabaseConfigured && activeUser) {
+        const userId = activeUser.id;
         const timestamp = Date.now();
         const selfiePath = `${userId}/selfie_${timestamp}.jpg`;
 
@@ -1051,7 +1087,7 @@ export function AuthProvider({ children }) {
 
         if (edgeData?.success && edgeData?.status === 'verified') {
           // Re-fetch profile from database to reflect server-side verification status and timestamp
-          await fetchProfile(userId);
+          await fetchSupabaseProfile(userId);
           return {
             success: true,
             status: 'verified',
@@ -1112,11 +1148,20 @@ export function AuthProvider({ children }) {
   // Check current verification status from trusted database
   const checkVerificationStatus = async () => {
     try {
-      if (isSupabaseConfigured && session?.user) {
+      let activeUser = session?.user;
+      if (!activeUser && isSupabaseConfigured) {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) activeUser = userData.user;
+        } catch {}
+      }
+
+      if (isSupabaseConfigured && activeUser) {
+        const userId = activeUser.id;
         const isDemo = process.env.EXPO_PUBLIC_VERIFICATION_MODE === 'demo';
         if (isDemo) {
           const nowIso = new Date().toISOString();
-          await AsyncStorage.setItem(`@maybewe_dev_verified_${session.user.id}`, 'true');
+          await AsyncStorage.setItem(`@maybewe_dev_verified_${userId}`, 'true');
           setProfile((prev) => ({
             ...prev,
             verification_status: 'verified',
@@ -1133,7 +1178,7 @@ export function AuthProvider({ children }) {
           const { data, error } = await supabase
             .from('users')
             .select('verification_status, verified_at')
-            .eq('id', session.user.id)
+            .eq('id', userId)
             .maybeSingle();
 
           if (!error && data) {

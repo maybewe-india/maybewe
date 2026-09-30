@@ -17,29 +17,14 @@ export const isSupabaseConfigured = Boolean(
   !process.env.EXPO_PUBLIC_SUPABASE_URL.includes('demo-solo-traveler') &&
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY !== 'demo-anon-key-placeholder'
 );
+console.log('[Supabase] configured:', isSupabaseConfigured);
+console.log('[Supabase] URL:', supabaseUrl);
 
 // Resilient storage wrapper compatible with React Native, Web, and Test environments
 const storageAdapter = {
-  getItem: async (key) => {
-    try {
-      const getter = AsyncStorage?.getItem || AsyncStorage?.default?.getItem;
-      return getter ? await getter(key) : null;
-    } catch {
-      return null;
-    }
-  },
-  setItem: async (key, value) => {
-    try {
-      const setter = AsyncStorage?.setItem || AsyncStorage?.default?.setItem;
-      if (setter) await setter(key, value);
-    } catch {}
-  },
-  removeItem: async (key) => {
-    try {
-      const remover = AsyncStorage?.removeItem || AsyncStorage?.default?.removeItem;
-      if (remover) await remover(key);
-    } catch {}
-  },
+  getItem: (key) => AsyncStorage.getItem(key),
+  setItem: (key, value) => AsyncStorage.setItem(key, value),
+  removeItem: (key) => AsyncStorage.removeItem(key),
 };
 
 const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
