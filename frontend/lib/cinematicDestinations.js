@@ -765,6 +765,29 @@ export const CINEMATIC_DESTINATIONS = [
       { level: 'DESTINATION', label: 'HAVELOCK & RADHANAGAR' },
     ],
   },
+  {
+    id: 'chennai',
+    name: 'Chennai',
+    district: 'Chennai',
+    state: 'Tamil Nadu',
+    region: 'South India',
+    subRegion: 'Coromandel Coast & Marina Beach',
+    lat: 13.0827,
+    lng: 80.2707,
+    coords: { x: 48.2, y: 68.4 },
+    dates: 'Oct 20 – Nov 10',
+    season: 'Pleasant Coastal Winter Season',
+    styles: ['Culture', 'Beach', 'Food', 'Heritage'],
+    tagline: 'Historic Coromandel gateway: golden Marina Beach sunrises, ancient Kapaleeshwarar temples, and authentic South Indian cuisine.',
+    image: require('../assets/images/dest_chennai.jpg'),
+    breadcrumbHierarchy: [
+      { level: 'WORLD', label: 'ASIA • BAY OF BENGAL' },
+      { level: 'COUNTRY', label: 'INDIA' },
+      { level: 'REGION', label: 'SOUTH INDIA • COROMANDEL' },
+      { level: 'STATE', label: 'TAMIL NADU' },
+      { level: 'DESTINATION', label: 'CHENNAI • MARINA COAST' },
+    ],
+  },
 ];
 
 // ----------------------------------------------------------------------------
@@ -849,19 +872,19 @@ export const INDIAN_DISTRICTS_DATA = [
   { name: 'Vijayapura', district: 'Vijayapura', state: 'Karnataka', region: 'South India', lat: 16.8302, lng: 75.7100, imageKey: 'mysuru', styles: ['Heritage', 'Architecture'] },
 
   // --- TAMIL NADU DISTRICTS ---
-  { name: 'Chennai', district: 'Chennai', state: 'Tamil Nadu', region: 'South India', lat: 13.0827, lng: 80.2707, imageKey: 'madurai', styles: ['Culture', 'Beach', 'Food'] },
+  { name: 'Chennai', district: 'Chennai', state: 'Tamil Nadu', region: 'South India', lat: 13.0827, lng: 80.2707, imageKey: 'chennai', styles: ['Culture', 'Beach', 'Food'] },
   { name: 'Nilgiris', district: 'The Nilgiris (Ooty)', state: 'Tamil Nadu', region: 'South India', lat: 11.4102, lng: 76.6950, imageKey: 'ooty', styles: ['Hills', 'Tea', 'Nature'] },
   { name: 'Ooty', district: 'The Nilgiris (Ooty)', state: 'Tamil Nadu', region: 'South India', lat: 11.4102, lng: 76.6950, imageKey: 'ooty', styles: ['Hills', 'Tea', 'Nature'] },
   { name: 'Madurai', district: 'Madurai', state: 'Tamil Nadu', region: 'South India', lat: 9.9252, lng: 78.1198, imageKey: 'madurai', styles: ['Culture', 'Heritage', 'Spirituality'] },
-  { name: 'Coimbatore', district: 'Coimbatore', state: 'Tamil Nadu', region: 'South India', lat: 11.0168, lng: 76.9558, imageKey: 'madurai', styles: ['Nature', 'Culture'] },
+  { name: 'Coimbatore', district: 'Coimbatore', state: 'Tamil Nadu', region: 'South India', lat: 11.0168, lng: 76.9558, imageKey: 'kerala', styles: ['Nature', 'Culture'] },
   { name: 'Dindigul', district: 'Dindigul (Kodaikanal)', state: 'Tamil Nadu', region: 'South India', lat: 10.2381, lng: 77.4892, imageKey: 'ooty', styles: ['Hills', 'Nature'] },
   { name: 'Kodaikanal', district: 'Dindigul (Kodaikanal)', state: 'Tamil Nadu', region: 'South India', lat: 10.2381, lng: 77.4892, imageKey: 'ooty', styles: ['Hills', 'Nature'] },
-  { name: 'Kanniyakumari', district: 'Kanniyakumari', state: 'Tamil Nadu', region: 'South India', lat: 8.0883, lng: 77.5385, imageKey: 'madurai', styles: ['Ocean', 'Sunrise', 'Spirituality'] },
-  { name: 'Thanjavur', district: 'Thanjavur', state: 'Tamil Nadu', region: 'South India', lat: 10.7870, lng: 79.1378, imageKey: 'madurai', styles: ['Heritage', 'Temples', 'Architecture'] },
-  { name: 'Ramanathapuram', district: 'Ramanathapuram (Rameswaram)', state: 'Tamil Nadu', region: 'South India', lat: 9.2876, lng: 79.3129, imageKey: 'madurai', styles: ['Island', 'Spirituality'] },
-  { name: 'Rameswaram', district: 'Ramanathapuram (Rameswaram)', state: 'Tamil Nadu', region: 'South India', lat: 9.2876, lng: 79.3129, imageKey: 'madurai', styles: ['Island', 'Spirituality'] },
-  { name: 'Tiruchirappalli', district: 'Tiruchirappalli', state: 'Tamil Nadu', region: 'South India', lat: 10.7905, lng: 78.7047, imageKey: 'madurai', styles: ['Heritage', 'Temples'] },
-  { name: 'Salem', district: 'Salem', state: 'Tamil Nadu', region: 'South India', lat: 11.6643, lng: 78.1460, imageKey: 'madurai', styles: ['Hills', 'Nature'] },
+  { name: 'Kanniyakumari', district: 'Kanniyakumari', state: 'Tamil Nadu', region: 'South India', lat: 8.0883, lng: 77.5385, imageKey: 'goa', styles: ['Ocean', 'Sunrise', 'Spirituality'] },
+  { name: 'Thanjavur', district: 'Thanjavur', state: 'Tamil Nadu', region: 'South India', lat: 10.7870, lng: 79.1378, imageKey: 'chennai', styles: ['Heritage', 'Temples', 'Architecture'] },
+  { name: 'Ramanathapuram', district: 'Ramanathapuram (Rameswaram)', state: 'Tamil Nadu', region: 'South India', lat: 9.2876, lng: 79.3129, imageKey: 'goa', styles: ['Island', 'Spirituality'] },
+  { name: 'Rameswaram', district: 'Ramanathapuram (Rameswaram)', state: 'Tamil Nadu', region: 'South India', lat: 9.2876, lng: 79.3129, imageKey: 'goa', styles: ['Island', 'Spirituality'] },
+  { name: 'Tiruchirappalli', district: 'Tiruchirappalli', state: 'Tamil Nadu', region: 'South India', lat: 10.7905, lng: 78.7047, imageKey: 'chennai', styles: ['Heritage', 'Temples'] },
+  { name: 'Salem', district: 'Salem', state: 'Tamil Nadu', region: 'South India', lat: 11.6643, lng: 78.1460, imageKey: 'ooty', styles: ['Hills', 'Nature'] },
 
   // --- RAJASTHAN DISTRICTS ---
   { name: 'Jaipur', district: 'Jaipur', state: 'Rajasthan', region: 'Northwest India', lat: 26.9124, lng: 75.7873, imageKey: 'jaipur', styles: ['Culture', 'Heritage', 'Food'] },
@@ -1028,6 +1051,7 @@ export const CINEMATIC_4K_PHOTOGRAPHY = {
   kodaikanal: { uri: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1280&auto=format&fit=crop&q=80' },
   meghalaya: { uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80' },
   shillong: { uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80' },
+  chennai: require('../assets/images/dest_chennai.jpg'),
   rajasthan: { uri: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1280&auto=format&fit=crop&q=80' },
 };
 
@@ -1112,6 +1136,8 @@ export function getBundledImage(key) {
     case 'nilgiris':
     case 'kodaikanal':
       return CINEMATIC_4K_PHOTOGRAPHY['ooty'] || require('../assets/images/dest_kerala.jpg');
+    case 'chennai':
+      return require('../assets/images/dest_chennai.jpg');
     default:
       if (CINEMATIC_4K_PHOTOGRAPHY[k]) {
         return CINEMATIC_4K_PHOTOGRAPHY[k];

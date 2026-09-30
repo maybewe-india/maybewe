@@ -3,7 +3,8 @@
 // Supports international destinations (Ireland, Switzerland, Paris/France, Italy, Japan, etc.)
 // and Indian domestic destinations, with smart keyword matching and luxury generic fallbacks.
 
-let goaImg, manaliImg, kashmirImg, rajasthanImg, keralaImg, andamanImg, ladakhImg, hampiImg;
+let goaImg, manaliImg, kashmirImg, rajasthanImg, keralaImg, andamanImg, ladakhImg, hampiImg, chennaiImg;
+let gunturImg, vizagImg, tirupatiImg, kolkataImg, mumbaiImg, delhiImg, mysuruImg, amritsarImg, agraImg, maduraiImg, puriImg, konarkImg;
 try {
   goaImg = require('../assets/images/dest_goa.jpg');
   manaliImg = require('../assets/images/dest_manali.jpg');
@@ -13,6 +14,19 @@ try {
   andamanImg = require('../assets/images/dest_andaman.jpg');
   ladakhImg = require('../assets/images/dest_ladakh.jpg');
   hampiImg = require('../assets/images/journal_hampi.jpg');
+  chennaiImg = require('../assets/images/dest_chennai.jpg');
+  gunturImg = require('../assets/images/dest_guntur.jpg');
+  vizagImg = require('../assets/images/dest_visakhapatnam.jpg');
+  tirupatiImg = require('../assets/images/dest_tirupati.jpg');
+  kolkataImg = require('../assets/images/dest_kolkata.jpg');
+  mumbaiImg = require('../assets/images/dest_mumbai.jpg');
+  delhiImg = require('../assets/images/dest_delhi.jpg');
+  mysuruImg = require('../assets/images/dest_mysuru.jpg');
+  amritsarImg = require('../assets/images/dest_amritsar.jpg');
+  agraImg = require('../assets/images/dest_agra.jpg');
+  maduraiImg = require('../assets/images/dest_madurai.jpg');
+  puriImg = require('../assets/images/dest_puri.jpg');
+  konarkImg = require('../assets/images/dest_konark.jpg');
 } catch {
   // Bundler-safe fallback
 }
@@ -103,11 +117,23 @@ export const DESTINATION_CATALOG = {
   'meghalaya': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
   'shillong': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
   'darjeeling': 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1200&auto=format&fit=crop&q=80',
-  'agra': 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=1200&auto=format&fit=crop&q=80',
-  'mumbai': 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1200&auto=format&fit=crop&q=80',
-  'delhi': 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&auto=format&fit=crop&q=80',
+  'delhi': delhiImg || { uri: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&auto=format&fit=crop&q=80' },
+  'mumbai': mumbaiImg || { uri: 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1200&auto=format&fit=crop&q=80' },
+  'agra': agraImg || { uri: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=1200&auto=format&fit=crop&q=80' },
   'bengaluru': 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=1200&auto=format&fit=crop&q=80',
   'hyderabad': 'https://images.unsplash.com/photo-1576085898323-218337e3e43c?w=1200&auto=format&fit=crop&q=80',
+  'chennai': chennaiImg || { uri: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1200&auto=format&fit=crop&q=80' },
+  'madras': chennaiImg || { uri: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1200&auto=format&fit=crop&q=80' },
+  'guntur': gunturImg || { uri: 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1200&auto=format&fit=crop&q=80' },
+  'visakhapatnam': vizagImg || { uri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80' },
+  'vizag': vizagImg || { uri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80' },
+  'kolkata': kolkataImg || { uri: 'https://images.unsplash.com/photo-1558431382-27e303142255?w=1200&auto=format&fit=crop&q=80' },
+  'mysuru': mysuruImg || { uri: 'https://images.unsplash.com/photo-1600100397608-f010f443b784?w=1200&auto=format&fit=crop&q=80' },
+  'mysore': mysuruImg || { uri: 'https://images.unsplash.com/photo-1600100397608-f010f443b784?w=1200&auto=format&fit=crop&q=80' },
+  'amritsar': amritsarImg || { uri: 'https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=1200&auto=format&fit=crop&q=80' },
+  'madurai': maduraiImg || { uri: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1200&auto=format&fit=crop&q=80' },
+  'puri': puriImg || { uri: 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1200&auto=format&fit=crop&q=80' },
+  'konark': konarkImg || { uri: 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1200&auto=format&fit=crop&q=80' },
 };
 
 // Keyword / Vibe themed fallbacks
@@ -163,6 +189,17 @@ export const DESTINATION_REMOTE_URLS = {
   kodaikanal: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1200&auto=format&fit=crop&q=80',
   bengaluru: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=1200&auto=format&fit=crop&q=80',
   hyderabad: 'https://images.unsplash.com/photo-1576085898323-218337e3e43c?w=1200&auto=format&fit=crop&q=80',
+  chennai: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1200&auto=format&fit=crop&q=80',
+  guntur: 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1200&auto=format&fit=crop&q=80',
+  visakhapatnam: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
+  vizag: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
+  kolkata: 'https://images.unsplash.com/photo-1558431382-27e303142255?w=1200&auto=format&fit=crop&q=80',
+  mysuru: 'https://images.unsplash.com/photo-1600100397608-f010f443b784?w=1200&auto=format&fit=crop&q=80',
+  mysore: 'https://images.unsplash.com/photo-1600100397608-f010f443b784?w=1200&auto=format&fit=crop&q=80',
+  amritsar: 'https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=1200&auto=format&fit=crop&q=80',
+  madurai: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1200&auto=format&fit=crop&q=80',
+  puri: 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1200&auto=format&fit=crop&q=80',
+  konark: 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1200&auto=format&fit=crop&q=80',
   udaipur: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=1200&auto=format&fit=crop&q=80',
 };
 

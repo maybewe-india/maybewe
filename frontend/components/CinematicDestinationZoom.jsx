@@ -44,12 +44,30 @@ export default function CinematicDestinationZoom({
   // Resolve target destination profile
   const destination = useMemo(() => resolveDestination(destinationName), [destinationName]);
 
-  // Robust photo source with local bundled fallback
-  const [photoSource, setPhotoSource] = useState(destination.image);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
-    setPhotoSource(destination.image || getBundledImage(destination.name) || getBundledImage(destination.id) || SATELLITE_IMAGE);
-  }, [destination.id, destination.name, destination.image]);
+    setImageError(false);
+  }, [destination.id, destination.name]);
+
+  // Robust photo source with synchronous resolution and local bundled fallback
+  const photoSource = useMemo(() => {
+    if (imageError) {
+      return (
+        getBundledImage(destination.id) ||
+        getBundledImage(destination.name) ||
+        getBundledImage('goa') ||
+        SATELLITE_IMAGE
+      );
+    }
+    return (
+      destination.image ||
+      getBundledImage(destination.id) ||
+      getBundledImage(destination.name) ||
+      getBundledImage('goa') ||
+      SATELLITE_IMAGE
+    );
+  }, [destination.id, destination.name, destination.image, imageError]);
 
   // Main camera animation timeline (0 -> 1)
   const animProgress = useRef(new Animated.Value(0)).current;
@@ -151,14 +169,14 @@ export default function CinematicDestinationZoom({
 
   // Fast, smooth cross-dissolve into scenic destination layer as altitude approaches
   const scenicLayerOpacity = animProgress.interpolate({
-    inputRange: [0, 0.25, 0.65, 1],
-    outputRange: [0, 0.2, 0.85, 1],
+    inputRange: [0, 0.2, 0.65, 1],
+    outputRange: [0, 0.25, 0.85, 1],
   });
 
-  // Smooth satellite layer: preserves terrain depth beneath scenic photography
+  // Smooth satellite layer: dissolves completely to 0 as camera settles into destination
   const satelliteOpacity = animProgress.interpolate({
-    inputRange: [0, 0.35, 0.75, 1],
-    outputRange: [1, 0.95, 0.7, 0.3],
+    inputRange: [0, 0.35, 0.7, 1],
+    outputRange: [1, 0.85, 0.25, 0],
   });
 
   // Destination Marker scale - counter-scaled against cameraScale (1.0 -> 9.5) so pin preserves an elegant physical ratio
@@ -277,28 +295,22 @@ export default function CinematicDestinationZoom({
       {/* 2.5 Full-Bleed Destination Scenic Photography Layer - Dissolves smoothly over map */}
       <Animated.View
         style={[
-          StyleSheet.absoluteFillObject,
+          styles.scenicLayerContainer,
           { opacity: scenicLayerOpacity },
         ]}
         pointerEvents="none"
       >
         <Image
-          source={photoSource || destination.image || getBundledImage(destination.name) || getBundledImage('kerala') || SATELLITE_IMAGE}
-          style={StyleSheet.absoluteFillObject}
+          source={photoSource}
+          style={styles.scenicFullBleedImage}
           resizeMode="cover"
-          onError={() => {
-            setPhotoSource(
-              getBundledImage(destination.name) ||
-              getBundledImage(destination.id) ||
-              getBundledImage('kerala') ||
-              SATELLITE_IMAGE
-            );
-          }}
+          onError={() => setImageError(true)}
         />
         {/* Soft luxury cinematic vignette overlay */}
         <LinearGradient
           colors={['rgba(7, 11, 16, 0.45)', 'rgba(7, 11, 16, 0.15)', 'rgba(7, 11, 16, 0.75)']}
           style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
         />
       </Animated.View>
 
@@ -454,6 +466,7 @@ const styles = StyleSheet.create({
   },
   deepSpaceCanvas: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
   atmosphericGlow: {
     position: 'absolute',
@@ -466,8 +479,25 @@ const styles = StyleSheet.create({
   },
   mapStageContainer: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scenicLayerContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  scenicFullBleedImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   animatedCameraRig: {
     width: MAP_STAGE_WIDTH,
