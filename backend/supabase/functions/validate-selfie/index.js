@@ -177,12 +177,35 @@ Deno.serve(async (req) => {
     });
 
     if (!visionResponse.ok) {
-      const errText = await visionResponse.text();
-      console.error('Google Vision API returned non-OK status:', visionResponse.status, errText);
+      let visionErrMsg = `Face detection service temporarily unavailable (${visionResponse.status})`;
+      let visionReason = null;
+      let visionDomain = null;
+      try {
+        const errJson = await visionResponse.json();
+        if (errJson?.error?.message) {
+          visionErrMsg = errJson.error.message;
+        }
+        if (errJson?.error?.details?.[0]?.reason) {
+          visionReason = errJson.error.details[0].reason;
+        }
+        if (errJson?.error?.details?.[0]?.domain) {
+          visionDomain = errJson.error.details[0].domain;
+        }
+      } catch {
+        try {
+          const errRaw = await visionResponse.text();
+          if (errRaw) visionErrMsg = errRaw.slice(0, 300);
+        } catch {}
+      }
+
+      console.error('Google Vision API returned non-OK status:', visionResponse.status, visionErrMsg, visionReason);
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Face detection service temporarily unavailable (${visionResponse.status}). Please retry.`,
+          error: visionErrMsg,
+          reason: visionReason,
+          domain: visionDomain,
+          statusCode: visionResponse.status,
         }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
