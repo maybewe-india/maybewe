@@ -1,0 +1,12 @@
+{
+  "name": "maybewe-backend",
+  "version": "1.0.0",
+  "description": "MaybeWe Backend Service and API",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0"
+  }
+}
