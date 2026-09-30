@@ -26,13 +26,22 @@ import { useAuth } from '../../lib/authContext';
 export default function VerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, submitVerification, checkVerificationStatus, updateProfile } = useAuth();
+  const { session, user, profile, submitVerification, checkVerificationStatus, updateProfile } = useAuth();
 
   const [selfieUri, setSelfieUri] = useState(null);
   const [verificationState, setVerificationState] = useState('NOT_STARTED');
   const [failureReason, setFailureReason] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState('');
+
+  // Diagnostic logging on mount
+  useEffect(() => {
+    console.log('[VerificationScreen] mount state:', {
+      hasSession: !!session,
+      userId: session?.user?.id || user?.id || profile?.id || 'NONE',
+      profileStatus: profile?.verification_status || 'not_started',
+    });
+  }, [session, user, profile]);
 
   // Profile repair state for accounts missing public.users
   const [repairName, setRepairName] = useState(
@@ -355,6 +364,26 @@ export default function VerificationScreen() {
               Take a quick selfie to verify your identity and keep our travel community safer. Verification is required before you can enter MaybeWe.
             </Text>
           </View>
+
+          {/* Unauthenticated Preview Notice */}
+          {!session?.user && !profile?.id && (
+            <View style={styles.unauthBanner}>
+              <Ionicons name="information-circle-outline" size={20} color="#D97706" style={{ marginRight: 10, marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.unauthTitle}>Not Signed In</Text>
+                <Text style={styles.unauthText}>
+                  You are previewing this screen without an active user session. Please sign in or create an account to submit your real selfie verification.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push('/(auth)/login')}
+                  style={styles.unauthLoginBtn}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.unauthLoginBtnText}>Go to Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* STATE 1 & 2: NOT_STARTED or CAPTURED */}
           {(verificationState === 'NOT_STARTED' || verificationState === 'CAPTURED') && (
@@ -941,6 +970,43 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 14,
     color: '#FBFAF7',
+    fontWeight: '700',
+  },
+  unauthBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 1,
+    borderRadius: RADII.lg,
+    padding: 14,
+    marginBottom: 16,
+  },
+  unauthTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 14,
+    color: '#92400E',
+    marginBottom: 4,
+    fontWeight: '700',
+  },
+  unauthText: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  unauthLoginBtn: {
+    backgroundColor: '#92400E',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: RADII.full,
+    alignSelf: 'flex-start',
+  },
+  unauthLoginBtnText: {
+    fontFamily: FONTS.bold,
+    fontSize: 12,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 });

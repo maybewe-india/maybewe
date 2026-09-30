@@ -188,6 +188,7 @@ export default function SignupScreen() {
   const handleSubmit = async () => {
     setLoading(true);
     setErrorMsg('');
+    console.log('[Signup] Submitting registration for:', email.trim());
     const res = await signup({
       name: name.trim(),
       email: email.trim(),
@@ -199,6 +200,7 @@ export default function SignupScreen() {
       languages: selectedLanguages,
       avatar_url: avatarUri,
     });
+    console.log('[Signup] handleSubmit result:', { success: res?.success, error: res?.error });
     setLoading(false);
 
     if (res.success) {

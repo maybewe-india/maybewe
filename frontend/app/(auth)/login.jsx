@@ -41,10 +41,12 @@ export default function LoginScreen() {
     setErrorMessage('');
 
     try {
-      const { user, profile, error } = await login(trimmedEmail, password);
+      console.log('[Login] Initiating sign-in for:', trimmedEmail);
+      const res = await login(trimmedEmail, password);
+      console.log('[Login] handleSignIn result:', { success: res?.success, error: res?.error, userId: res?.user?.id || 'NONE' });
 
-      if (error) {
-        setErrorMessage(error.message || 'Unable to sign in. Please verify your credentials.');
+      if (!res?.success) {
+        setErrorMessage(res?.error || 'Unable to sign in. Please verify your credentials.');
         setLoading(false);
         return;
       }
@@ -52,6 +54,7 @@ export default function LoginScreen() {
       setLoading(false);
       router.replace('/(tabs)');
     } catch (err) {
+      console.warn('[Login] Unexpected error in handleSignIn:', err);
       setLoading(false);
       setErrorMessage(err.message || 'An unexpected error occurred during sign-in.');
     }

@@ -18,7 +18,7 @@ import { COLORS, FONTS } from '../lib/theme';
 import TestNavigatorModal from '../components/TestNavigatorModal';
 
 function AuthRouteGuard({ children }) {
-  const { user, profile, isLoading, isPasswordRecovery } = useAuth();
+  const { session, user, profile, isLoading, isPasswordRecovery } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const searchParams = useGlobalSearchParams();
@@ -45,8 +45,11 @@ function AuthRouteGuard({ children }) {
     }
 
     const isVerified = profile?.verification_status === 'verified';
+    const isAuthenticated = Boolean(user || session?.user || profile?.id);
 
-    if (user || profile) {
+    console.log('[AuthGuard] route:', segments.join('/'), 'isAuthenticated:', isAuthenticated, 'isVerified:', isVerified);
+
+    if (isAuthenticated) {
       // User is logged in
       if (!isVerified) {
         // Unverified user MUST complete selfie verification before entering any authenticated area
@@ -60,12 +63,20 @@ function AuthRouteGuard({ children }) {
         }
       }
     } else {
-      // User is not logged in
-      if (!inAuthGroup) {
+      // User is not logged in: only public auth screens are allowed
+      const isPublicAuthScreen =
+        currentSubRoute === 'welcome' ||
+        currentSubRoute === 'login' ||
+        currentSubRoute === 'signup' ||
+        currentSubRoute === 'forgot-password' ||
+        currentSubRoute === 'reset-password';
+
+      if (!inAuthGroup || !isPublicAuthScreen) {
+        console.log('[AuthGuard] Unauthenticated access to', segments.join('/'), '-> Redirecting to /(auth)/welcome');
         router.replace('/(auth)/welcome');
       }
     }
-  }, [user, profile, isLoading, isPasswordRecovery, segments, searchParams]);
+  }, [session, user, profile, isLoading, isPasswordRecovery, segments, searchParams]);
 
   return children;
 }

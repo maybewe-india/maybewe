@@ -82,6 +82,11 @@ export function AuthProvider({ children }) {
         if (isSupabaseConfigured) {
           const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
           const initialSession = sessionData?.session;
+          console.log('[Auth] getSession result during init:', {
+            hasSession: !!initialSession,
+            userId: initialSession?.user?.id || 'NONE',
+            error: sessionErr?.message || null,
+          });
 
           if (isMounted) {
             if (initialSession?.user) {
@@ -110,6 +115,7 @@ export function AuthProvider({ children }) {
     let subscription = null;
     if (isSupabaseConfigured) {
       const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+        console.log('[Auth] onAuthStateChange event:', event, 'session user:', newSession?.user?.id || 'NONE');
         if (!isMounted) return;
 
         if (event === 'PASSWORD_RECOVERY') {
@@ -251,7 +257,7 @@ export function AuthProvider({ children }) {
         .eq('id', userId)
         .maybeSingle();
       const timeoutPromise = new Promise((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('Profile fetch timeout') }), 2500)
+        setTimeout(() => resolve({ data: null, error: new Error('Profile fetch timeout') }), 8000)
       );
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
@@ -272,8 +278,10 @@ export function AuthProvider({ children }) {
             } catch { }
           }
         }
-        setProfile(data);
-        AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(data)).catch(() => { });
+        const userEmail = session?.user?.email;
+        const enrichedProfile = { ...data, email: data.email || userEmail };
+        setProfile(enrichedProfile);
+        AsyncStorage.setItem('@maybewe_cached_profile', JSON.stringify(enrichedProfile)).catch(() => { });
         return;
       }
 
@@ -376,9 +384,15 @@ export function AuthProvider({ children }) {
     setIsLoading(true);
     try {
       if (isSupabaseConfigured) {
+        console.log('[Auth] Attempting signInWithPassword for:', email);
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
+        });
+        console.log('[Auth] signInWithPassword result:', {
+          hasSession: !!data?.session,
+          userId: data?.session?.user?.id || 'NONE',
+          error: error?.message || null,
         });
         if (error) throw error;
         // Clear leftover demo session flags and reset profile before fetching real Supabase profile
@@ -387,7 +401,7 @@ export function AuthProvider({ children }) {
         setSession(data.session);
         setIsDemoMode(false);
         await fetchSupabaseProfile(data.session.user.id);
-        return { success: true };
+        return { success: true, session: data.session, user: data.session.user };
       } else {
         return {
           success: false,
@@ -630,6 +644,7 @@ export function AuthProvider({ children }) {
       }
 
       if (isSupabaseConfigured) {
+        console.log('[Auth] Attempting signUp for:', userData.email);
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: userData.email,
           password: userData.password,
@@ -644,6 +659,13 @@ export function AuthProvider({ children }) {
               languages: userData.languages || ['English'],
             },
           },
+        });
+
+        console.log('[Auth] signUp result:', {
+          hasUser: !!authData?.user,
+          hasSession: !!authData?.session,
+          userId: authData?.user?.id || 'NONE',
+          error: authError?.message || null,
         });
 
         if (authError) throw authError;
@@ -684,7 +706,8 @@ export function AuthProvider({ children }) {
             };
           }
 
-          setProfile(profilePayload);
+          await AsyncStorage.multiRemove([DEMO_AUTH_KEY, DEMO_PROFILE_KEY]);
+          setProfile({ ...profilePayload, email: userData.email });
           setSession(authData.session);
           setIsDemoMode(false);
         } else {
@@ -693,7 +716,7 @@ export function AuthProvider({ children }) {
             error: 'User registration failed to establish session credentials.',
           };
         }
-        return { success: true };
+        return { success: true, session: authData.session, user: authData.user };
       } else {
         // Demo signup: start strictly as unverified (not_started)
         const newProfile = {

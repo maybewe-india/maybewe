@@ -44,12 +44,16 @@ const GUIDELINES = [
 export default function GuidelinesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { agreeToGuidelines } = useAuth();
+  const { session, user, profile, agreeToGuidelines } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleAgree = async () => {
     setLoading(true);
     await agreeToGuidelines();
+    console.log('[Guidelines] session immediately before navigation to verification:', {
+      hasSession: !!session,
+      userId: session?.user?.id || user?.id || profile?.id || 'NONE',
+    });
     setLoading(false);
     router.push('/(auth)/verification');
   };
