@@ -78,7 +78,7 @@ export const DESTINATION_CATALOG = {
   'srinagar': kashmirImg || { uri: 'https://images.unsplash.com/photo-1595815771614-ade9d652a65d?w=1200&auto=format&fit=crop&q=80' },
   'rajasthan': rajasthanImg || { uri: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1200&auto=format&fit=crop&q=80' },
   'jaipur': rajasthanImg || { uri: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1200&auto=format&fit=crop&q=80' },
-  'udaipur': 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1200&auto=format&fit=crop&q=80',
+  'udaipur': 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=1200&auto=format&fit=crop&q=80',
   'jodhpur': 'https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=1200&auto=format&fit=crop&q=80',
   'kerala': keralaImg || { uri: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1200&auto=format&fit=crop&q=80' },
   'munnar': keralaImg || { uri: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1200&auto=format&fit=crop&q=80' },
@@ -86,24 +86,28 @@ export const DESTINATION_CATALOG = {
   'andaman': andamanImg || { uri: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&auto=format&fit=crop&q=80' },
   'ladakh': ladakhImg || { uri: 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=1200&auto=format&fit=crop&q=80' },
   'leh': ladakhImg || { uri: 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=1200&auto=format&fit=crop&q=80' },
-  'hampi': hampiImg || { uri: 'https://images.unsplash.com/photo-1566402791-5b27c1a0d75e?w=1200&auto=format&fit=crop&q=80' },
+  'hampi': hampiImg || { uri: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1200&auto=format&fit=crop&q=80' },
   'rishikesh': 'https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=1200&auto=format&fit=crop&q=80',
   'varanasi': 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=1200&auto=format&fit=crop&q=80',
   'tirupati': 'https://images.unsplash.com/photo-1621847468516-1ed5d0df56fe?w=1200&auto=format&fit=crop&q=80',
   'ooty': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1200&auto=format&fit=crop&q=80',
-  'coorg': 'https://images.unsplash.com/photo-1601144373053-30a53dbcf53a?w=1200&auto=format&fit=crop&q=80',
+  'coorg': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  'kodagu': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  'chikkamagaluru': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  'chikmagalur': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  'kodaikanal': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1200&auto=format&fit=crop&q=80',
   'wayanad': 'https://images.unsplash.com/photo-1593693397690-362cb9666fc2?w=1200&auto=format&fit=crop&q=80',
   'pondicherry': 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1200&auto=format&fit=crop&q=80',
   'spiti': 'https://images.unsplash.com/photo-1605286978633-2dec93ff88a2?w=1200&auto=format&fit=crop&q=80',
   'gokarna': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
-  'meghalaya': 'https://images.unsplash.com/photo-1626014303757-656c547565e3?w=1200&auto=format&fit=crop&q=80',
-  'shillong': 'https://images.unsplash.com/photo-1626014303757-656c547565e3?w=1200&auto=format&fit=crop&q=80',
+  'meghalaya': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  'shillong': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
   'darjeeling': 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1200&auto=format&fit=crop&q=80',
   'agra': 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=1200&auto=format&fit=crop&q=80',
   'mumbai': 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1200&auto=format&fit=crop&q=80',
   'delhi': 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&auto=format&fit=crop&q=80',
   'bengaluru': 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=1200&auto=format&fit=crop&q=80',
-  'hyderabad': 'https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=1200&auto=format&fit=crop&q=80',
+  'hyderabad': 'https://images.unsplash.com/photo-1576085898323-218337e3e43c?w=1200&auto=format&fit=crop&q=80',
 };
 
 // Keyword / Vibe themed fallbacks
@@ -138,6 +142,30 @@ const THEME_FALLBACKS = [
 export const GENERIC_PREMIUM_TRAVEL_IMAGE =
   'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&auto=format&fit=crop&q=80';
 
+export const DESTINATION_REMOTE_URLS = {
+  goa: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1200&auto=format&fit=crop&q=80',
+  manali: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&auto=format&fit=crop&q=80',
+  kashmir: 'https://images.unsplash.com/photo-1595815771614-ade9d652a65d?w=1200&auto=format&fit=crop&q=80',
+  srinagar: 'https://images.unsplash.com/photo-1595815771614-ade9d652a65d?w=1200&auto=format&fit=crop&q=80',
+  rajasthan: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1200&auto=format&fit=crop&q=80',
+  jaipur: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1200&auto=format&fit=crop&q=80',
+  kerala: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1200&auto=format&fit=crop&q=80',
+  munnar: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1200&auto=format&fit=crop&q=80',
+  andaman: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&auto=format&fit=crop&q=80',
+  ladakh: 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=1200&auto=format&fit=crop&q=80',
+  leh: 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=1200&auto=format&fit=crop&q=80',
+  hampi: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1200&auto=format&fit=crop&q=80',
+  coorg: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  kodagu: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  chikkamagaluru: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  chikmagalur: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80',
+  ooty: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1200&auto=format&fit=crop&q=80',
+  kodaikanal: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1200&auto=format&fit=crop&q=80',
+  bengaluru: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=1200&auto=format&fit=crop&q=80',
+  hyderabad: 'https://images.unsplash.com/photo-1576085898323-218337e3e43c?w=1200&auto=format&fit=crop&q=80',
+  udaipur: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=1200&auto=format&fit=crop&q=80',
+};
+
 /**
  * Resolves a destination image URI string from a user input (e.g. "Ireland", "Paris, France").
  * Useful when saving trips or serializing to database/storage.
@@ -149,24 +177,34 @@ export function resolveDestinationImageUri(destination) {
 
   const clean = destination.toLowerCase().trim();
 
+  const getUriFromVal = (val, key) => {
+    if (key && DESTINATION_REMOTE_URLS[key]) return DESTINATION_REMOTE_URLS[key];
+    if (typeof val === 'string') return val;
+    if (val && typeof val === 'object' && val.uri) return val.uri;
+    return null;
+  };
+
   // 1. Direct key match
-  if (DESTINATION_CATALOG[clean]) {
+  if (DESTINATION_CATALOG[clean] || DESTINATION_REMOTE_URLS[clean]) {
     const val = DESTINATION_CATALOG[clean];
-    return typeof val === 'string' ? val : val.uri || GENERIC_PREMIUM_TRAVEL_IMAGE;
+    const uri = getUriFromVal(val, clean);
+    if (uri) return uri;
   }
 
   // 2. Tokenized search (e.g., "Dublin, Ireland" or "Paris, France" or "Trip to Switzerland")
   const words = clean.split(/[\s,–—\/\-\.]+/).filter((w) => w.length > 2);
   for (const [key, val] of Object.entries(DESTINATION_CATALOG)) {
     if (clean.includes(key)) {
-      return typeof val === 'string' ? val : val.uri || GENERIC_PREMIUM_TRAVEL_IMAGE;
+      const uri = getUriFromVal(val, key);
+      if (uri) return uri;
     }
   }
 
   for (const word of words) {
-    if (DESTINATION_CATALOG[word]) {
+    if (DESTINATION_CATALOG[word] || DESTINATION_REMOTE_URLS[word]) {
       const val = DESTINATION_CATALOG[word];
-      return typeof val === 'string' ? val : val.uri || GENERIC_PREMIUM_TRAVEL_IMAGE;
+      const uri = getUriFromVal(val, word);
+      if (uri) return uri;
     }
   }
 

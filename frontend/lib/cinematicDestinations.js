@@ -831,31 +831,31 @@ export const INDIAN_DISTRICTS_DATA = [
   { name: 'Pathanamthitta', district: 'Pathanamthitta', state: 'Kerala', region: 'South India', lat: 9.2648, lng: 76.7870, imageKey: 'kerala', styles: ['Spirituality', 'Nature'] },
 
   // --- KARNATAKA DISTRICTS ---
-  { name: 'Kodagu', district: 'Kodagu (Coorg)', state: 'Karnataka', region: 'South India', lat: 12.3375, lng: 75.8069, imageKey: 'bengaluru', styles: ['Nature', 'Coffee', 'Trek', 'Wellness'] },
-  { name: 'Coorg', district: 'Kodagu (Coorg)', state: 'Karnataka', region: 'South India', lat: 12.3375, lng: 75.8069, imageKey: 'bengaluru', styles: ['Nature', 'Coffee', 'Trek', 'Wellness'] },
-  { name: 'Dakshina Kannada', district: 'Dakshina Kannada', state: 'Karnataka', region: 'South India', lat: 12.9141, lng: 74.8560, imageKey: 'bengaluru', styles: ['Beach', 'Food', 'Culture'] },
-  { name: 'Udupi', district: 'Udupi', state: 'Karnataka', region: 'South India', lat: 13.3409, lng: 74.7421, imageKey: 'bengaluru', styles: ['Beach', 'Spirituality', 'Food'] },
+  { name: 'Kodagu', district: 'Kodagu (Coorg)', state: 'Karnataka', region: 'South India', lat: 12.3375, lng: 75.8069, imageKey: 'coorg', styles: ['Nature', 'Coffee', 'Trek', 'Wellness'] },
+  { name: 'Coorg', district: 'Kodagu (Coorg)', state: 'Karnataka', region: 'South India', lat: 12.3375, lng: 75.8069, imageKey: 'coorg', styles: ['Nature', 'Coffee', 'Trek', 'Wellness'] },
+  { name: 'Dakshina Kannada', district: 'Dakshina Kannada', state: 'Karnataka', region: 'South India', lat: 12.9141, lng: 74.8560, imageKey: 'goa', styles: ['Beach', 'Food', 'Culture'] },
+  { name: 'Udupi', district: 'Udupi', state: 'Karnataka', region: 'South India', lat: 13.3409, lng: 74.7421, imageKey: 'goa', styles: ['Beach', 'Spirituality', 'Food'] },
   { name: 'Uttara Kannada', district: 'Uttara Kannada', state: 'Karnataka', region: 'South India', lat: 14.5479, lng: 74.3188, imageKey: 'goa', styles: ['Beach', 'Nature', 'Waterfalls'] },
   { name: 'Gokarna', district: 'Uttara Kannada', state: 'Karnataka', region: 'South India', lat: 14.5479, lng: 74.3188, imageKey: 'goa', styles: ['Beach', 'Spirituality', 'Trek'] },
-  { name: 'Chikkamagaluru', district: 'Chikkamagaluru', state: 'Karnataka', region: 'South India', lat: 13.3161, lng: 75.7720, imageKey: 'bengaluru', styles: ['Mountains', 'Coffee', 'Trek'] },
-  { name: 'Shivamogga', district: 'Shivamogga (Shimoga)', state: 'Karnataka', region: 'South India', lat: 13.9299, lng: 75.5681, imageKey: 'bengaluru', styles: ['Waterfalls', 'Nature'] },
-  { name: 'Shimoga', district: 'Shivamogga (Shimoga)', state: 'Karnataka', region: 'South India', lat: 13.9299, lng: 75.5681, imageKey: 'bengaluru', styles: ['Waterfalls', 'Nature'] },
+  { name: 'Chikkamagaluru', district: 'Chikkamagaluru', state: 'Karnataka', region: 'South India', lat: 13.3161, lng: 75.7720, imageKey: 'coorg', styles: ['Mountains', 'Coffee', 'Trek'] },
+  { name: 'Shivamogga', district: 'Shivamogga (Shimoga)', state: 'Karnataka', region: 'South India', lat: 13.9299, lng: 75.5681, imageKey: 'kerala', styles: ['Waterfalls', 'Nature'] },
+  { name: 'Shimoga', district: 'Shivamogga (Shimoga)', state: 'Karnataka', region: 'South India', lat: 13.9299, lng: 75.5681, imageKey: 'kerala', styles: ['Waterfalls', 'Nature'] },
   { name: 'Mysuru', district: 'Mysuru', state: 'Karnataka', region: 'South India', lat: 12.2958, lng: 76.6394, imageKey: 'mysuru', styles: ['Heritage', 'Palace', 'Culture'] },
   { name: 'Hassan', district: 'Hassan', state: 'Karnataka', region: 'South India', lat: 13.0033, lng: 76.1004, imageKey: 'mysuru', styles: ['Heritage', 'Architecture'] },
-  { name: 'Belagavi', district: 'Belagavi', state: 'Karnataka', region: 'South India', lat: 15.8497, lng: 74.4977, imageKey: 'bengaluru', styles: ['Forts', 'Culture'] },
-  { name: 'Dharwad', district: 'Dharwad', state: 'Karnataka', region: 'South India', lat: 15.4589, lng: 75.0078, imageKey: 'bengaluru', styles: ['Culture', 'Heritage'] },
-  { name: 'Ballari', district: 'Ballari (Hampi)', state: 'Karnataka', region: 'South India', lat: 15.3350, lng: 76.4600, imageKey: 'mysuru', styles: ['Heritage', 'Ruins', 'Architecture'] },
-  { name: 'Hampi', district: 'Vijayanagara (Hampi)', state: 'Karnataka', region: 'South India', lat: 15.3350, lng: 76.4600, imageKey: 'mysuru', styles: ['Heritage', 'Ruins', 'Architecture'] },
+  { name: 'Belagavi', district: 'Belagavi', state: 'Karnataka', region: 'South India', lat: 15.8497, lng: 74.4977, imageKey: 'mysuru', styles: ['Forts', 'Culture'] },
+  { name: 'Dharwad', district: 'Dharwad', state: 'Karnataka', region: 'South India', lat: 15.4589, lng: 75.0078, imageKey: 'mysuru', styles: ['Culture', 'Heritage'] },
+  { name: 'Ballari', district: 'Ballari (Hampi)', state: 'Karnataka', region: 'South India', lat: 15.3350, lng: 76.4600, imageKey: 'hampi', styles: ['Heritage', 'Ruins', 'Architecture'] },
+  { name: 'Hampi', district: 'Vijayanagara (Hampi)', state: 'Karnataka', region: 'South India', lat: 15.3350, lng: 76.4600, imageKey: 'hampi', styles: ['Heritage', 'Ruins', 'Architecture'] },
   { name: 'Vijayapura', district: 'Vijayapura', state: 'Karnataka', region: 'South India', lat: 16.8302, lng: 75.7100, imageKey: 'mysuru', styles: ['Heritage', 'Architecture'] },
 
   // --- TAMIL NADU DISTRICTS ---
   { name: 'Chennai', district: 'Chennai', state: 'Tamil Nadu', region: 'South India', lat: 13.0827, lng: 80.2707, imageKey: 'madurai', styles: ['Culture', 'Beach', 'Food'] },
-  { name: 'Nilgiris', district: 'The Nilgiris (Ooty)', state: 'Tamil Nadu', region: 'South India', lat: 11.4102, lng: 76.6950, imageKey: 'kerala', styles: ['Hills', 'Tea', 'Nature'] },
-  { name: 'Ooty', district: 'The Nilgiris (Ooty)', state: 'Tamil Nadu', region: 'South India', lat: 11.4102, lng: 76.6950, imageKey: 'kerala', styles: ['Hills', 'Tea', 'Nature'] },
+  { name: 'Nilgiris', district: 'The Nilgiris (Ooty)', state: 'Tamil Nadu', region: 'South India', lat: 11.4102, lng: 76.6950, imageKey: 'ooty', styles: ['Hills', 'Tea', 'Nature'] },
+  { name: 'Ooty', district: 'The Nilgiris (Ooty)', state: 'Tamil Nadu', region: 'South India', lat: 11.4102, lng: 76.6950, imageKey: 'ooty', styles: ['Hills', 'Tea', 'Nature'] },
   { name: 'Madurai', district: 'Madurai', state: 'Tamil Nadu', region: 'South India', lat: 9.9252, lng: 78.1198, imageKey: 'madurai', styles: ['Culture', 'Heritage', 'Spirituality'] },
   { name: 'Coimbatore', district: 'Coimbatore', state: 'Tamil Nadu', region: 'South India', lat: 11.0168, lng: 76.9558, imageKey: 'madurai', styles: ['Nature', 'Culture'] },
-  { name: 'Dindigul', district: 'Dindigul (Kodaikanal)', state: 'Tamil Nadu', region: 'South India', lat: 10.2381, lng: 77.4892, imageKey: 'kerala', styles: ['Hills', 'Nature'] },
-  { name: 'Kodaikanal', district: 'Dindigul (Kodaikanal)', state: 'Tamil Nadu', region: 'South India', lat: 10.2381, lng: 77.4892, imageKey: 'kerala', styles: ['Hills', 'Nature'] },
+  { name: 'Dindigul', district: 'Dindigul (Kodaikanal)', state: 'Tamil Nadu', region: 'South India', lat: 10.2381, lng: 77.4892, imageKey: 'ooty', styles: ['Hills', 'Nature'] },
+  { name: 'Kodaikanal', district: 'Dindigul (Kodaikanal)', state: 'Tamil Nadu', region: 'South India', lat: 10.2381, lng: 77.4892, imageKey: 'ooty', styles: ['Hills', 'Nature'] },
   { name: 'Kanniyakumari', district: 'Kanniyakumari', state: 'Tamil Nadu', region: 'South India', lat: 8.0883, lng: 77.5385, imageKey: 'madurai', styles: ['Ocean', 'Sunrise', 'Spirituality'] },
   { name: 'Thanjavur', district: 'Thanjavur', state: 'Tamil Nadu', region: 'South India', lat: 10.7870, lng: 79.1378, imageKey: 'madurai', styles: ['Heritage', 'Temples', 'Architecture'] },
   { name: 'Ramanathapuram', district: 'Ramanathapuram (Rameswaram)', state: 'Tamil Nadu', region: 'South India', lat: 9.2876, lng: 79.3129, imageKey: 'madurai', styles: ['Island', 'Spirituality'] },
@@ -998,7 +998,7 @@ export const CINEMATIC_4K_PHOTOGRAPHY = {
   tirupati: { uri: 'https://images.unsplash.com/photo-1621847468516-1ed5d0df56fe?w=1280&auto=format&fit=crop&q=80' },
   chittoor: { uri: 'https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=1280&auto=format&fit=crop&q=80' },
   anantapur: { uri: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1280&auto=format&fit=crop&q=80' },
-  kurnool: { uri: 'https://images.unsplash.com/photo-1566402791-5b27c1a0d75e?w=1280&auto=format&fit=crop&q=80' },
+  kurnool: { uri: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1280&auto=format&fit=crop&q=80' },
   kadapa: { uri: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=1280&auto=format&fit=crop&q=80' },
   nellore: { uri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1280&auto=format&fit=crop&q=80' },
   vijayawada: { uri: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?w=1280&auto=format&fit=crop&q=80' },
@@ -1006,23 +1006,28 @@ export const CINEMATIC_4K_PHOTOGRAPHY = {
   rajahmundry: { uri: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1280&auto=format&fit=crop&q=80' },
   varanasi: { uri: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=1280&auto=format&fit=crop&q=80' },
   rishikesh: { uri: 'https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=1280&auto=format&fit=crop&q=80' },
-  udaipur: { uri: 'https://images.unsplash.com/photo-1590766940554-6f2f8afab7f0?w=1280&auto=format&fit=crop&q=80' },
+  udaipur: { uri: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=1280&auto=format&fit=crop&q=80' },
   mumbai: { uri: 'https://images.unsplash.com/photo-1562979314-bee7453e911c?w=1280&auto=format&fit=crop&q=80' },
-  bengaluru: { uri: 'https://images.unsplash.com/photo-1572201088222-4fe8e5bfe870?w=1280&auto=format&fit=crop&q=80' },
+  bengaluru: { uri: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=1280&auto=format&fit=crop&q=80' },
   delhi: { uri: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1280&auto=format&fit=crop&q=80' },
   ladakh: { uri: 'https://images.unsplash.com/photo-1581793745862-99fde7fa73d2?w=1280&auto=format&fit=crop&q=80' },
-  hyderabad: { uri: 'https://images.unsplash.com/photo-1505050053434-7abc6f8fe3f7?w=1280&auto=format&fit=crop&q=80' },
+  hyderabad: { uri: 'https://images.unsplash.com/photo-1576085898323-218337e3e43c?w=1280&auto=format&fit=crop&q=80' },
   agra: { uri: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=1280&auto=format&fit=crop&q=80' },
-  amritsar: { uri: 'https://images.unsplash.com/photo-1609340543881-6b9d1e70ab34?w=1280&auto=format&fit=crop&q=80' },
+  amritsar: { uri: 'https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=1280&auto=format&fit=crop&q=80' },
   madurai: { uri: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1280&auto=format&fit=crop&q=80' },
-  mysuru: { uri: 'https://images.unsplash.com/photo-1600100397608-f010f44465b0?w=1280&auto=format&fit=crop&q=80' },
+  mysuru: { uri: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=1280&auto=format&fit=crop&q=80' },
   puri: { uri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1280&auto=format&fit=crop&q=80' },
   konark: { uri: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1280&auto=format&fit=crop&q=80' },
   kolkata: { uri: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1280&auto=format&fit=crop&q=80' },
   andaman: { uri: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1280&auto=format&fit=crop&q=80' },
-  hampi: { uri: 'https://images.unsplash.com/photo-1566402791-5b27c1a0d75e?w=1280&auto=format&fit=crop&q=80' },
-  coorg: { uri: 'https://images.unsplash.com/photo-1601144373053-30a53dbcf53a?w=1280&auto=format&fit=crop&q=80' },
+  hampi: { uri: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1280&auto=format&fit=crop&q=80' },
+  coorg: { uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80' },
+  kodagu: { uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80' },
+  chikkamagaluru: { uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80' },
   ooty: { uri: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1280&auto=format&fit=crop&q=80' },
+  kodaikanal: { uri: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?w=1280&auto=format&fit=crop&q=80' },
+  meghalaya: { uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80' },
+  shillong: { uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1280&auto=format&fit=crop&q=80' },
   rajasthan: { uri: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1280&auto=format&fit=crop&q=80' },
 };
 
@@ -1053,6 +1058,12 @@ const QUERY_ALIASES = {
   'amer fort': 'jaipur',
   'dal lake': 'kashmir',
   'hampi ruins': 'hampi',
+  chikmagalur: 'chikkamagaluru',
+  shimoga: 'shivamogga',
+  ooty: 'ooty',
+  kodaikanal: 'kodaikanal',
+  mangalore: 'dakshina kannada',
+  mangaluru: 'dakshina kannada',
 };
 
 // Helper to resolve an image asset based on an imageKey, prioritizing local bundled assets
@@ -1091,11 +1102,21 @@ export function getBundledImage(key) {
     case 'vijayawada': return require('../assets/images/dest_vijayawada.jpg');
     case 'kakinada': return require('../assets/images/dest_kakinada.jpg');
     case 'rajahmundry': return require('../assets/images/dest_rajahmundry.jpg');
+    case 'hampi': return require('../assets/images/journal_hampi.jpg');
+    case 'coorg':
+    case 'kodagu':
+    case 'chikkamagaluru':
+    case 'chikmagalur':
+      return CINEMATIC_4K_PHOTOGRAPHY['coorg'] || require('../assets/images/dest_kerala.jpg');
+    case 'ooty':
+    case 'nilgiris':
+    case 'kodaikanal':
+      return CINEMATIC_4K_PHOTOGRAPHY['ooty'] || require('../assets/images/dest_kerala.jpg');
     default:
       if (CINEMATIC_4K_PHOTOGRAPHY[k]) {
         return CINEMATIC_4K_PHOTOGRAPHY[k];
       }
-      return require('../assets/images/dest_goa.jpg');
+      return null;
   }
 }
 
@@ -1108,7 +1129,7 @@ export function resolveDestination(query) {
     const defaultDest = CINEMATIC_DESTINATIONS[0];
     return {
       ...defaultDest,
-      image: defaultDest.image || getBundledImage(defaultDest.id),
+      image: defaultDest.image || getBundledImage(defaultDest.id) || require('../assets/images/dest_goa.jpg'),
     };
   }
 
@@ -1128,7 +1149,7 @@ export function resolveDestination(query) {
   if (exact) {
     return {
       ...exact,
-      image: exact.image || getBundledImage(exact.id) || CINEMATIC_4K_PHOTOGRAPHY[exact.id],
+      image: exact.image || getBundledImage(exact.id) || CINEMATIC_4K_PHOTOGRAPHY[exact.id] || require('../assets/images/dest_goa.jpg'),
     };
   }
 
@@ -1143,30 +1164,43 @@ export function resolveDestination(query) {
   if (startsWith) {
     return {
       ...startsWith,
-      image: startsWith.image || getBundledImage(startsWith.id) || CINEMATIC_4K_PHOTOGRAPHY[startsWith.id],
+      image: startsWith.image || getBundledImage(startsWith.id) || CINEMATIC_4K_PHOTOGRAPHY[startsWith.id] || require('../assets/images/dest_goa.jpg'),
     };
   }
 
-  // 3. Match in District Dataset
-  const districtMatch = INDIAN_DISTRICTS_DATA.find(
+  // 3. Match in District Dataset (Exact match first, then prefix/substring)
+  let districtMatch = INDIAN_DISTRICTS_DATA.find(
     (d) =>
       d.name.toLowerCase() === clean ||
       d.district.toLowerCase() === clean ||
       d.name.toLowerCase() === cleanBase ||
-      d.district.toLowerCase() === cleanBase ||
-      d.name.toLowerCase().includes(clean) ||
-      clean.includes(d.name.toLowerCase()) ||
-      d.district.toLowerCase().includes(clean) ||
-      cleanBase.includes(d.name.toLowerCase())
+      d.district.toLowerCase() === cleanBase
   );
+  if (!districtMatch) {
+    districtMatch = INDIAN_DISTRICTS_DATA.find(
+      (d) =>
+        d.name.toLowerCase().startsWith(clean) ||
+        d.district.toLowerCase().startsWith(clean) ||
+        d.name.toLowerCase().includes(clean) ||
+        clean.includes(d.name.toLowerCase()) ||
+        d.district.toLowerCase().includes(clean) ||
+        cleanBase.includes(d.name.toLowerCase())
+    );
+  }
 
   if (districtMatch) {
     const coords = latLngToCoords(districtMatch.lat, districtMatch.lng);
+    const dName = districtMatch.name.toLowerCase().trim();
+    const dKey = (districtMatch.imageKey || '').toLowerCase().trim();
+
+    // Prioritize authentic photo of the specific destination/district first, then the district group key
     const resolvedImage =
-      getBundledImage(districtMatch.imageKey) ||
-      getBundledImage(districtMatch.name.toLowerCase()) ||
-      CINEMATIC_4K_PHOTOGRAPHY[districtMatch.imageKey] ||
-      getBundledImage('goa');
+      CINEMATIC_4K_PHOTOGRAPHY[dName] ||
+      getBundledImage(dName) ||
+      getBundledImage(dKey) ||
+      CINEMATIC_4K_PHOTOGRAPHY[dKey] ||
+      getBundledImage('kerala') ||
+      require('../assets/images/dest_goa.jpg');
 
     return {
       id: districtMatch.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
@@ -1207,16 +1241,23 @@ export function resolveDestination(query) {
   if (partial) {
     return {
       ...partial,
-      image: partial.image || getBundledImage(partial.id) || CINEMATIC_4K_PHOTOGRAPHY[partial.id],
+      image: partial.image || getBundledImage(partial.id) || CINEMATIC_4K_PHOTOGRAPHY[partial.id] || require('../assets/images/dest_goa.jpg'),
     };
   }
 
-  // 5. Fallback: create dynamic centered point within India with local photography
+  // 5. Fallback: create dynamic centered point within India with authentic photography
+  const fallbackKey = cleanBase || clean;
+  const dynamicPhoto =
+    CINEMATIC_4K_PHOTOGRAPHY[fallbackKey] ||
+    getBundledImage(fallbackKey) ||
+    CINEMATIC_4K_PHOTOGRAPHY['coorg'] ||
+    require('../assets/images/dest_kerala.jpg');
+
   return {
     ...CINEMATIC_DESTINATIONS[0],
     id: clean.replace(/[^a-z0-9]/g, '-'),
     name: query.trim(),
-    image: getBundledImage(clean) || CINEMATIC_DESTINATIONS[0].image,
+    image: dynamicPhoto,
     breadcrumbHierarchy: [
       { level: 'WORLD', label: 'ASIA • INDIAN OCEAN' },
       { level: 'COUNTRY', label: 'INDIA' },

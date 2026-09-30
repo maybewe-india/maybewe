@@ -48,8 +48,8 @@ export default function CinematicDestinationZoom({
   const [photoSource, setPhotoSource] = useState(destination.image);
 
   useEffect(() => {
-    setPhotoSource(destination.image || getBundledImage(destination.id) || SATELLITE_IMAGE);
-  }, [destination.id, destination.image]);
+    setPhotoSource(destination.image || getBundledImage(destination.name) || getBundledImage(destination.id) || SATELLITE_IMAGE);
+  }, [destination.id, destination.name, destination.image]);
 
   // Main camera animation timeline (0 -> 1)
   const animProgress = useRef(new Animated.Value(0)).current;
@@ -283,11 +283,16 @@ export default function CinematicDestinationZoom({
         pointerEvents="none"
       >
         <Image
-          source={photoSource}
+          source={photoSource || destination.image || getBundledImage(destination.name) || getBundledImage('kerala') || SATELLITE_IMAGE}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
           onError={() => {
-            setPhotoSource(getBundledImage(destination.id) || SATELLITE_IMAGE);
+            setPhotoSource(
+              getBundledImage(destination.name) ||
+              getBundledImage(destination.id) ||
+              getBundledImage('kerala') ||
+              SATELLITE_IMAGE
+            );
           }}
         />
         {/* Soft luxury cinematic vignette overlay */}
