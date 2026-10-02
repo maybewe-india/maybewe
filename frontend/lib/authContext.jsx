@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
 import { DEMO_CURRENT_USER } from './demoData.js';
+import { analyzeSelfieOnDevice } from './faceVerification.js';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -1021,12 +1022,15 @@ export function AuthProvider({ children }) {
         throw new Error('Please capture your selfie before submitting verification.');
       }
 
-      // Guard: stock photos or placeholder images cannot be submitted
-      if (selfieUri.includes('unsplash.com') || selfieUri.includes('placeholder')) {
+      // 1. Local On-Device Face Analysis via MediaPipe BlazeFace
+      // Analyzes selfie on-device: requires exactly 1 face, confidence >= 0.60, and valid landmark pose
+      const localResult = await analyzeSelfieOnDevice(selfieUri);
+      if (!localResult.success) {
         return {
           success: false,
           status: 'failed',
-          error: 'Stock photos or placeholder images cannot be submitted for verification. Please take a real selfie with your camera.',
+          faceCount: localResult.faceCount ?? 0,
+          error: localResult.error || 'Face verification failed on-device analysis.',
         };
       }
 
