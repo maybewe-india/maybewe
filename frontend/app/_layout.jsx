@@ -18,7 +18,7 @@ import { COLORS, FONTS } from '../lib/theme';
 import TestNavigatorModal from '../components/TestNavigatorModal';
 
 function AuthRouteGuard({ children }) {
-  const { session, user, profile, isLoading, isPasswordRecovery } = useAuth();
+  const { session, user, profile, isLoading, isPasswordRecovery, hasAgreedToGuidelines } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const searchParams = useGlobalSearchParams();
@@ -47,18 +47,36 @@ function AuthRouteGuard({ children }) {
     const isVerified = profile?.verification_status === 'verified';
     const isAuthenticated = Boolean(user || session?.user || profile?.id);
 
-    console.log('[AuthGuard] route:', segments.join('/'), 'isAuthenticated:', isAuthenticated, 'isVerified:', isVerified);
+    console.log('[AuthGuard] route:', segments.join('/'), 'isAuthenticated:', isAuthenticated, 'isVerified:', isVerified, 'hasAgreedToGuidelines:', hasAgreedToGuidelines);
 
     if (isAuthenticated) {
       // User is logged in
       if (!isVerified) {
-        // Unverified user MUST complete selfie verification before entering any authenticated area
-        if (!inAuthGroup || (currentSubRoute !== 'verification' && currentSubRoute !== 'guidelines')) {
-          router.replace('/(auth)/verification');
+        // Unverified user MUST agree to guidelines then complete selfie verification before entering tabs
+        if (!hasAgreedToGuidelines) {
+          if (currentSubRoute !== 'guidelines') {
+            console.log('[AuthGuard] Unverified user needs guidelines -> Redirecting to /(auth)/guidelines');
+            router.replace('/(auth)/guidelines');
+          }
+        } else {
+          if (currentSubRoute !== 'verification') {
+            console.log('[AuthGuard] Unverified user with guidelines agreed -> Redirecting to /(auth)/verification');
+            router.replace('/(auth)/verification');
+          }
         }
       } else {
-        // Verified user: redirect directly from auth screens or theme-selection to tabs
-        if (inAuthGroup && (currentSubRoute === 'welcome' || currentSubRoute === 'login' || currentSubRoute === 'signup' || currentSubRoute === 'forgot-password' || currentSubRoute === 'theme-selection')) {
+        // Verified user: redirect directly from any auth screen to tabs
+        const isAuthScreen =
+          currentSubRoute === 'welcome' ||
+          currentSubRoute === 'login' ||
+          currentSubRoute === 'signup' ||
+          currentSubRoute === 'forgot-password' ||
+          currentSubRoute === 'theme-selection' ||
+          currentSubRoute === 'guidelines' ||
+          currentSubRoute === 'verification';
+
+        if (inAuthGroup && isAuthScreen) {
+          console.log('[AuthGuard] Verified user on auth screen -> Redirecting to /(tabs)');
           router.replace('/(tabs)');
         }
       }
@@ -76,7 +94,7 @@ function AuthRouteGuard({ children }) {
         router.replace('/(auth)/welcome');
       }
     }
-  }, [session, user, profile, isLoading, isPasswordRecovery, segments, searchParams]);
+  }, [session, user, profile, isLoading, isPasswordRecovery, hasAgreedToGuidelines, segments, searchParams]);
 
   return children;
 }
