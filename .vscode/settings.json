@@ -1,0 +1,18 @@
+{
+  "java.gradle.buildServer.enabled": "off",
+  "gradle.autoDetect": "off",
+  "gradle.nestedProjects": false,
+  "java.import.gradle.enabled": false,
+  "java.import.gradle.version": "8.12",
+  "java.import.gradle.wrapper.enabled": true,
+  "java.import.gradle.java.home": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home",
+  "gradle.java.home": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home",
+  "gradle.useWrapper": true,
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-21",
+      "path": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home",
+      "default": true
+    }
+  ]
+}

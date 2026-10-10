@@ -20,6 +20,8 @@ import { COLORS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/theme';
 import PrimaryButton from '../../components/ui/PrimaryButton';
 import TrustBadge from '../../components/ui/TrustBadge';
 import { useAuth } from '../../lib/authContext';
+import { supabase } from '../../lib/supabaseClient';
+import WebCameraView from '../../components/WebCameraView';
 
 // Verification State Machine:
 // 'NOT_STARTED' | 'CAPTURED' | 'IN_PROGRESS' | 'VERIFIED' | 'FAILED' | 'PENDING'
@@ -28,21 +30,93 @@ export default function VerificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session, user, profile, submitVerification, checkVerificationStatus, updateProfile } = useAuth();
+  const isAuthenticated = Boolean(session?.user || user?.id || profile?.id);
 
   const [selfieUri, setSelfieUri] = useState(null);
   const [verificationState, setVerificationState] = useState('NOT_STARTED');
   const [failureReason, setFailureReason] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState('');
+  const [isWebCameraOpen, setIsWebCameraOpen] = useState(false);
 
   // Diagnostic logging on mount
   useEffect(() => {
     console.log('[VerificationScreen] mount state:', {
+      isAuthenticated,
       hasSession: !!session,
       userId: session?.user?.id || user?.id || profile?.id || 'NONE',
       profileStatus: profile?.verification_status || 'not_started',
     });
-  }, [session, user, profile]);
+  }, [session, user, profile, isAuthenticated]);
+
+  // Dynamic session detection and sync without requiring page reload
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkActiveSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.user && isMounted) {
+          console.log('[VerificationScreen] Active Supabase session verified for user:', data.session.user.id);
+          // If failure reason was session-related, clear it immediately
+          setFailureReason((prev) => {
+            if (
+              prev &&
+              (prev.includes('session') ||
+                prev.includes('network session') ||
+                prev.includes('sign in') ||
+                prev.includes('Sign In') ||
+                prev.includes('Authentication'))
+            ) {
+              return '';
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.warn('[VerificationScreen] Error in dynamic getSession check:', err);
+      }
+    };
+
+    checkActiveSession();
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.addEventListener('focus', checkActiveSession);
+      return () => {
+        isMounted = false;
+        window.removeEventListener('focus', checkActiveSession);
+      };
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session, user]);
+
+  // Auto-recover from any previous session failure when authentication becomes active
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (
+        failureReason &&
+        (failureReason.includes('session') ||
+          failureReason.includes('network session') ||
+          failureReason.includes('sign in') ||
+          failureReason.includes('Sign In') ||
+          failureReason.includes('Authentication'))
+      ) {
+        setFailureReason('');
+        if (verificationState === 'FAILED') {
+          if (profile?.verification_status === 'verified') {
+            setVerificationState('VERIFIED');
+          } else if (profile?.verification_status === 'pending') {
+            setVerificationState('PENDING');
+          } else {
+            setVerificationState(selfieUri ? 'CAPTURED' : 'NOT_STARTED');
+          }
+        }
+      }
+    }
+  }, [isAuthenticated, failureReason, verificationState, profile?.verification_status, selfieUri]);
 
   // Profile repair state for accounts missing public.users
   const [repairName, setRepairName] = useState(
@@ -83,42 +157,21 @@ export default function VerificationScreen() {
   }, [profile?.verification_status]);
 
   const handleCaptureSelfie = async () => {
+    if (!isAuthenticated) {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert('Sign In Required: Please sign in or create an account before taking your verification selfie.');
+      } else {
+        Alert.alert('Sign In Required', 'Please sign in or create an account before taking your verification selfie.');
+      }
+      router.push('/(auth)/login?redirect=' + encodeURIComponent('/(auth)/verification'));
+      return;
+    }
+
     try {
       if (Platform.OS === 'web') {
-        // In browser environments, try camera or file upload
-        try {
-          const result = await ImagePicker.launchCameraAsync({
-            cameraType: ImagePicker.CameraType.front,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.7,
-          });
-          if (!result.canceled && result.assets?.[0]?.uri) {
-            setSelfieUri(result.assets[0].uri);
-            setVerificationState('CAPTURED');
-            return;
-          }
-        } catch (webCamErr) {
-          console.log('Web camera bypassed or unavailable, trying photo picker:', webCamErr);
-        }
-
-        try {
-          const libResult = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-          });
-          if (!libResult.canceled && libResult.assets?.[0]?.uri) {
-            setSelfieUri(libResult.assets[0].uri);
-            setVerificationState('CAPTURED');
-            return;
-          }
-        } catch (webLibErr) {
-          console.log('Web photo picker error:', webLibErr);
-        }
-
-        Alert.alert('Camera or Photo Required', 'Please capture or upload a clear photo of your face to verify your identity.');
+        // On Web (desktop/laptop), activate the WebRTC camera viewfinder directly
+        setSelfieUri(null);
+        setIsWebCameraOpen(true);
         return;
       }
 
@@ -161,6 +214,11 @@ export default function VerificationScreen() {
   };
 
   const handleSubmit = async () => {
+    if (!isAuthenticated) {
+      setFailureReason('Verification service requires an active network session. Please sign in to verify your identity.');
+      setVerificationState('FAILED');
+      return;
+    }
     if (!selfieUri) {
       Alert.alert('Selfie Required', 'Please take or choose a selfie before submitting.');
       return;
@@ -188,6 +246,7 @@ export default function VerificationScreen() {
   const handleRetry = () => {
     setSelfieUri(null);
     setFailureReason('');
+    setIsWebCameraOpen(false);
     setVerificationState('NOT_STARTED');
   };
 
@@ -343,7 +402,7 @@ export default function VerificationScreen() {
                 if (router.canGoBack()) {
                   router.back();
                 } else {
-                  router.replace('/(tabs)/profile');
+                  router.replace('/(auth)/guidelines');
                 }
               }}
               style={styles.backButton}
@@ -366,30 +425,67 @@ export default function VerificationScreen() {
             </Text>
           </View>
 
-          {/* Unauthenticated Preview Notice */}
-          {!session?.user && !profile?.id && (
-            <View style={styles.unauthBanner}>
-              <Ionicons name="information-circle-outline" size={20} color="#D97706" style={{ marginRight: 10, marginTop: 2 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.unauthTitle}>Not Signed In</Text>
-                <Text style={styles.unauthText}>
-                  You are previewing this screen without an active user session. Please sign in or create an account to submit your real selfie verification.
-                </Text>
+          {/* Unauthenticated State: Clear Sign In / Re-authentication Prompt */}
+          {!isAuthenticated && (
+            <View style={[styles.card, SHADOWS.card, styles.unauthCard]}>
+              <View style={styles.unauthIconCircle}>
+                <Ionicons name="lock-closed" size={32} color="#B45309" />
+              </View>
+              <Text style={styles.unauthCardTitle}>Sign In Required to Verify</Text>
+              <Text style={styles.unauthCardSubtitle}>
+                Verification binds your identity check to your authenticated MaybeWe traveler profile. Please sign in or create an account before taking your verification selfie.
+              </Text>
+
+              {failureReason && (failureReason.includes('session') || failureReason.includes('network session')) ? (
+                <View style={styles.sessionExpiredBox}>
+                  <Ionicons name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+                  <Text style={styles.sessionExpiredText}>Your session expired or was interrupted. Please sign in to continue.</Text>
+                </View>
+              ) : null}
+
+              <View style={styles.unauthActions}>
+                <PrimaryButton
+                  title="Sign In to Continue  →"
+                  size="lg"
+                  onPress={() => router.push('/(auth)/login?redirect=' + encodeURIComponent('/(auth)/verification'))}
+                  style={{ width: '100%' }}
+                />
                 <TouchableOpacity
-                  onPress={() => router.push('/(auth)/login')}
-                  style={styles.unauthLoginBtn}
+                  onPress={() => router.push('/(auth)/signup?redirect=' + encodeURIComponent('/(auth)/verification'))}
+                  style={styles.unauthSignupBtn}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.unauthLoginBtnText}>Go to Sign In</Text>
+                  <Text style={styles.unauthSignupBtnText}>Don't have an account? Create Account</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
 
-          {/* STATE 1 & 2: NOT_STARTED or CAPTURED */}
-          {(verificationState === 'NOT_STARTED' || verificationState === 'CAPTURED') && (
+          {/* Active Signed-in User Indicator */}
+          {isAuthenticated && (
+            <View style={styles.authenticatedPill}>
+              <Ionicons name="person-circle" size={18} color="#0F172A" style={{ marginRight: 6 }} />
+              <Text style={styles.authenticatedPillText}>
+                Signed in as <Text style={{ fontWeight: '700' }}>{profile?.name || user?.email || 'Traveler'}</Text>
+              </Text>
+            </View>
+          )}
+
+          {/* STATE 1 & 2: NOT_STARTED or CAPTURED (Enabled for authenticated user) */}
+          {isAuthenticated && (verificationState === 'NOT_STARTED' || verificationState === 'CAPTURED') && (
             <View style={[styles.card, SHADOWS.card]}>
-              {selfieUri ? (
+              {Platform.OS === 'web' && isWebCameraOpen ? (
+                <WebCameraView
+                  onCapture={(capturedUri) => {
+                    setSelfieUri(capturedUri);
+                    setVerificationState('CAPTURED');
+                    setIsWebCameraOpen(false);
+                  }}
+                  onClose={() => {
+                    setIsWebCameraOpen(false);
+                  }}
+                />
+              ) : selfieUri ? (
                 <View style={styles.previewContainer}>
                   <Image source={{ uri: selfieUri }} style={styles.selfiePreview} />
                   <TouchableOpacity
@@ -508,16 +604,36 @@ export default function VerificationScreen() {
               <View style={styles.failedNoticeBox}>
                 <Ionicons name="information-circle-outline" size={18} color="#FF6B6B" style={{ marginRight: 8 }} />
                 <Text style={styles.failedNoticeText}>
-                  Verification is required to enter MaybeWe. Please retake your selfie following the guidance.
+                  {failureReason && (failureReason.includes('session') || failureReason.includes('sign in') || failureReason.includes('Sign In') || failureReason.includes('network session'))
+                    ? 'An active authenticated session is required to record your verification in our secure registry.'
+                    : 'Verification is required to enter MaybeWe. Please retake your selfie following the guidance.'}
                 </Text>
               </View>
 
-              <PrimaryButton
-                title="Retry Selfie Verification"
-                size="lg"
-                onPress={handleRetry}
-                style={{ width: '100%', marginTop: 24 }}
-              />
+              {(!isAuthenticated || (failureReason && (failureReason.includes('session') || failureReason.includes('sign in') || failureReason.includes('Sign In') || failureReason.includes('network session')))) ? (
+                <View style={{ width: '100%', marginTop: 24, gap: 12 }}>
+                  <PrimaryButton
+                    title="Sign In to Continue  →"
+                    size="lg"
+                    onPress={() => router.push('/(auth)/login?redirect=' + encodeURIComponent('/(auth)/verification'))}
+                    style={{ width: '100%' }}
+                  />
+                  <TouchableOpacity
+                    onPress={handleRetry}
+                    style={styles.retrySecondaryBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.retrySecondaryBtnText}>Cancel & Start Over</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <PrimaryButton
+                  title="Retry Selfie Verification"
+                  size="lg"
+                  onPress={handleRetry}
+                  style={{ width: '100%', marginTop: 24 }}
+                />
+              )}
             </View>
           )}
 
@@ -1009,5 +1125,103 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  unauthCard: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 22,
+    marginBottom: 20,
+  },
+  unauthIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  unauthCardTitle: {
+    fontFamily: FONTS.extraBold,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#171817',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  unauthCardSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: '#45453F',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  sessionExpiredBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#F87171',
+    borderRadius: RADII.md,
+    padding: 12,
+    marginBottom: 16,
+    width: '100%',
+  },
+  sessionExpiredText: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: '#991B1B',
+    flex: 1,
+    lineHeight: 18,
+  },
+  unauthActions: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  unauthSignupBtn: {
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  unauthSignupBtnText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    color: '#B99A5E',
+    fontWeight: '600',
+  },
+  authenticatedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(251, 250, 247, 0.90)',
+    borderWidth: 1,
+    borderColor: '#D7D2C8',
+    borderRadius: RADII.full,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  authenticatedPillText: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: '#171817',
+  },
+  retrySecondaryBtn: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADII.full,
+    borderWidth: 1,
+    borderColor: '#D7D2C8',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  retrySecondaryBtnText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 14,
+    color: '#45453F',
   },
 });

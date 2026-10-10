@@ -24,9 +24,9 @@ export default function FilterChip({
         style={[
           styles.base,
           {
-            backgroundColor: '#E7D3B5',
+            backgroundColor: '#1C1917',
             borderWidth: 1,
-            borderColor: '#EDE5DA',
+            borderColor: 'rgba(197, 168, 128, 0.40)',
             paddingVertical: paddingV,
             paddingHorizontal: paddingH,
           },
@@ -36,7 +36,7 @@ export default function FilterChip({
         accessibilityState={{ selected: true }}
         accessibilityLabel={label}
       >
-        <Text style={[styles.selectedText, { fontSize, color: '#171817' }]}>{label}</Text>
+        <Text style={[styles.selectedText, { fontSize, color: '#D4AF37' }]}>{label}</Text>
       </TouchableOpacity>
     );
   }
@@ -48,8 +48,8 @@ export default function FilterChip({
       style={[
         styles.base,
         {
-          backgroundColor: '#FFFDFC',
-          borderColor: '#EDE5DA',
+          backgroundColor: '#FFFFFF',
+          borderColor: 'rgba(197, 168, 128, 0.28)',
           borderWidth: 1,
           paddingVertical: paddingV,
           paddingHorizontal: paddingH,
@@ -60,7 +60,7 @@ export default function FilterChip({
       accessibilityState={{ selected: false }}
       accessibilityLabel={label}
     >
-      <Text style={[styles.unselectedText, { fontSize, color: '#45453F' }]}>{label}</Text>
+      <Text style={[styles.unselectedText, { fontSize, color: '#7D756D' }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -70,7 +70,6 @@ const styles = StyleSheet.create({
     borderRadius: RADII.full,
     marginRight: 8,
     marginBottom: 8,
-    overflow: 'hidden',
   },
   gradient: {
     borderRadius: RADII.full,
@@ -79,12 +78,10 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
     letterSpacing: -0.1,
   },
   unselectedText: {
     fontFamily: FONTS.semiBold,
-    fontWeight: '600',
     letterSpacing: -0.1,
   },
 });

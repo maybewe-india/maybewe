@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,6 +84,7 @@ export default function PrivacySettingsModal({
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
@@ -152,9 +152,9 @@ export default function PrivacySettingsModal({
             {activeTab === 'privacy' && (
               <View>
                 {/* Discovery Visibility */}
-                <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                <View style={styles.card}>
                   <View style={styles.rowBetween}>
-                    <View style={{ flex: 1, paddingRight: 10 }}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
                       <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Discovery Visibility</Text>
                       <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
                         Show your profile to compatible travelers visiting the same Indian destinations.
@@ -163,14 +163,14 @@ export default function PrivacySettingsModal({
                     <Switch
                       value={privacySettings.discovery_visibility}
                       onValueChange={(val) => handleUpdatePrivacy('discovery_visibility', val)}
-                      trackColor={{ false: '#918E87', true: '#B99A5E' }}
+                      trackColor={{ false: '#D7D2C8', true: '#B99A5E' }}
                       thumbColor="#FAF8F3"
                     />
                   </View>
                 </View>
 
                 {/* Profile Visibility Mode */}
-                <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                <View style={styles.card}>
                   <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Profile Visibility</Text>
                   <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
                     Control who can view your travel bio, companion stories, and itineraries.
@@ -194,13 +194,13 @@ export default function PrivacySettingsModal({
                             name={isSel ? 'radio-button-on' : 'radio-button-off'}
                             size={18}
                             color={isSel ? '#B99A5E' : '#918E87'}
-                            style={{ marginRight: 10 }}
+                            style={{ marginRight: 12 }}
                           />
                           <View style={{ flex: 1 }}>
-                            <Text style={[styles.optionLabel, isSel && { color: '#B99A5E', fontWeight: '700' }]}>
+                            <Text style={[styles.optionLabel, isSel && styles.optionLabelSelected]}>
                               {opt.label}
                             </Text>
-                            <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>{opt.desc}</Text>
+                            <Text style={styles.optionDesc}>{opt.desc}</Text>
                           </View>
                         </TouchableOpacity>
                       );
@@ -209,7 +209,7 @@ export default function PrivacySettingsModal({
                 </View>
 
                 {/* Who Can Message */}
-                <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                <View style={styles.card}>
                   <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Direct Messaging Permission</Text>
                   <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
                     Enforce server-side access to protect your travel communications.
@@ -233,13 +233,13 @@ export default function PrivacySettingsModal({
                             name={isSel ? 'radio-button-on' : 'radio-button-off'}
                             size={18}
                             color={isSel ? '#B99A5E' : '#918E87'}
-                            style={{ marginRight: 10 }}
+                            style={{ marginRight: 12 }}
                           />
                           <View style={{ flex: 1 }}>
-                            <Text style={[styles.optionLabel, isSel && { color: '#B99A5E', fontWeight: '700' }]}>
+                            <Text style={[styles.optionLabel, isSel && styles.optionLabelSelected]}>
                               {opt.label}
                             </Text>
-                            <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>{opt.desc}</Text>
+                            <Text style={styles.optionDesc}>{opt.desc}</Text>
                           </View>
                         </TouchableOpacity>
                       );
@@ -248,7 +248,7 @@ export default function PrivacySettingsModal({
                 </View>
 
                 {/* Live Location Default */}
-                <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                <View style={styles.card}>
                   <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Live Location Default Mode</Text>
                   <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
                     Choose default precision when sharing foreground live location in chats and circles.
@@ -271,13 +271,13 @@ export default function PrivacySettingsModal({
                             name={isSel ? 'radio-button-on' : 'radio-button-off'}
                             size={18}
                             color={isSel ? '#B99A5E' : '#918E87'}
-                            style={{ marginRight: 10 }}
+                            style={{ marginRight: 12 }}
                           />
                           <View style={{ flex: 1 }}>
-                            <Text style={[styles.optionLabel, isSel && { color: '#B99A5E', fontWeight: '700' }]}>
+                            <Text style={[styles.optionLabel, isSel && styles.optionLabelSelected]}>
                               {opt.label}
                             </Text>
-                            <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>{opt.desc}</Text>
+                            <Text style={styles.optionDesc}>{opt.desc}</Text>
                           </View>
                         </TouchableOpacity>
                       );
@@ -290,7 +290,7 @@ export default function PrivacySettingsModal({
             {/* NOTIFICATIONS TAB */}
             {activeTab === 'notifications' && (
               <View>
-                <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                <View style={styles.card}>
                   <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Concierge Notification Categories</Text>
                   <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
                     Toggle categories of updates you wish to receive. Safety and verification alerts remain active at all times.
@@ -304,8 +304,14 @@ export default function PrivacySettingsModal({
                       { key: 'trips_enabled', label: 'Trip Activity & Shared Places', desc: 'Collaborative itinerary additions and suggestions' },
                       { key: 'social_enabled', label: 'Travel Stories & Followers', desc: 'Likes, comments, and new story followers' },
                       { key: 'trust_enabled', label: 'Trust & Verification Milestones', desc: 'Community trust score progress and verification status' },
-                    ].map((item) => (
-                      <View key={item.key} style={styles.notifToggleRow}>
+                    ].map((item, index, arr) => (
+                      <View
+                        key={item.key}
+                        style={[
+                          styles.notifToggleRow,
+                          index === arr.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                      >
                         <View style={{ flex: 1, paddingRight: 10 }}>
                           <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>{item.label}</Text>
                           <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>{item.desc}</Text>
@@ -313,7 +319,7 @@ export default function PrivacySettingsModal({
                         <Switch
                           value={notifPreferences[item.key]}
                           onValueChange={() => handleToggleNotif(item.key)}
-                          trackColor={{ false: '#918E87', true: '#B99A5E' }}
+                          trackColor={{ false: '#D7D2C8', true: '#B99A5E' }}
                           thumbColor="#FAF8F3"
                         />
                       </View>
@@ -326,7 +332,7 @@ export default function PrivacySettingsModal({
             {/* SAFETY & BLOCKED USERS TAB */}
             {activeTab === 'safety' && (
               <View>
-                <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+                <View style={styles.card}>
                   <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Blocked Travelers</Text>
                   <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
                     Blocked travelers cannot message you, view your live location, or invite you to circles. Blocking establishes a mutual safety barrier.
@@ -334,7 +340,7 @@ export default function PrivacySettingsModal({
 
                   {blockedUsers.length === 0 ? (
                     <View style={styles.emptyBlocked}>
-                      <Ionicons name="shield-outline" size={28} color="#C8B27A" style={{ marginBottom: 8 }} />
+                      <Ionicons name="shield-outline" size={28} color="#B99A5E" style={{ marginBottom: 8 }} />
                       <Text style={[styles.emptyBlockedTitle, { color: colors.textPrimary }]}>No Blocked Travelers</Text>
                       <Text style={[styles.emptyBlockedDesc, { color: colors.textSecondary }]}>
                         Your travel circle is in good standing. If anyone behaves inappropriately, you can block them from their profile or chat.
@@ -393,7 +399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    borderBottomColor: '#EDE5DA',
   },
   eyebrowRow: {
     flexDirection: 'row',
@@ -424,13 +430,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    borderBottomColor: '#EDE5DA',
   },
   tabItem: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 16,
     borderWidth: 1,
+    backgroundColor: '#F8F6F0',
   },
   tabItemActive: {
     backgroundColor: '#171817',
@@ -450,8 +457,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
+    borderColor: '#EDE5DA',
     padding: 16,
     marginBottom: 14,
     ...SHADOWS.card,
@@ -481,27 +490,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(185, 154, 94, 0.05)',
+    backgroundColor: '#F8F6F0',
+    borderWidth: 1,
+    borderColor: '#EDE5DA',
   },
   optionRowSelected: {
-    backgroundColor: 'rgba(185, 154, 94, 0.14)',
+    backgroundColor: '#F3ECE0',
+    borderColor: '#B99A5E',
   },
   optionLabel: {
     fontFamily: FONTS.semiBold,
     fontSize: 13,
+    color: '#171817',
+  },
+  optionLabelSelected: {
+    color: '#171817',
+    fontWeight: '700',
   },
   optionDesc: {
     fontFamily: FONTS.regular,
     fontSize: 11,
+    color: '#77766F',
     marginTop: 1,
   },
   notifToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    borderBottomColor: '#EDE5DA',
   },
   toggleLabel: {
     fontFamily: FONTS.semiBold,
@@ -515,7 +533,13 @@ const styles = StyleSheet.create({
   emptyBlocked: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 28,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: '#F8F6F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE5DA',
   },
   emptyBlockedTitle: {
     fontFamily: FONTS.bold,
@@ -528,15 +552,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     marginTop: 4,
-    paddingHorizontal: 16,
   },
   blockedItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F8F6F0',
+    borderWidth: 1,
+    borderColor: '#EDE5DA',
+    marginBottom: 8,
   },
   blockedName: {
     fontFamily: FONTS.bold,
@@ -548,7 +574,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   unblockBtn: {
-    backgroundColor: 'rgba(185, 154, 94, 0.15)',
+    backgroundColor: '#FAF8F3',
+    borderWidth: 1,
+    borderColor: '#B99A5E',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,

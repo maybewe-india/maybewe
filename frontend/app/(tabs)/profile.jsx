@@ -8,14 +8,17 @@ import {
   Modal,
   Alert,
   Image,
-  Dimensions,
+  useWindowDimensions,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/theme';
 import InputField from '../../components/ui/InputField';
 import { useAuth } from '../../lib/authContext';
@@ -24,6 +27,8 @@ import { fetchPosts, fetchUserSavedPosts } from '../../lib/posts.js';
 import { getFollowCounts } from '../../lib/social.js';
 import { getSavedPlaces, getAllPlaces } from '../../lib/places.js';
 import { getUserTrips, getSavedTrips } from '../../lib/tripPlanner.js';
+
+const TRIPS_STORAGE_KEY = '@solo_traveler_stored_trips';
 import { getUserTrustEvents } from '../../lib/safetyBlocks.js';
 import { getUnreadNotificationsCount } from '../../lib/notifications.js';
 import CreatePostModal from '../../components/CreatePostModal.jsx';
@@ -32,8 +37,7 @@ import PlaceDetailModal from '../../components/PlaceDetailModal.jsx';
 import AddToTripModal from '../../components/AddToTripModal.jsx';
 import NotificationCenterModal from '../../components/NotificationCenterModal.jsx';
 import PrivacySettingsModal from '../../components/PrivacySettingsModal.jsx';
-
-const { width: SCREEN_W } = Dimensions.get('window');
+import ProfileAboutView from '../../components/ProfileAboutView.jsx';
 
 const GOA_IMAGE = require('../../assets/images/dest_goa.jpg');
 const LADAKH_IMAGE = require('../../assets/images/dest_ladakh.jpg');
@@ -84,7 +88,8 @@ const FAVORITE_DESTINATIONS = ['Kashmir', 'Ladakh', 'Kerala', 'Goa'];
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, logout, updateProfile } = useAuth();
+  const { width: windowWidth } = useWindowDimensions();
+  const { user, profile, logout, updateProfile } = useAuth();
   const { theme, isDark, colors } = useTheme();
 
   // Edit Profile Modal
@@ -123,40 +128,76 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadProfileData();
-  }, [profile?.id]);
+  }, [profile?.id, user?.id]);
 
   const loadProfileData = async () => {
-    const userId = profile?.id || 'user-demo-priya';
+    const userId = user?.id || profile?.id;
     try {
       const posts = await fetchPosts();
-      const myPosts = posts.filter((p) => p.user_id === userId || p.user_id === 'user-demo-priya');
-      setUserPosts(myPosts.length > 0 ? myPosts : posts.slice(0, 3));
+      const myPosts = posts.filter((p) => {
+        if (!userId) return p.user_id === 'current-user';
+        return (
+          p.user_id === userId ||
+          p.user_id === 'current-user' ||
+          (profile?.name && p.user_name && profile.name.trim().toLowerCase() === p.user_name.trim().toLowerCase())
+        );
+      });
+      setUserPosts(myPosts);
 
-      const savedP = await fetchUserSavedPosts(userId);
-      setSavedPosts(savedP);
+      if (userId) {
+        const savedP = await fetchUserSavedPosts(userId);
+        setSavedPosts(savedP || []);
+      } else {
+        setSavedPosts([]);
+      }
 
       const savedPlaceIds = await getSavedPlaces();
       const allP = getAllPlaces();
       const mySavedPlaces = allP.filter((p) => savedPlaceIds.includes(p.id));
-      setSavedPlacesList(mySavedPlaces.length > 0 ? mySavedPlaces : allP.slice(0, 3));
+      setSavedPlacesList(mySavedPlaces);
 
-      const trips = await getUserTrips();
-      setUserTrips(trips);
+      // Load user's actual trips from storage and Supabase
+      let myTrips = [];
+      try {
+        const stored = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            myTrips = parsed.filter((t) => t.status !== 'cancelled' && t.status !== 'deleted');
+          }
+        }
+      } catch (e) {}
 
-      const savedTrips = await getSavedTrips(userId);
-      setSavedTripsList(savedTrips.length > 0 ? savedTrips : trips.slice(0, 2));
+      if (myTrips.length === 0 && isSupabaseConfigured && userId) {
+        try {
+          const { data } = await supabase
+            .from('trips')
+            .select('*')
+            .eq('user_id', userId)
+            .order('date_from', { ascending: true });
+          if (data && Array.isArray(data) && data.length > 0) {
+            myTrips = data.filter((t) => t.status !== 'cancelled' && t.status !== 'deleted');
+          }
+        } catch (e) {}
+      }
+      setUserTrips(myTrips);
 
-      const unreadCount = await getUnreadNotificationsCount(userId);
-      setUnreadNotifCount(unreadCount);
+      if (userId) {
+        const savedTrips = await getSavedTrips(userId);
+        setSavedTripsList(savedTrips || []);
 
-      const counts = await getFollowCounts(userId);
-      setSocialStats({
-        followersCount: counts.followersCount > 0 ? counts.followersCount : 142,
-        followingCount: counts.followingCount > 0 ? counts.followingCount : 89,
-      });
+        const unreadCount = await getUnreadNotificationsCount(userId);
+        setUnreadNotifCount(unreadCount);
 
-      const events = await getUserTrustEvents(userId);
-      setTrustEvents(events);
+        const counts = await getFollowCounts(userId);
+        setSocialStats({
+          followersCount: counts.followersCount > 0 ? counts.followersCount : 142,
+          followingCount: counts.followingCount > 0 ? counts.followingCount : 89,
+        });
+
+        const events = await getUserTrustEvents(userId);
+        setTrustEvents(events);
+      }
     } catch (e) {
       console.warn('Error loading profile data:', e);
     }
@@ -307,7 +348,14 @@ export default function ProfileScreen() {
   };
 
   const currentAvatar = profile?.avatar_url || editAvatar || null;
-  const displayName = profile?.name || 'Traveler';
+  const formatProfileName = (name) => {
+    if (!name) return 'Traveler';
+    if (name.startsWith('native_test_')) {
+      return 'Explorer ' + name.slice(-4);
+    }
+    return name;
+  };
+  const displayName = formatProfileName(profile?.name || 'Traveler');
   const displayAge = profile?.age || 24;
   const displayLocation = profile?.city
     ? `${profile.city}, ${profile.state || 'Andhra Pradesh'}`
@@ -335,7 +383,7 @@ export default function ProfileScreen() {
           <View style={[styles.topActionsBar, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
             <View style={[styles.topBadgePill, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA' }]}>
               <Ionicons name="sparkles" size={12} color="#C8B27A" style={{ marginRight: 5 }} />
-              <Text style={[styles.topBadgeText, { color: '#756345' }]}>VERIFIED EXPLORER</Text>
+              <Text style={[styles.topBadgeText, { color: '#D4AF37' }]}>✦ VERIFIED COMPANION</Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -405,7 +453,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           {/* Name & Age */}
-          <Text style={[styles.userName, { color: colors.textPrimary }]}>
+          <Text style={[styles.userName, { color: colors.textPrimary }]} numberOfLines={1} ellipsizeMode="tail">
             {displayName}, <Text style={[styles.userAge, { color: colors.textSecondary }]}>{displayAge}</Text>
           </Text>
 
@@ -421,65 +469,69 @@ export default function ProfileScreen() {
             <Text style={[styles.trustScoreNumber, { color: colors.textPrimary }]}>{Number(trustScore).toFixed(2)}</Text>
             <Text style={[styles.trustScoreLabel, { color: colors.textSecondary }]}>Trust Score</Text>
             <View style={[styles.trustDot, { backgroundColor: 'rgba(216, 212, 203, 0.75)' }]} />
-            <Text style={[styles.trustReviewCount, { color: '#756345' }]}>Verified Companion</Text>
+            <Text style={[styles.trustReviewCount, { color: '#7D756D' }]}>Verified Companion</Text>
           </View>
 
           {/* Social Stats Strip */}
-          <View style={[styles.editorialStatsRow, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }, SHADOWS.card]}>
+          <View style={styles.editorialStatsRow}>
             <TouchableOpacity style={styles.editorialStatCol} activeOpacity={0.8} onPress={() => setProfileTab('stories')}>
               <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>{userPosts.length}</Text>
-              <Text style={[styles.editorialStatLbl, { color: '#756345' }]}>Stories</Text>
+              <Text style={[styles.editorialStatLbl, { color: '#7D756D' }]}>Stories</Text>
             </TouchableOpacity>
-            <View style={[styles.editorialStatDiv, { backgroundColor: 'rgba(216, 212, 203, 0.6)' }]} />
+            <View style={styles.editorialStatDiv} />
             <View style={styles.editorialStatCol}>
               <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>{socialStats.followersCount}</Text>
-              <Text style={[styles.editorialStatLbl, { color: '#756345' }]}>Followers</Text>
+              <Text style={[styles.editorialStatLbl, { color: '#7D756D' }]}>Followers</Text>
             </View>
-            <View style={[styles.editorialStatDiv, { backgroundColor: 'rgba(216, 212, 203, 0.6)' }]} />
+            <View style={styles.editorialStatDiv} />
             <View style={styles.editorialStatCol}>
               <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>{socialStats.followingCount}</Text>
-              <Text style={[styles.editorialStatLbl, { color: '#756345' }]}>Following</Text>
+              <Text style={[styles.editorialStatLbl, { color: '#7D756D' }]}>Following</Text>
             </View>
-            <View style={[styles.editorialStatDiv, { backgroundColor: 'rgba(216, 212, 203, 0.6)' }]} />
+            <View style={styles.editorialStatDiv} />
             <TouchableOpacity style={styles.editorialStatCol} activeOpacity={0.8} onPress={() => setProfileTab('trips')}>
-              <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>{userTrips.length || 2}</Text>
-              <Text style={[styles.editorialStatLbl, { color: '#756345' }]}>Trips</Text>
+              <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>{userTrips.length}</Text>
+              <Text style={[styles.editorialStatLbl, { color: '#7D756D' }]}>Trips</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Action Row: Share Story, Edit Profile, Verification, Settings, Logout */}
-          <View style={styles.profileActionRow}>
+          {/* Action Row: Primary Actions (Share Story & Edit Profile) */}
+          <View style={styles.profilePrimaryActionRow}>
             <TouchableOpacity
               onPress={() => setCreatePostVisible(true)}
-              style={styles.primaryActionBtn}
+              style={styles.shareStoryBtn}
               activeOpacity={0.85}
             >
-              <View style={[styles.primaryActionGradient, { backgroundColor: '#1D1D1B', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }]}>
-                <Ionicons name="add" size={16} color="#C8B27A" style={{ marginRight: 6 }} />
-                <Text style={[styles.primaryActionText, { color: '#FAF8F3' }]}>Share Story</Text>
+              <View style={[styles.shareStoryGradient, { backgroundColor: '#1D1D1B', borderColor: 'rgba(255, 255, 255, 0.12)' }]}>
+                <Ionicons name="add" size={18} color="#C8B27A" style={{ marginRight: 6 }} />
+                <Text style={styles.shareStoryText} numberOfLines={1}>Share Story</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={openEditModal}
-              style={[styles.secondaryActionBtn, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA' }]}
+              style={[styles.editProfileBtn, { backgroundColor: '#F5EEE5', borderColor: '#EDE5DA' }]}
               activeOpacity={0.8}
             >
-              <Ionicons name="create-outline" size={15} color="#1D1D1B" style={{ marginRight: 6 }} />
-              <Text style={[styles.secondaryActionText, { color: '#1D1D1B' }]}>Edit</Text>
+              <Ionicons name="create-outline" size={16} color="#1D1D1B" style={{ marginRight: 6 }} />
+              <Text style={styles.editProfileText} numberOfLines={1}>Edit Profile</Text>
             </TouchableOpacity>
+          </View>
 
+          {/* Action Row: Utility Icons (Verification, Settings, Logout) */}
+          <View style={styles.profileUtilityActionRow}>
             <TouchableOpacity
               onPress={() => router.push('/(auth)/verification')}
-              style={[styles.secondaryActionBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.85)' }]}
+              style={[styles.utilityActionBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.85)' }]}
               activeOpacity={0.8}
             >
-              <Ionicons name="shield-checkmark-outline" size={15} color="#1D1D1B" />
+              <Ionicons name="shield-checkmark-outline" size={15} color="#1D1D1B" style={{ marginRight: 5 }} />
+              <Text style={styles.utilityActionText}>Verification</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => router.push('/settings')}
-              style={[styles.settingsIconBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.85)' }]}
+              style={[styles.utilityIconBtn, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.85)' }]}
               activeOpacity={0.8}
               accessibilityLabel="Settings"
             >
@@ -488,7 +540,7 @@ export default function ProfileScreen() {
 
             <TouchableOpacity
               onPress={handleLogout}
-              style={[styles.logoutIconBtn, { backgroundColor: 'rgba(158, 58, 58, 0.08)', borderColor: 'rgba(158, 58, 58, 0.25)' }]}
+              style={[styles.utilityIconBtn, { backgroundColor: 'rgba(158, 58, 58, 0.08)', borderColor: 'rgba(158, 58, 58, 0.25)' }]}
               activeOpacity={0.8}
               accessibilityLabel="Log Out"
             >
@@ -503,7 +555,7 @@ export default function ProfileScreen() {
             {[
               { id: 'stories', label: 'Stories', count: userPosts.length },
               { id: 'saved', label: 'Saved', count: savedPlacesList.length + savedPosts.length },
-              { id: 'trips', label: 'Trips', count: userTrips.length || 2 },
+              { id: 'trips', label: 'Trips', count: userTrips.length },
               { id: 'about', label: 'About', count: null },
             ].map((tab) => {
               const active = profileTab === tab.id;
@@ -777,183 +829,55 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {(userTrips.length > 0 ? userTrips : [
-              {
-                id: 'trip-demo-1',
-                title: 'Goa Coastal Exploration',
-                destination: 'Goa',
-                start_date: '2026-10-10',
-                end_date: '2026-10-15',
-                budget_category: 'balanced',
-                companion_mode: 'active',
-                days: [{}, {}, {}],
-              },
-              {
-                id: 'trip-demo-2',
-                title: 'Hampi Heritage Wandering',
-                destination: 'Hampi',
-                start_date: '2026-11-04',
-                end_date: '2026-11-08',
-                budget_category: 'luxury',
-                companion_mode: 'quiet',
-                days: [{}, {}, {}, {}],
-              }
-            ]).map((trip) => (
-              <View key={trip.id} style={styles.profileTripCard}>
-                <View style={styles.profileTripTop}>
-                  <View>
-                    <Text style={styles.profileTripTitle}>{trip.title}</Text>
-                    <Text style={styles.profileTripDest}>
-                      {trip.destination} • {trip.start_date || 'Upcoming'}
-                    </Text>
-                  </View>
-                  <View style={styles.profileTripBadge}>
-                    <Text style={styles.profileTripBadgeTxt}>{trip.budget_category?.toUpperCase() || 'BALANCED'}</Text>
-                  </View>
-                </View>
-                <View style={styles.profileTripBottom}>
-                  <Text style={styles.profileTripDays}>
-                    {trip.days?.length || 3} Days Planned • {trip.companion_mode || 'Solo Friendly'}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.profileTripNavBtn}
-                    onPress={() => router.push('/(tabs)/trips')}
-                  >
-                    <Text style={styles.profileTripNavBtnTxt}>View Itinerary</Text>
-                  </TouchableOpacity>
-                </View>
+            {userTrips.length === 0 ? (
+              <View style={[styles.emptyContainer, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}>
+                <Ionicons name="briefcase-outline" size={42} color="#B99A5E" style={{ marginBottom: 10 }} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Travel Itineraries Yet</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                  Plan your first journey and find compatible companions along the way.
+                </Text>
+                <TouchableOpacity
+                  style={styles.emptyActionBtn}
+                  onPress={() => router.push('/(tabs)/trips')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.emptyActionBtnText}>+ Plan Your First Trip</Text>
+                </TouchableOpacity>
               </View>
-            ))}
+            ) : (
+              userTrips.map((trip, idx) => (
+                <View key={trip.id || `profile-trip-${idx}`} style={styles.profileTripCard}>
+                  <View style={styles.profileTripTop}>
+                    <View>
+                      <Text style={styles.profileTripTitle}>{trip.title || trip.destination}</Text>
+                      <Text style={styles.profileTripDest}>
+                        {trip.destination} • {trip.date_from || trip.start_date || 'Upcoming'}
+                      </Text>
+                    </View>
+                    <View style={styles.profileTripBadge}>
+                      <Text style={styles.profileTripBadgeTxt}>{trip.travel_style?.toUpperCase() || trip.budget_category?.toUpperCase() || 'BALANCED'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.profileTripBottom}>
+                    <Text style={styles.profileTripDays}>
+                      {trip.days?.length || 3} Days Planned • {trip.companion_mode || trip.looking_for || 'Solo Friendly'}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.profileTripNavBtn}
+                      onPress={() => router.push('/(tabs)/trips')}
+                    >
+                      <Text style={styles.profileTripNavBtnTxt}>View Itinerary</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         )}
 
         {/* Tab 4: ABOUT ME */}
-        {profileTab === 'about' && (
-          <>
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>ABOUT ME</Text>
-                <Ionicons name="person-outline" size={15} color={colors.textPrimary} />
-              </View>
-
-              <View style={[styles.bioCard, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }, SHADOWS.card]}>
-                <Text style={[styles.bioText, { color: colors.textPrimary }]}>
-                  {profile?.bio ||
-                    'Visual designer & coffee enthusiast wandering through architecture, quiet bookshops, and coastal hiking trails.'}
-                </Text>
-              </View>
-
-              <View style={styles.subCategoryBlock}>
-                <Text style={[styles.subCategoryLabel, { color: '#756345' }]}>TRAVEL STYLES</Text>
-                <View style={styles.chipCloud}>
-                  {TRAVEL_STYLES.map((style) => (
-                    <View key={style} style={[styles.styleChip, { backgroundColor: 'rgba(250, 248, 243, 0.85)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}>
-                      <Ionicons name="sparkles" size={11} color="#C8B27A" style={{ marginRight: 5 }} />
-                      <Text style={[styles.styleChipText, { color: colors.textPrimary }]}>{style}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.subCategoryBlock}>
-                <Text style={[styles.subCategoryLabel, { color: '#756345' }]}>LANGUAGES SPOKEN</Text>
-                <View style={styles.chipCloud}>
-                  {LANGUAGES.map((lang) => (
-                    <View key={lang} style={[styles.languageChip, { backgroundColor: 'rgba(250, 248, 243, 0.85)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}>
-                      <Ionicons name="globe-outline" size={12} color="#C8B27A" style={{ marginRight: 6 }} />
-                      <Text style={[styles.languageChipText, { color: colors.textPrimary }]}>{lang}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.subCategoryBlock}>
-                <Text style={[styles.subCategoryLabel, { color: '#756345' }]}>INTERESTS & RHYTHMS</Text>
-                <View style={styles.chipCloud}>
-                  {INTERESTS.map((interest) => (
-                    <View key={interest} style={[styles.interestChip, { backgroundColor: 'rgba(250, 248, 243, 0.85)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}>
-                      <Text style={[styles.interestChipText, { color: colors.textPrimary }]}>{interest}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.subCategoryBlock}>
-                <Text style={[styles.subCategoryLabel, { color: '#756345' }]}>FAVORITE DESTINATIONS</Text>
-                <View style={styles.chipCloud}>
-                  {FAVORITE_DESTINATIONS.map((dest) => (
-                    <View key={dest} style={[styles.destinationChip, { backgroundColor: 'rgba(250, 248, 243, 0.85)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}>
-                      <Ionicons name="pin" size={11} color="#C8B27A" style={{ marginRight: 5 }} />
-                      <Text style={[styles.destinationChipText, { color: colors.textPrimary }]}>{dest}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* Travel Journal Highlights */}
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionEyebrow, { color: '#756345' }]}>MEMORABLE JOURNALS</Text>
-                <Ionicons name="images-outline" size={15} color="#C8B27A" />
-              </View>
-              <View style={styles.journalList}>
-                {JOURNAL_ENTRIES.map((entry) => (
-                  <View key={entry.id} style={[styles.journalCard, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }, SHADOWS.card]}>
-                    <View style={styles.journalImageWrap}>
-                      <Image source={entry.image} style={styles.journalImage} resizeMode="cover" />
-                      <View style={styles.journalImageBadge}>
-                        <Text style={styles.journalDateBadge}>{entry.date}</Text>
-                      </View>
-                    </View>
-                    <View style={[styles.journalContent, { backgroundColor: 'rgba(250, 248, 243, 0.95)' }]}>
-                      <View style={styles.journalHeaderRow}>
-                        <Text style={[styles.journalDestination, { color: colors.textPrimary }]}>{entry.destination}</Text>
-                        <View style={[styles.journalTagPill, { backgroundColor: 'rgba(200, 178, 122, 0.15)', borderColor: 'rgba(200, 178, 122, 0.40)' }]}>
-                          <Text style={[styles.journalTagText, { color: colors.primary }]}>{entry.tag}</Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.journalCaption, { color: colors.textSecondary }]}>{entry.caption}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Verification & Community Trust */}
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>VERIFICATION & TRUST</Text>
-                <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
-              </View>
-              <View style={[styles.trustMeterCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
-                <View style={styles.meterHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons
-                      name={verificationStatus === 'verified' ? 'checkmark-circle' : 'time-outline'}
-                      size={15}
-                      color={verificationStatus === 'verified' ? '#2E7D32' : '#C8B27A'}
-                    />
-                    <Text style={[styles.meterTitle, { color: colors.textPrimary }]}>{verificationLabel}</Text>
-                  </View>
-                  <Text style={[styles.meterPercent, { color: colors.primary }]}>{Number(trustScore).toFixed(2)} Trust Score</Text>
-                </View>
-                <View style={[styles.progressBarBg, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)' }]}>
-                  <LinearGradient
-                    colors={GRADIENTS.lavenderViolet}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.progressBarFill, { width: verificationStatus === 'verified' ? '100%' : '65%' }]}
-                  />
-                </View>
-                <Text style={[styles.meterHint, { color: colors.textSecondary }]}>
-                  {verificationStatus === 'verified' ? 'Community Verified • ' : 'Pending Review • '}
-                  {trustEvents.length > 0 ? `${trustEvents.length} authenticated milestones • ` : ''}
-                  Trusted traveler foundation
-                </Text>
-              </View>
-            </View>
-          </>
+        {profileTab === "about" && (
+          <ProfileAboutView bio={profile?.bio} colors={colors} />
         )}
 
 
@@ -966,131 +890,140 @@ export default function ProfileScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Edit Profile</Text>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <ScrollView contentContainerStyle={styles.editModalBody} showsVerticalScrollIndicator={false}>
-            {/* Profile Photo Uploader */}
-            <Text style={[styles.formLabel, { color: colors.primary }]}>YOUR PROFILE PHOTO</Text>
-            <View style={styles.photoUploadContainer}>
-              <View style={styles.photoPreviewWrap}>
-                {editAvatar ? (
-                  <Image source={{ uri: editAvatar }} style={styles.photoPreviewImg} />
-                ) : (
-                  <View style={styles.photoPreviewEmpty}>
-                    <Ionicons name="person" size={32} color="#B99A5E" />
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.photoActionButtons}>
-                <TouchableOpacity
-                  style={styles.photoUploadBtn}
-                  onPress={handlePickAvatarFromLibrary}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="images-outline" size={15} color="#FAF8F3" style={{ marginRight: 6 }} />
-                  <Text style={styles.photoUploadBtnText}>Choose from Gallery</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.photoCameraBtn}
-                  onPress={handleTakeAvatarWithCamera}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="camera-outline" size={15} color="#171817" style={{ marginRight: 6 }} />
-                  <Text style={styles.photoCameraBtnText}>Take Selfie / Photo</Text>
-                </TouchableOpacity>
-
-                {editAvatar ? (
-                  <TouchableOpacity
-                    onPress={() => setEditAvatar('')}
-                    style={styles.photoRemoveBtn}
-                  >
-                    <Text style={styles.photoRemoveBtnText}>Remove Photo</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={[styles.modalHeaderTitle, { color: colors.textPrimary }]}>Edit Profile</Text>
+              <View style={{ width: 40 }} />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.primary }]}>NAME</Text>
-              <InputField
-                value={editName}
-                onChangeText={setEditName}
-                placeholder="Your full name"
-                icon="person-outline"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.primary }]}>AGE</Text>
-              <InputField
-                value={editAge}
-                onChangeText={setEditAge}
-                placeholder="24"
-                keyboardType="numeric"
-                icon="calendar-outline"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={[styles.formLabel, { color: colors.primary }]}>LOCATION</Text>
-                <TouchableOpacity
-                  onPress={() => setEditLocation('Chittoor, Andhra Pradesh')}
-                  style={{ marginBottom: 6 }}
-                >
-                  <Text style={{ fontFamily: FONTS.semiBold, fontSize: 11, color: '#B99A5E' }}>Set Chittoor, AP</Text>
-                </TouchableOpacity>
-              </View>
-              <InputField
-                value={editLocation}
-                onChangeText={setEditLocation}
-                placeholder="e.g. Chittoor, Andhra Pradesh"
-                icon="location-outline"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.primary }]}>ABOUT YOU (BIO)</Text>
-              <InputField
-                value={editBio}
-                onChangeText={setEditBio}
-                placeholder="Share your travel philosophy..."
-                multiline
-                numberOfLines={4}
-              />
-            </View>
-
-            <TouchableOpacity
-              onPress={handleSaveProfile}
-              style={[styles.saveProfileBtn, saving && { opacity: 0.6 }]}
-              disabled={saving}
-              activeOpacity={0.85}
+            <ScrollView
+              contentContainerStyle={[
+                styles.editModalBody,
+                { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+              ]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.saveProfileText}>{saving ? 'Saving...' : 'Save Profile Changes'}</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+              {/* Profile Photo Uploader */}
+              <Text style={[styles.formLabel, { color: colors.primary }]}>YOUR PROFILE PHOTO</Text>
+              <View style={styles.photoUploadContainer}>
+                <View style={styles.photoPreviewWrap}>
+                  {editAvatar ? (
+                    <Image source={{ uri: editAvatar }} style={styles.photoPreviewImg} />
+                  ) : (
+                    <View style={styles.photoPreviewEmpty}>
+                      <Ionicons name="person" size={32} color="#B99A5E" />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.photoActionButtons}>
+                  <TouchableOpacity
+                    style={styles.photoUploadBtn}
+                    onPress={handlePickAvatarFromLibrary}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="images-outline" size={15} color="#FAF8F3" style={{ marginRight: 6 }} />
+                    <Text style={styles.photoUploadBtnText}>Choose from Gallery</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.photoCameraBtn}
+                    onPress={handleTakeAvatarWithCamera}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="camera-outline" size={15} color="#171817" style={{ marginRight: 6 }} />
+                    <Text style={styles.photoCameraBtnText}>Take Selfie / Photo</Text>
+                  </TouchableOpacity>
+
+                  {editAvatar ? (
+                    <TouchableOpacity
+                      onPress={() => setEditAvatar('')}
+                      style={styles.photoRemoveBtn}
+                    >
+                      <Text style={styles.photoRemoveBtnText}>Remove Photo</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>NAME</Text>
+                <InputField
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Your full name"
+                  icon="person-outline"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>AGE</Text>
+                <InputField
+                  value={editAge}
+                  onChangeText={setEditAge}
+                  placeholder="24"
+                  keyboardType="numeric"
+                  icon="calendar-outline"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.formLabel, { color: colors.primary }]}>LOCATION</Text>
+                  <TouchableOpacity
+                    onPress={() => setEditLocation('Chittoor, Andhra Pradesh')}
+                    style={{ marginBottom: 6 }}
+                  >
+                    <Text style={{ fontFamily: FONTS.semiBold, fontSize: 11, color: '#B99A5E' }}>Set Chittoor, AP</Text>
+                  </TouchableOpacity>
+                </View>
+                <InputField
+                  value={editLocation}
+                  onChangeText={setEditLocation}
+                  placeholder="e.g. Chittoor, Andhra Pradesh"
+                  icon="location-outline"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.primary }]}>ABOUT YOU (BIO)</Text>
+                <InputField
+                  value={editBio}
+                  onChangeText={setEditBio}
+                  placeholder="Share your travel philosophy..."
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={handleSaveProfile}
+                style={[styles.saveProfileBtn, saving && { opacity: 0.6 }]}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.saveProfileText}>{saving ? 'Saving...' : 'Save Profile Changes'}</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Create Post Modal */}
       <CreatePostModal
         visible={createPostVisible}
         onClose={() => setCreatePostVisible(false)}
-        currentUser={profile}
-        onPostCreated={(newPost) => {
-          setUserPosts((prev) => [newPost, ...prev]);
-        }}
+        currentUser={{ id: user?.id || profile?.id, name: profile?.name, avatar_url: profile?.avatar_url, ...profile }}
         onCreated={(newPost) => {
-          setUserPosts((prev) => [newPost, ...prev]);
+          setUserPosts((prev) => [newPost, ...prev.filter((p) => p.id !== newPost.id)]);
         }}
       />
 
@@ -1098,7 +1031,12 @@ export default function ProfileScreen() {
       <PostDetailModal
         post={selectedPost}
         visible={!!selectedPost}
+        currentUser={{ id: user?.id || profile?.id, name: profile?.name, avatar_url: profile?.avatar_url, ...profile }}
         onClose={() => setSelectedPost(null)}
+        onPostDeleted={(deletedId) => {
+          setUserPosts((prev) => prev.filter((p) => p.id !== deletedId));
+          setSelectedPost(null);
+        }}
         onSelectPlace={(place) => {
           setSelectedPlace(place);
         }}
@@ -1182,14 +1120,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   topBadgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5EEE5',
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 5,
-    borderRadius: RADII.full,
+    paddingHorizontal: 12,
+    borderRadius: 9999,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: '#EDE5DA',
+    borderColor: "rgba(197, 168, 128, 0.45)",
   },
   topBadgeText: {
     fontFamily: FONTS.bold,
@@ -1325,7 +1263,85 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
 
-  /* Profile Action Row */
+  /* Profile Action Rows */
+  profilePrimaryActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    maxWidth: 380,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  shareStoryBtn: {
+    flex: 1.15,
+    borderRadius: RADII.full,
+    overflow: 'hidden',
+    ...SHADOWS.sm,
+  },
+  shareStoryGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+  },
+  shareStoryText: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FAF8F3',
+    letterSpacing: 0.2,
+  },
+  editProfileBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+  },
+  editProfileText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1D1D1B',
+  },
+  profileUtilityActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    width: '100%',
+    maxWidth: 380,
+  },
+  utilityActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+  },
+  utilityActionText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#1D1D1B',
+    fontWeight: '600',
+  },
+  utilityIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
   profileActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1791,12 +1807,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    borderRadius: 16,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 168, 128, 0.22)',
+    borderRadius: 24,
+    marginHorizontal: 16,
     paddingVertical: 14,
     paddingHorizontal: 8,
     width: '100%',
     maxWidth: 360,
-    borderWidth: 1,
     marginBottom: 16,
   },
   editorialStatCol: {
@@ -1816,6 +1835,7 @@ const styles = StyleSheet.create({
   editorialStatDiv: {
     width: 1,
     height: 24,
+    backgroundColor: 'rgba(28, 25, 23, 0.06)',
   },
   editorialTabsWrap: {
     marginHorizontal: 16,
@@ -1826,23 +1846,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editorialTabPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
-    borderRadius: RADII.full,
+    paddingHorizontal: 16,
+    borderRadius: 9999,
+    backgroundColor: "#F4EFEB",
+    borderWidth: 1,
+    borderColor: "rgba(197, 168, 128, 0.20)",
     backgroundColor: 'rgba(250, 248, 243, 0.92)',
     borderWidth: 1,
     borderColor: 'rgba(216, 212, 203, 0.75)',
   },
   editorialTabPillActive: {
-    backgroundColor: '#1D1D1B',
+    backgroundColor: "#1C1917",
+    borderColor: "rgba(197, 168, 128, 0.40)",
     borderColor: '#1D1D1B',
   },
   editorialTabTxt: {
     fontFamily: FONTS.semiBold,
     fontSize: 13,
-    color: '#756345',
+    color: '#7D756D',
   },
   editorialTabTxtActive: {
     color: '#FAF8F3',
@@ -1861,7 +1885,7 @@ const styles = StyleSheet.create({
   editorialTabBadgeTxt: {
     fontSize: 10,
     fontFamily: FONTS.bold,
-    color: '#756345',
+    color: '#7D756D',
   },
   editorialTabBadgeTxtActive: {
     color: '#1D1D1B',
@@ -1887,7 +1911,7 @@ const styles = StyleSheet.create({
   emptyGridSub: {
     fontFamily: FONTS.regular,
     fontSize: 12,
-    color: '#756345',
+    color: '#7D756D',
     textAlign: 'center',
     marginTop: 6,
     marginBottom: 16,
@@ -1972,7 +1996,7 @@ const styles = StyleSheet.create({
   savedSubTabTxt: {
     fontSize: 12,
     fontFamily: FONTS.semiBold,
-    color: '#756345',
+    color: '#7D756D',
   },
   savedSubTabTxtActive: {
     color: '#171817',
@@ -2023,12 +2047,12 @@ const styles = StyleSheet.create({
   savedPlaceRatingTxt: {
     fontFamily: FONTS.bold,
     fontSize: 11,
-    color: '#756345',
+    color: '#7D756D',
   },
   savedPlaceSub: {
     fontFamily: FONTS.medium,
     fontSize: 11,
-    color: '#756345',
+    color: '#7D756D',
     marginTop: 2,
   },
   savedPlaceActions: {
@@ -2101,7 +2125,7 @@ const styles = StyleSheet.create({
   profileTripDest: {
     fontFamily: FONTS.regular,
     fontSize: 12,
-    color: '#756345',
+    color: '#7D756D',
     marginTop: 2,
   },
   profileTripBadge: {
@@ -2113,7 +2137,7 @@ const styles = StyleSheet.create({
   profileTripBadgeTxt: {
     fontFamily: FONTS.bold,
     fontSize: 10,
-    color: '#756345',
+    color: '#7D756D',
     letterSpacing: 0.5,
   },
   profileTripBottom: {
@@ -2127,7 +2151,7 @@ const styles = StyleSheet.create({
   profileTripDays: {
     fontFamily: FONTS.medium,
     fontSize: 12,
-    color: '#756345',
+    color: '#7D756D',
   },
   profileTripNavBtn: {
     backgroundColor: '#1D1D1B',

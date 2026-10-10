@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FONTS, RADII, SHADOWS, PALETTE } from '../../lib/theme';
 import PrimaryButton from '../../components/ui/PrimaryButton';
@@ -21,6 +21,8 @@ import { useAuth } from '../../lib/authContext';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const redirectTarget = params?.redirect ? decodeURIComponent(params.redirect) : null;
   const insets = useSafeAreaInsets();
   const { login, signInWithGoogle, loginWithGoogle } = useAuth();
 
@@ -52,7 +54,11 @@ export default function LoginScreen() {
       }
 
       setLoading(false);
-      router.replace('/(tabs)');
+      if (redirectTarget) {
+        router.replace(redirectTarget);
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (err) {
       console.warn('[Login] Unexpected error in handleSignIn:', err);
       setLoading(false);
@@ -73,7 +79,11 @@ export default function LoginScreen() {
         setErrorMessage(typeof res.error === 'string' ? res.error : res.error.message || 'Google sign-in could not be completed.');
       } else if (res?.success) {
         if (!res.redirecting) {
-          router.replace('/(tabs)');
+          if (redirectTarget) {
+            router.replace(redirectTarget);
+          } else {
+            router.replace('/(tabs)');
+          }
         }
       }
     } catch (err) {
@@ -89,7 +99,7 @@ export default function LoginScreen() {
 
   const handleSocialNotice = (provider) => {
     const message = `${provider} authentication is coming soon. Please use email or Google for instant access.`;
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
       window.alert(`${provider} Sign-In: ${message}`);
     } else {
       Alert.alert(`${provider} Sign-In`, message);
@@ -244,12 +254,23 @@ export default function LoginScreen() {
           <View style={styles.signupPromptRow}>
             <Text style={styles.signupPromptText}>Don't have an account? </Text>
             <TouchableOpacity
-              onPress={() => router.push('/(auth)/signup')}
+              onPress={() => router.push(redirectTarget ? `/(auth)/signup?redirect=${encodeURIComponent(redirectTarget)}` : '/(auth)/signup')}
               style={styles.signupLinkBtn}
               accessibilityRole="button"
               accessibilityLabel="Create Account"
             >
               <Text style={styles.signupLinkText}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Legal Links */}
+          <View style={styles.legalLinksRow}>
+            <TouchableOpacity onPress={() => router.push('/terms')} activeOpacity={0.7}>
+              <Text style={styles.legalLinkText}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalDivider}>•</Text>
+            <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+              <Text style={styles.legalLinkText}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -261,7 +282,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: '#FAF8F5',
   },
   scrollContent: {
     flexGrow: 1,
@@ -284,9 +305,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: RADII.full,
-    backgroundColor: 'rgba(251, 250, 247, 0.90)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -294,15 +315,15 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 14,
     borderRadius: RADII.full,
-    backgroundColor: 'rgba(251, 250, 247, 0.90)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
   },
   brandBadgeText: {
     fontFamily: FONTS.bold,
     fontSize: 10,
     fontWeight: '700',
-    color: '#B99A5E',
+    color: '#C5A880',
     letterSpacing: 2.2,
   },
   headingSection: {
@@ -312,23 +333,28 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extraBold,
     fontSize: 32,
     fontWeight: '800',
-    color: '#171817',
+    color: '#1E1B18',
     letterSpacing: -0.7,
     marginBottom: 6,
   },
   headingSubtitle: {
     fontFamily: FONTS.regular,
     fontSize: 15,
-    color: '#45453F',
+    color: '#7D756D',
     fontWeight: '400',
     lineHeight: 22,
   },
   formCard: {
-    backgroundColor: 'rgba(251, 250, 247, 0.95)',
-    borderRadius: RADII['2xl'],
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
+    shadowColor: '#1C1917',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 2,
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px) saturate(180%)',
@@ -396,12 +422,17 @@ const styles = StyleSheet.create({
   socialBtn: {
     flex: 1,
     height: 48,
-    borderRadius: RADII.md,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 9999,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
     borderWidth: 1,
-    borderColor: '#D9D8D3',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(197, 168, 128, 0.28)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   signupPromptRow: {
     flexDirection: 'row',
@@ -423,5 +454,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#171716',
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+    gap: 8,
+  },
+  legalLinkText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: '#7D756D',
+  },
+  legalDivider: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: 'rgba(125, 117, 109, 0.5)',
   },
 });

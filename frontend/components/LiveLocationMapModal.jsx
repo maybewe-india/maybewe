@@ -32,11 +32,11 @@ export default function LiveLocationMapModal({
   onClose,
   session,
   companionName = 'Travel Companion',
-  currentUserId = 'user-demo-priya',
+  currentUserId = null,
   onSessionStopped,
 }) {
   const [currentSession, setCurrentSession] = useState(session);
-  const [myCoords, setMyCoords] = useState({ latitude: 15.5801, longitude: 73.7432 });
+  const [myCoords, setMyCoords] = useState(null);
   const [countdown, setCountdown] = useState('');
   const [lastUpdatedText, setLastUpdatedText] = useState('Just now');
   const [stopping, setStopping] = useState(false);
@@ -153,7 +153,7 @@ export default function LiveLocationMapModal({
 
   // Distance computation
   const distanceStr =
-    currentSession?.latitude && currentSession?.longitude && myCoords
+    currentSession?.latitude && currentSession?.longitude && myCoords?.latitude && myCoords?.longitude
       ? calculateDistance(
           myCoords.latitude,
           myCoords.longitude,

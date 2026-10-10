@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,11 @@ export default function Avatar({
   ringVariant = 'default', // 'default' | 'lavender' | 'peach' | 'none'
 }) {
   const { colors, isDark } = useTheme();
+  const [imageError, setImageError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImageError(false);
+  }, [uri]);
 
   const initials = name
     ? name
@@ -24,13 +29,49 @@ export default function Avatar({
         .slice(0, 2)
     : '?';
 
+  const showImage = !!(uri && !imageError);
+
   const ringSize = size + 6;
-  const ringColors =
-    ringVariant === 'lavender'
-      ? ['#CBD5E1', '#E2E8F0']
-      : ringVariant === 'peach'
-      ? [colors.peach, colors.sunset]
-      : ['#E2E8F0', '#F1F5F9'];
+  const ringColors = React.useMemo(() => {
+    switch (ringVariant) {
+      case 'gold':
+        return ['#B99A5E', '#E6D5AF'];
+      case 'lavender':
+        return ['#CBD5E1', '#E2E8F0'];
+      case 'peach':
+        return [colors.peach || '#E7D3B5', colors.sunset || '#D9C8B2'];
+      default:
+        return ['#E2E8F0', '#F1F5F9'];
+    }
+  }, [ringVariant, colors.peach, colors.sunset]);
+
+  const renderContent = () => {
+    if (showImage) {
+      return (
+        <Image
+          source={{ uri }}
+          style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]}
+          onError={() => setImageError(true)}
+        />
+      );
+    }
+    return (
+      <View
+        style={[
+          styles.placeholder,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: colors.surfaceElevated,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.initials, { fontSize: size * 0.35, color: colors.primary }]}>{initials}</Text>
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, style]}>
@@ -42,49 +83,11 @@ export default function Avatar({
           style={[styles.ring, { width: ringSize, height: ringSize, borderRadius: ringSize / 2 }]}
         >
           <View style={[styles.ringInner, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.surface }]}>
-            {uri ? (
-              <Image
-                source={{ uri }}
-                style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.placeholder,
-                  {
-                    width: size,
-                    height: size,
-                    borderRadius: size / 2,
-                    backgroundColor: colors.surfaceElevated,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.initials, { fontSize: size * 0.35, color: colors.primary }]}>{initials}</Text>
-              </View>
-            )}
+            {renderContent()}
           </View>
         </LinearGradient>
-      ) : uri ? (
-        <Image
-          source={{ uri }}
-          style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]}
-        />
       ) : (
-        <View
-          style={[
-            styles.placeholder,
-            {
-              width: size,
-              height: size,
-              borderRadius: size / 2,
-              backgroundColor: colors.surfaceElevated,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.initials, { fontSize: size * 0.35, color: colors.primary }]}>{initials}</Text>
-        </View>
+        renderContent()
       )}
 
       {online && (

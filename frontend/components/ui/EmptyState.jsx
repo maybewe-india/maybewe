@@ -17,22 +17,22 @@ export default function EmptyState({
 
   return (
     <View style={[styles.container, style]}>
-      <View style={[styles.iconWrap, { backgroundColor: 'rgba(250, 248, 243, 0.92)', borderColor: 'rgba(216, 212, 203, 0.75)' }]}>
-        <View style={[styles.iconInner, { backgroundColor: 'rgba(244, 241, 234, 0.70)' }]}>
-          <Ionicons name={icon} size={28} color="#756345" />
+      <View style={[styles.iconWrap, { backgroundColor: '#FFFFFF', borderColor: 'rgba(197, 168, 128, 0.35)' }]}>
+        <View style={[styles.iconInner, { backgroundColor: '#F4EFEB' }]}>
+          <Ionicons name={icon} size={28} color="#C5A880" />
         </View>
       </View>
 
-      {title && <Text style={[styles.title, { color: '#171715' }]}>{title}</Text>}
-      {description && <Text style={[styles.description, { color: '#66645F' }]}>{description}</Text>}
+      {title && <Text style={[styles.title, { color: '#1E1B18' }]}>{title}</Text>}
+      {description && <Text style={[styles.description, { color: '#7D756D' }]}>{description}</Text>}
 
       {actionTitle && onAction && (
         <TouchableOpacity
           onPress={onAction}
-          style={[styles.actionBtn, { backgroundColor: '#1D1D1B', borderColor: 'rgba(255, 255, 255, 0.12)' }]}
+          style={[styles.actionBtn, { backgroundColor: '#1C1917', borderColor: 'rgba(197, 168, 128, 0.40)' }]}
           activeOpacity={0.8}
         >
-          <Text style={[styles.actionText, { color: '#FAF8F3' }]}>{actionTitle}</Text>
+          <Text style={[styles.actionText, { color: '#FAF8F5' }]}>{actionTitle}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: RADII.md,
+    borderRadius: 9999,
     borderWidth: 1,
   },
   actionText: {

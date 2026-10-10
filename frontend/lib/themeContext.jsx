@@ -65,7 +65,7 @@ export function ThemeProvider({ children }) {
       document.documentElement.setAttribute('data-theme', 'light');
       if (document.body) {
         document.body.setAttribute('data-theme', 'light');
-        document.body.style.backgroundColor = '#F6F8FB';
+        document.body.style.backgroundColor = '#FAF8F5';
       }
       if (typeof window !== 'undefined' && window.localStorage) {
         try {

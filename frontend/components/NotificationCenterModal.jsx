@@ -24,8 +24,6 @@ import {
   subscribeToUserNotifications,
 } from '../lib/notifications.js';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-
 const FILTER_PILLS = [
   { id: 'all', label: 'All Updates' },
   { id: 'messages', label: 'Messages' },
@@ -297,6 +295,7 @@ export default function NotificationCenterModal({
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
@@ -392,7 +391,7 @@ export default function NotificationCenterModal({
           ) : groupedNotifications.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? '#262624' : '#EFECE6' }]}>
-                <Ionicons name="leaf-outline" size={32} color="#B99A5E" />
+                <Ionicons name="compass-outline" size={34} color="#D4AF37" />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Serene Travel Inbox</Text>
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
@@ -597,11 +596,14 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   filterPillActive: {
-    backgroundColor: '#171817',
+    backgroundColor: "#1C1917",
+    borderWidth: 1,
+    borderColor: "rgba(197, 168, 128, 0.40)",
   },
   filterPillInactive: {
-    backgroundColor: 'transparent',
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
+    borderColor: "rgba(197, 168, 128, 0.28)",
   },
   filterPillText: {
     fontFamily: FONTS.medium,

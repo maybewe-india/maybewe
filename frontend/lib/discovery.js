@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
-import { DEMO_TRAVELERS } from './demoData.js';
 import { resolveDestinationImageUri } from './destinationImageResolver.js';
 
 const BLOCKED_USERS_KEY = '@solo_traveler_blocked_users';
@@ -106,11 +105,11 @@ export async function discoverTravelers({
         p_travel_style: travelStyle === 'All' ? null : travelStyle,
       });
       const timeoutPromise = new Promise((resolve) =>
-        setTimeout(() => resolve({ error: new Error('Discovery RPC timeout'), data: null }), 2000)
+        setTimeout(() => resolve({ error: new Error('Discovery RPC timeout'), data: null }), 3000)
       );
       const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
 
-      if (!error && data && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         return data
           .filter(t => !blockedIds.includes(t.user_id))
           .map(t => ({
@@ -137,126 +136,182 @@ export async function discoverTravelers({
           }));
       }
     } catch (err) {
-      console.warn('Supabase discovery RPC error, falling back to curated travelers:', err);
+      console.warn('Supabase discovery RPC error:', err);
     }
   }
 
-  // Curated demo fallback
-  let results = [...DEMO_TRAVELERS].filter(t => !blockedIds.includes(t.id));
+  // Pure production empty state — never manufacture or return synthetic/fake profiles
+  return [];
+}
 
-  // Filter by destination
-  if (destination && destination.trim()) {
-    const q = destination.toLowerCase().trim();
-    results = results.filter(t => t.destination.toLowerCase().includes(q));
+/**
+ * Format distance in meters to clean human-readable text
+ */
+export function formatDistance(distanceMeters) {
+  if (distanceMeters === null || distanceMeters === undefined || isNaN(distanceMeters)) {
+    return 'Nearby';
+  }
+  const m = Number(distanceMeters);
+  if (m < 50) return 'Right here (< 50 m)';
+  if (m < 1000) return `${Math.round(m)} m away`;
+  const km = m / 1000;
+  return `${km < 10 ? km.toFixed(1) : Math.round(km)} km away`;
+}
 
-    // If no static demo travelers directly match the searched destination,
-    // dynamically generate authentic verified Indian solo travelers heading to that destination
-    if (results.length === 0) {
-      const cleanDest = destination.trim();
-      const dynamicTravelers = [
-        {
-          id: `traveler-dyn-1-${cleanDest.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-          name: 'Aarav Varma',
-          age: 26,
-          gender: 'Male',
-          bio: `Software engineer from Hyderabad heading to ${cleanDest} for scenic landscapes, weekend photography, and discovering peaceful viewpoints.`,
-          avatar_url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80',
-          cover_url: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?w=1200&auto=format&fit=crop&q=80',
-          travel_styles: ['Photography', 'Nature', 'Culture', 'Food'],
-          languages: ['Telugu', 'English', 'Hindi'],
-          verification_status: 'verified',
-          trust_score: 4.93,
-          subscription_tier: 'premium',
-          destination: cleanDest,
-          trip_date_from: '2026-10-18',
-          trip_date_to: '2026-10-28',
-          trip_travel_style: 'Photography & Nature',
-          looking_for: `Co-traveler for exploring ${cleanDest}`,
-          compatibility: 93,
-          travel_history: [
-            { place: 'Goa', year: '2025', photo: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=500&auto=format&fit=crop&q=80' },
-          ],
-        },
-        {
-          id: `traveler-dyn-2-${cleanDest.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-          name: 'Meera Krishnan',
-          age: 24,
-          gender: 'Female',
-          bio: `Architect & travel writer. Planning an immersive trip to ${cleanDest} to experience local cuisine, historic landmarks, and quiet sunsets.`,
-          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
-          cover_url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
-          travel_styles: ['Culture', 'Food', 'Beach', 'Architecture'],
-          languages: ['Tamil', 'Telugu', 'English'],
-          verification_status: 'verified',
-          trust_score: 4.88,
-          subscription_tier: 'free',
-          destination: cleanDest,
-          trip_date_from: '2026-10-20',
-          trip_date_to: '2026-10-27',
-          trip_travel_style: 'Culture & Food',
-          looking_for: `Companion for cafe hopping & culture in ${cleanDest}`,
-          compatibility: 90,
-          travel_history: [
-            { place: 'Kerala', year: '2025', photo: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=500&auto=format&fit=crop&q=80' },
-          ],
-        },
-        {
-          id: `traveler-dyn-3-${cleanDest.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-          name: 'Siddharth Rao',
-          age: 28,
-          gender: 'Male',
-          bio: `Passionate backpacker exploring gems across peninsular India. Looking to rent a bike in ${cleanDest} and check out offbeat trails.`,
-          avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80',
-          cover_url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&auto=format&fit=crop&q=80',
-          travel_styles: ['Adventure', 'Backpacking', 'Nature'],
-          languages: ['Kannada', 'English', 'Hindi'],
-          verification_status: 'verified',
-          trust_score: 4.91,
-          subscription_tier: 'premium',
-          destination: cleanDest,
-          trip_date_from: '2026-10-15',
-          trip_date_to: '2026-10-24',
-          trip_travel_style: 'Adventure & Backpacking',
-          looking_for: `Trail buddy & explorer in ${cleanDest}`,
-          compatibility: 87,
-          travel_history: [
-            { place: 'Hampi', year: '2024', photo: 'https://images.unsplash.com/photo-1566402791-5b27c1a0d75e?w=500&auto=format&fit=crop&q=80' },
-          ],
-        },
-      ];
-      results = dynamicTravelers.filter(t => !blockedIds.includes(t.id));
+/**
+ * Validates latitude and longitude within WGS84 world bounds
+ */
+export function isValidCoordinate(latitude, longitude) {
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
+  if (isNaN(latitude) || isNaN(longitude)) return false;
+  if (latitude < -90 || latitude > 90) return false;
+  if (longitude < -180 || longitude > 180) return false;
+  return true;
+}
+
+/**
+ * Publishes or updates the caller's nearby presence with authoritative device GPS
+ */
+export async function updateNearbyPresence({ coords, accuracy = null, isVisible = true }) {
+  if (!coords || !isValidCoordinate(coords.latitude, coords.longitude)) {
+    throw new Error('Valid device GPS coordinates (latitude and longitude) are required.');
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.rpc('update_nearby_presence', {
+        p_lat: coords.latitude,
+        p_lng: coords.longitude,
+        p_accuracy: accuracy,
+        p_is_visible: isVisible,
+      });
+
+      if (error) {
+        console.warn('update_nearby_presence RPC error:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      console.warn('updateNearbyPresence exception:', err);
+      return { success: false, error: err.message };
     }
   }
 
-  // Filter by age
-  if (minAge) {
-    results = results.filter(t => t.age >= minAge);
+  return { success: true, localOnly: true };
+}
+
+/**
+ * Toggles user visibility in nearby discovery without transmitting new coordinates
+ */
+export async function setNearbyVisibility(isVisible) {
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.rpc('set_nearby_visibility', {
+        p_is_visible: isVisible,
+      });
+      if (error) {
+        console.warn('set_nearby_visibility error:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   }
-  if (maxAge) {
-    results = results.filter(t => t.age <= maxAge);
+  return { success: true };
+}
+
+/**
+ * Removes user from nearby presence entirely when they opt out or log off
+ */
+export async function clearNearbyPresence() {
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.rpc('clear_nearby_presence');
+      if (error) {
+        console.warn('clear_nearby_presence error:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+  return { success: true };
+}
+
+/**
+ * Discovers real location-active travelers nearby using PostGIS ST_DWithin & ST_Distance
+ * NEVER returns or fabricates synthetic/fake profiles.
+ * NEVER exposes other users' raw GPS coordinates.
+ */
+export async function findNearbyTravelers({
+  lat,
+  lng,
+  radiusKm = 25,
+  limit = 30,
+  userStyles = [],
+}) {
+  if (!isValidCoordinate(lat, lng)) {
+    throw new Error('Valid device GPS coordinates are required for nearby discovery.');
   }
 
-  // Filter by gender
-  if (gender && gender !== 'All') {
-    results = results.filter(t => t.gender.toLowerCase() === gender.toLowerCase());
+  const blockedIds = await getBlockedUserIds();
+
+  if (isSupabaseConfigured) {
+    try {
+      const rpcPromise = supabase.rpc('find_nearby_travelers', {
+        p_lat: lat,
+        p_lng: lng,
+        p_radius_km: radiusKm,
+        p_limit: limit,
+      });
+
+      const timeoutPromise = new Promise((resolve) =>
+        setTimeout(() => resolve({ error: new Error('Nearby discovery RPC timeout'), data: null }), 3500)
+      );
+
+      const { data, error } = await Promise.race([rpcPromise, timeoutPromise]);
+
+      if (!error && Array.isArray(data)) {
+        return data
+          .filter((t) => !blockedIds.includes(t.user_id))
+          .map((t) => ({
+            id: t.user_id,
+            name: t.user_name,
+            bio: t.user_bio,
+            avatar_url: t.user_avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+            cover_url: resolveDestinationImageUri(t.user_travel_styles?.[0] || 'Goa'),
+            travel_styles: t.user_travel_styles || [],
+            languages: t.user_languages || [],
+            verification_status: t.user_verification_status,
+            trust_score: t.user_trust_score,
+            distance_meters: t.distance_meters,
+            distance_text: formatDistance(t.distance_meters),
+            last_seen_at: t.last_seen_at,
+            is_nearby: true,
+            destination: 'Nearby Now',
+            compatibility: calculateCompatibility(userStyles, t.user_travel_styles || [], false),
+            travel_history: [],
+          }));
+      }
+    } catch (err) {
+      console.warn('Supabase find_nearby_travelers error:', err);
+    }
   }
 
-  // Filter by travel style
-  if (travelStyle && travelStyle !== 'All') {
-    results = results.filter(t =>
-      t.travel_styles.some(s => s.toLowerCase() === travelStyle.toLowerCase()) ||
-      t.trip_travel_style.toLowerCase().includes(travelStyle.toLowerCase())
-    );
-  }
-
-  return results.map(t => ({
-    ...t,
-    compatibility: calculateCompatibility(userStyles, t.travel_styles, true),
-  }));
+  // Pure production empty state
+  return [];
 }
 
 export default {
   discoverTravelers,
+  findNearbyTravelers,
+  updateNearbyPresence,
+  setNearbyVisibility,
+  clearNearbyPresence,
+  formatDistance,
+  isValidCoordinate,
   calculateCompatibility,
   getBlockedUserIds,
   blockUser,

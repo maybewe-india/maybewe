@@ -1131,17 +1131,14 @@ export function getBundledImage(key) {
     case 'kodagu':
     case 'chikkamagaluru':
     case 'chikmagalur':
-      return CINEMATIC_4K_PHOTOGRAPHY['coorg'] || require('../assets/images/dest_kerala.jpg');
+      return require('../assets/images/dest_kerala.jpg');
     case 'ooty':
     case 'nilgiris':
     case 'kodaikanal':
-      return CINEMATIC_4K_PHOTOGRAPHY['ooty'] || require('../assets/images/dest_kerala.jpg');
+      return require('../assets/images/dest_kerala.jpg');
     case 'chennai':
       return require('../assets/images/dest_chennai.jpg');
     default:
-      if (CINEMATIC_4K_PHOTOGRAPHY[k]) {
-        return CINEMATIC_4K_PHOTOGRAPHY[k];
-      }
       return null;
   }
 }
@@ -1175,7 +1172,7 @@ export function resolveDestination(query) {
   if (exact) {
     return {
       ...exact,
-      image: exact.image || getBundledImage(exact.id) || CINEMATIC_4K_PHOTOGRAPHY[exact.id] || require('../assets/images/dest_goa.jpg'),
+      image: exact.image || getBundledImage(exact.id) || require('../assets/images/dest_goa.jpg'),
     };
   }
 
@@ -1190,7 +1187,7 @@ export function resolveDestination(query) {
   if (startsWith) {
     return {
       ...startsWith,
-      image: startsWith.image || getBundledImage(startsWith.id) || CINEMATIC_4K_PHOTOGRAPHY[startsWith.id] || require('../assets/images/dest_goa.jpg'),
+      image: startsWith.image || getBundledImage(startsWith.id) || require('../assets/images/dest_goa.jpg'),
     };
   }
 
@@ -1221,10 +1218,8 @@ export function resolveDestination(query) {
 
     // Prioritize authentic photo of the specific destination/district first, then the district group key
     const resolvedImage =
-      CINEMATIC_4K_PHOTOGRAPHY[dName] ||
       getBundledImage(dName) ||
       getBundledImage(dKey) ||
-      CINEMATIC_4K_PHOTOGRAPHY[dKey] ||
       getBundledImage('kerala') ||
       require('../assets/images/dest_goa.jpg');
 
@@ -1267,16 +1262,14 @@ export function resolveDestination(query) {
   if (partial) {
     return {
       ...partial,
-      image: partial.image || getBundledImage(partial.id) || CINEMATIC_4K_PHOTOGRAPHY[partial.id] || require('../assets/images/dest_goa.jpg'),
+      image: partial.image || getBundledImage(partial.id) || require('../assets/images/dest_goa.jpg'),
     };
   }
 
   // 5. Fallback: create dynamic centered point within India with authentic photography
   const fallbackKey = cleanBase || clean;
   const dynamicPhoto =
-    CINEMATIC_4K_PHOTOGRAPHY[fallbackKey] ||
     getBundledImage(fallbackKey) ||
-    CINEMATIC_4K_PHOTOGRAPHY['coorg'] ||
     require('../assets/images/dest_kerala.jpg');
 
   return {

@@ -15,6 +15,7 @@ import { useTheme } from '../../lib/themeContext';
 const TABS = [
   { name: 'index', label: 'Home', iconFocused: 'compass', iconBlur: 'compass-outline' },
   { name: 'discovery', label: 'Discover', iconFocused: 'sparkles', iconBlur: 'sparkles-outline' },
+  { name: 'social', label: 'Feed', iconFocused: 'newspaper', iconBlur: 'newspaper-outline' },
   { name: 'matches', label: 'Chat', iconFocused: 'chatbubbles', iconBlur: 'chatbubbles-outline' },
   { name: 'trips', label: 'Trips', iconFocused: 'briefcase', iconBlur: 'briefcase-outline' },
   { name: 'profile', label: 'Profile', iconFocused: 'person', iconBlur: 'person-outline' },
@@ -28,7 +29,7 @@ function CustomTabBar({ state, descriptors, navigation }) {
     <View
       style={[
         styles.floatingWrapper,
-        { bottom: Math.max(insets.bottom, 12) + 6 },
+        { bottom: Platform.OS === 'web' ? 16 : Math.max(insets.bottom, 12) + 6 },
       ]}
       pointerEvents="box-none"
     >
@@ -68,12 +69,12 @@ function CustomTabBar({ state, descriptors, navigation }) {
               {isFocused ? (
                 <View style={styles.activePill}>
                   <View style={styles.champagneActiveDot} />
-                  <Ionicons name={tab.iconFocused} size={15} color="#FAF8F3" />
-                  <Text style={styles.activeLabel}>{tab.label}</Text>
+                  <Ionicons name={tab.iconFocused} size={15} color="#D4AF37" />
+                  <Text style={styles.activeLabel} numberOfLines={1}>{tab.label}</Text>
                 </View>
               ) : (
                 <View style={styles.inactiveItem}>
-                  <Ionicons name={tab.iconBlur} size={18} color="#918E87" />
+                  <Ionicons name={tab.iconBlur} size={18} color="#7D756D" />
                   <Text style={styles.inactiveLabel}>{tab.label}</Text>
                 </View>
               )}
@@ -96,6 +97,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
       <Tabs.Screen name="discovery" options={{ title: 'Discover' }} />
+      <Tabs.Screen name="social" options={{ title: 'Feed' }} />
       <Tabs.Screen name="matches" options={{ title: 'Chat' }} />
       <Tabs.Screen name="trips" options={{ title: 'Trips' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
@@ -105,29 +107,41 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   floatingWrapper: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    zIndex: 100,
+    zIndex: 9999,
   },
   tabBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'transparent',
-    borderRadius: RADII.xl,
+    backgroundColor: 'rgba(250, 248, 245, 0.82)',
+    borderRadius: RADII.full,
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    width: '100%',
-    maxWidth: 450,
-    borderWidth: 0,
+    paddingHorizontal: 10,
+    width: '92%',
+    maxWidth: 440,
+    borderWidth: 1,
+    borderColor: 'rgba(197, 168, 128, 0.2)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(197, 168, 128, 0.2)',
     position: 'relative',
-    overflow: 'hidden',
     ...Platform.select({
-      ios: {},
-      android: {},
-      web: {},
+      ios: {
+        shadowColor: '#1D1D1B',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+      web: {
+        boxShadow: '0 8px 24px -2px rgba(29, 29, 27, 0.12)',
+        backdropFilter: 'blur(20px)',
+      },
     }),
   },
   tabBarTopHighlight: {
@@ -140,16 +154,16 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   activePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#171817', // Deep Charcoal active surface
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: RADII.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1C1917",
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+    borderRadius: 9999,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
-    gap: 6,
+    gap: 4,
     ...Platform.select({
       web: {
         boxShadow: '0 4px 12px rgba(29, 29, 27, 0.22)',
@@ -169,11 +183,11 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#E7D3B5', // Champagne active indicator
+    backgroundColor: '#D4AF37', // Champagne active indicator
   },
   activeLabel: {
     color: '#FAF8F3', // Soft pearl text
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
@@ -183,7 +197,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   inactiveLabel: {
-    color: '#918E87', // Warm grey
+    color: '#7D756D', // Warm grey
     fontSize: 10,
     fontWeight: '600',
     marginTop: 3,

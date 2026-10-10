@@ -8,7 +8,8 @@ import {
   Modal,
   Alert,
   Image,
-  Dimensions,
+  ImageBackground,
+  useWindowDimensions,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,6 @@ import PrimaryButton from '../../components/ui/PrimaryButton';
 import InputField from '../../components/ui/InputField';
 import FilterChip from '../../components/ui/FilterChip';
 import EmptyState from '../../components/ui/EmptyState';
-import { DEMO_MY_TRIPS, DESTINATION_IMAGES } from '../../lib/demoData';
 import { formatTripDateRangeIN } from '../../lib/indiaData';
 import { useAuth } from '../../lib/authContext';
 import { useTheme } from '../../lib/themeContext';
@@ -30,7 +30,6 @@ import CalendarPickerModal from '../../components/ui/CalendarPickerModal';
 import { getDestinationImage, resolveDestinationImageUri } from '../../lib/destinationImageResolver';
 import TripTimelineView from '../../components/TripTimelineView';
 
-const { width: SCREEN_W } = Dimensions.get('window');
 const TRIPS_STORAGE_KEY = '@solo_traveler_stored_trips';
 
 const TRIP_STYLES = [
@@ -64,6 +63,7 @@ function formatTripDates(from, to) {
 export default function TripsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { user } = useAuth();
   const { colors, isDark } = useTheme();
 
@@ -133,14 +133,12 @@ export default function TripsScreen() {
       const stored = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
       if (stored) {
         setTrips(JSON.parse(stored));
-        setLoading(false);
       } else {
-        setTrips(DEMO_MY_TRIPS);
-        setLoading(false);
-        AsyncStorage.setItem(TRIPS_STORAGE_KEY, JSON.stringify(DEMO_MY_TRIPS)).catch(() => {});
+        setTrips([]);
       }
     } catch {
-      setTrips(DEMO_MY_TRIPS);
+      setTrips([]);
+    } finally {
       setLoading(false);
     }
 
@@ -148,7 +146,7 @@ export default function TripsScreen() {
     if (isSupabaseConfigured && user?.id) {
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Trips query timeout')), 2500)
+          setTimeout(() => reject(new Error('Trips query timeout')), 3000)
         );
         const fetchPromise = supabase
           .from('trips')
@@ -157,7 +155,7 @@ export default function TripsScreen() {
           .order('date_from', { ascending: true });
 
         const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-        if (!error && data && data.length > 0) {
+        if (!error && Array.isArray(data)) {
           setTrips(data);
           AsyncStorage.setItem(TRIPS_STORAGE_KEY, JSON.stringify(data)).catch(() => {});
         }
@@ -228,24 +226,48 @@ export default function TripsScreen() {
     Alert.alert('Trip Published! ✈️', 'Your itinerary is active and visible to overlapping travelers.');
   };
 
-  const handleCancelTrip = (tripId) => {
-    Alert.alert(
-      'Cancel Trip',
-      'Are you sure you want to cancel this trip itinerary? It will be archived.',
-      [
-        { text: 'Keep Active', style: 'cancel' },
-        {
-          text: 'Cancel Trip',
-          style: 'destructive',
-          onPress: async () => {
-            const updated = trips.map((t) => (t.id === tripId ? { ...t, status: 'cancelled' } : t));
-            setTrips(updated);
-            await AsyncStorage.setItem(TRIPS_STORAGE_KEY, JSON.stringify(updated));
-            if (viewModalVisible) setViewModalVisible(false);
+  const handleDeleteTrip = async (tripId) => {
+    const doDelete = async () => {
+      try {
+        const updated = trips.filter((t) => t.id !== tripId);
+        setTrips(updated);
+        await AsyncStorage.setItem(TRIPS_STORAGE_KEY, JSON.stringify(updated));
+
+        if (isSupabaseConfigured && user?.id) {
+          try {
+            await supabase.from('trips').delete().eq('id', tripId);
+          } catch (dbErr) {
+            console.warn('Supabase trip delete error:', dbErr);
+          }
+        }
+
+        if (viewModalVisible && selectedTrip?.id === tripId) {
+          setViewModalVisible(false);
+          setSelectedTrip(null);
+        }
+      } catch (err) {
+        console.warn('Delete trip error:', err);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this trip itinerary? This action cannot be undone.')) {
+        await doDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Trip',
+        'Are you sure you want to delete this trip itinerary? This action cannot be undone.',
+        [
+          { text: 'Keep Trip', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: doDelete,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const openEditModal = (trip) => {
@@ -406,52 +428,58 @@ export default function TripsScreen() {
                 <View key={trip.id} style={[styles.tripCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, SHADOWS.card]}>
                   {/* Full-width Destination Imagery with Gradient */}
                   <View style={styles.cardImageContainer}>
-                    <Image source={destImg} style={styles.cardImage} resizeMode="cover" />
-                    <LinearGradient
-                      colors={['rgba(23, 24, 23, 0.15)', 'rgba(23, 24, 23, 0.45)', 'rgba(251, 250, 247, 0.95)']}
-                      locations={[0, 0.55, 1]}
-                      style={StyleSheet.absoluteFill}
-                    />
-
-                  {/* Top Badges: Status & Compass */}
-                  <View style={styles.cardTopBadgeRow}>
-                    <View
-                      style={[
-                        styles.statusPill,
-                        isCompleted ? styles.completedPill : isCancelled ? styles.cancelledPill : styles.activePill,
-                      ]}
+                    <ImageBackground
+                      source={destImg}
+                      style={styles.cardImageBackground}
+                      imageStyle={styles.cardImageStyle}
+                      resizeMode="cover"
                     >
-                      <View
-                        style={[
-                          styles.statusDot,
-                          isCompleted ? styles.completedDot : isCancelled ? styles.cancelledDot : styles.activeDot,
-                        ]}
+                      <LinearGradient
+                        colors={['rgba(23, 24, 23, 0.55)', 'rgba(23, 24, 23, 0.15)', 'rgba(23, 24, 23, 0.88)']}
+                        locations={[0, 0.35, 1]}
+                        style={StyleSheet.absoluteFillObject}
                       />
-                      <Text
-                        style={[
-                          styles.statusPillText,
-                          isCompleted ? styles.completedPillText : isCancelled ? styles.cancelledPillText : styles.activePillText,
-                        ]}
-                      >
-                        {isCompleted ? 'COMPLETED' : isCancelled ? 'CANCELLED' : 'UPCOMING'}
-                      </Text>
-                    </View>
 
-                    <View style={[styles.styleBadgePill, { backgroundColor: 'rgba(230, 213, 175, 0.35)', borderColor: 'rgba(185, 154, 94, 0.45)' }]}>
-                      <Ionicons name="sparkles" size={11} color="#B99A5E" style={{ marginRight: 4 }} />
-                      <Text style={[styles.styleBadgeText, { color: '#171817' }]}>{trip.travel_style || 'Culture • Photography'}</Text>
-                    </View>
-                  </View>
+                      {/* Top Badges: Status & Compass */}
+                      <View style={styles.cardTopBadgeRow}>
+                        <View
+                          style={[
+                            styles.statusPill,
+                            isCompleted ? styles.completedPill : isCancelled ? styles.cancelledPill : styles.activePill,
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.statusDot,
+                              isCompleted ? styles.completedDot : isCancelled ? styles.cancelledDot : styles.activeDot,
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.statusPillText,
+                              isCompleted ? styles.completedPillText : isCancelled ? styles.cancelledPillText : styles.activePillText,
+                            ]}
+                          >
+                            {isCompleted ? 'COMPLETED' : isCancelled ? 'CANCELLED' : 'UPCOMING'}
+                          </Text>
+                        </View>
 
-                  {/* Destination & Country & Dates Hero Info */}
-                  <View style={styles.cardHeroInfo}>
-                    <Text style={styles.destinationTitle}>{trip.destination?.toUpperCase()}</Text>
-                    <View style={styles.datesRow}>
-                      <Ionicons name="calendar-outline" size={13} color="#B99A5E" style={{ marginRight: 6 }} />
-                      <Text style={styles.datesText}>{formattedDateRange}</Text>
-                    </View>
+                        <View style={[styles.styleBadgePill, { backgroundColor: 'rgba(23, 24, 23, 0.65)', borderColor: 'rgba(231, 211, 181, 0.35)' }]}>
+                          <Ionicons name="sparkles" size={11} color="#E7D3B5" style={{ marginRight: 4 }} />
+                          <Text style={[styles.styleBadgeText, { color: '#FAF8F3' }]}>{trip.travel_style || 'Culture • Photography'}</Text>
+                        </View>
+                      </View>
+
+                      {/* Destination & Country & Dates Hero Info */}
+                      <View style={styles.cardHeroInfo}>
+                        <Text style={styles.destinationTitle}>{trip.destination?.toUpperCase()}</Text>
+                        <View style={styles.datesRow}>
+                          <Ionicons name="calendar-outline" size={13} color="#E7D3B5" style={{ marginRight: 6 }} />
+                          <Text style={[styles.datesText, { color: '#FAF8F3' }]}>{formattedDateRange}</Text>
+                        </View>
+                      </View>
+                    </ImageBackground>
                   </View>
-                </View>
 
                 {/* Card Lower Details & Actions */}
                 <View style={[styles.cardBody, { backgroundColor: '#FBFAF7' }]}>
@@ -509,12 +537,12 @@ export default function TripsScreen() {
                     )}
 
                     <TouchableOpacity
-                      onPress={() => handleCancelTrip(trip.id)}
-                      style={[styles.deleteIconBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.surfaceElevated }]}
+                      onPress={() => handleDeleteTrip(trip.id)}
+                      style={[styles.deleteIconBtn, { backgroundColor: isDark ? 'rgba(158, 58, 58, 0.12)' : 'rgba(158, 58, 58, 0.08)' }]}
                       activeOpacity={0.7}
-                      accessibilityLabel="Archive Trip"
+                      accessibilityLabel="Delete Trip"
                     >
-                      <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
+                      <Ionicons name="trash-outline" size={17} color="#9E3A3A" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -562,6 +590,7 @@ export default function TripsScreen() {
               setViewModalVisible(false);
               openEditModal(selectedTrip);
             }}
+            onDeleteTrip={() => handleDeleteTrip(selectedTrip.id)}
           />
         )}
       </Modal>
@@ -1031,20 +1060,25 @@ const styles = StyleSheet.create({
   },
   cardImageContainer: {
     width: '100%',
-    height: 180,
-    position: 'relative',
+    height: 220,
+    overflow: 'hidden',
+  },
+  cardImageBackground: {
+    width: '100%',
+    height: 220,
     justifyContent: 'space-between',
     padding: 16,
   },
-  cardImage: {
-    ...StyleSheet.absoluteFillObject,
+  cardImageStyle: {
     width: '100%',
-    height: '100%',
+    height: 220,
   },
   cardTopBadgeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
+    zIndex: 2,
   },
   statusPill: {
     flexDirection: 'row',
@@ -1052,7 +1086,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADII.full,
-    backdropFilter: 'blur(8px)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(8px)',
+      },
+      default: {},
+    }),
   },
   activePill: {
     backgroundColor: 'rgba(121, 217, 176, 0.22)',
@@ -1106,7 +1145,8 @@ const styles = StyleSheet.create({
   },
 
   cardHeroInfo: {
-    marginTop: 'auto',
+    width: '100%',
+    zIndex: 2,
   },
   destinationTitle: {
     fontFamily: FONTS.extraBold,

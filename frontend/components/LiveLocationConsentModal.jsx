@@ -27,41 +27,58 @@ export default function LiveLocationConsentModal({
   targetUserId = null,
   chatGroupId = null,
   matchId = null,
-  currentUserId = 'user-demo-priya',
+  currentUserId = null,
 }) {
   const [selectedDuration, setSelectedDuration] = useState('1h');
   const [privacyMode, setPrivacyMode] = useState('precise'); // 'precise' | 'approximate'
   const [loading, setLoading] = useState(false);
 
   const handleStartShare = async () => {
+    if (!currentUserId) {
+      Alert.alert('Authentication Required', 'You must be signed in to share your live location.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Foreground device location request only
-      let coords = { latitude: 15.5801, longitude: 73.7432 };
+      // Authoritative foreground device location request only
+      let coords = null;
       let accuracy = 12;
 
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission Required',
+          'Foreground device location permission is required to share your live location. Please grant permission in your device settings.',
+          [{ text: 'OK' }]
+        );
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          if (loc?.coords) {
-            coords = {
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            };
-            accuracy = loc.coords.accuracy || 12;
-          }
-        } else {
-          Alert.alert(
-            'Location Permission Denied',
-            'Foreground location was not granted by your device settings. A simulated travel coordinate will be used for demonstration.',
-            [{ text: 'Continue' }]
-          );
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (loc?.coords && typeof loc.coords.latitude === 'number' && typeof loc.coords.longitude === 'number' && !isNaN(loc.coords.latitude) && !isNaN(loc.coords.longitude)) {
+          coords = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          };
+          accuracy = loc.coords.accuracy || 12;
         }
       } catch (locErr) {
-        console.warn('Device location retrieval fallback:', locErr);
+        console.warn('Authoritative device GPS retrieval error:', locErr);
+      }
+
+      if (!coords) {
+        Alert.alert(
+          'GPS Unavailable',
+          'Could not retrieve authoritative GPS coordinates from your device. Please ensure location services are enabled and try again.',
+          [{ text: 'OK' }]
+        );
+        setLoading(false);
+        return;
       }
 
       const session = await startLiveLocationSession({

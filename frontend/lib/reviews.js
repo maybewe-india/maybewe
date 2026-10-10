@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
-import { DEMO_REVIEWS } from './demoData.js';
 
 const REVIEWS_STORAGE_PREFIX = '@solo_traveler_reviews_';
 
@@ -8,7 +7,9 @@ const REVIEWS_STORAGE_PREFIX = '@solo_traveler_reviews_';
  * Loads reviews for a traveler
  */
 export async function getReviews(userId) {
-  if (isSupabaseConfigured && userId) {
+  if (!userId) return [];
+
+  if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
         .from('reviews')
@@ -22,8 +23,8 @@ export async function getReviews(userId) {
         .eq('reviewed_id', userId)
         .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        return data.map(r => ({
+      if (!error && Array.isArray(data)) {
+        const formatted = data.map(r => ({
           id: r.id,
           reviewer_name: r.reviewer?.name || 'Fellow Traveler',
           reviewer_avatar: r.reviewer?.avatar_url,
@@ -31,13 +32,16 @@ export async function getReviews(userId) {
           comment: r.comment,
           date: new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
         }));
+        const key = `${REVIEWS_STORAGE_PREFIX}${userId}`;
+        AsyncStorage.setItem(key, JSON.stringify(formatted)).catch(() => {});
+        return formatted;
       }
     } catch (err) {
       console.warn('Error fetching Supabase reviews:', err);
     }
   }
 
-  // Demo fallback
+  // Local storage cached reviews
   try {
     const key = `${REVIEWS_STORAGE_PREFIX}${userId}`;
     const stored = await AsyncStorage.getItem(key);
@@ -46,7 +50,8 @@ export async function getReviews(userId) {
     }
   } catch {}
 
-  return DEMO_REVIEWS;
+  // Pure production empty state
+  return [];
 }
 
 /**
@@ -86,8 +91,10 @@ export async function submitReview({ reviewerId, reviewedId, tripId, rating, com
     }
   }
 
-  // Demo fallback
+  // Local storage cache fallback
   try {
+    const key = `${REVIEWS_STORAGE_PREFIX}${reviewedId}`;
+    const current = await getReviews(reviewedId);
     const updated = [newReview, ...current];
     await AsyncStorage.setItem(key, JSON.stringify(updated));
 

@@ -4,8 +4,6 @@
 // Strict INR currency support for India expeditions
 // ============================================================================
 
-import { PLACES_DATA } from '../data/placesData.js';
-
 /**
  * Format currency in Indian Rupee format with ₹ symbol
  */
@@ -138,7 +136,7 @@ export function calculateTripBudget({
  */
 export function findBudgetAlternatives(place, customPlacesPool = null) {
   if (!place) return [];
-  const pool = customPlacesPool || PLACES_DATA;
+  const pool = Array.isArray(customPlacesPool) ? customPlacesPool : [];
   const currentCost = Number(place.min_price || place.estimated_cost || 0);
   const destNorm = (place.destination || '').toLowerCase();
   const catNorm = (place.category || '').toLowerCase();

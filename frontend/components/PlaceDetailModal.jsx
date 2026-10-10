@@ -11,6 +11,8 @@ import {
   Platform,
   Alert,
   Dimensions,
+  StatusBar,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,8 +23,6 @@ import { formatINR, findBudgetAlternatives } from '../lib/budget';
 import { isPlaceSaved, toggleSavePlace } from '../lib/places';
 import { fetchPlaceTravelMoments } from '../lib/posts';
 import GlassCard from './ui/GlassCard';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function PlaceDetailModal({
   visible,
@@ -73,11 +73,12 @@ export default function PlaceDetailModal({
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={[styles.root, { backgroundColor: colors.modalBg }]}>
         {/* Floating Top Bar */}
-        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 16) }]}>
+        <View style={[styles.topBar, { paddingTop: Math.max(insets.top || 0, StatusBar.currentHeight || 0, Platform.OS === 'android' ? 36 : 24) + 6 }]}>
           <TouchableOpacity
             style={[styles.roundBtn, { backgroundColor: 'rgba(23, 24, 23, 0.65)' }]}
             onPress={onClose}
@@ -143,40 +144,53 @@ export default function PlaceDetailModal({
 
               <Text style={styles.heroTitle}>{place.name}</Text>
 
-              {/* Rating & Review Count */}
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color="#B99A5E" style={{ marginRight: 4 }} />
-                <Text style={styles.ratingNumber}>{place.rating?.toFixed(1) || '4.9'}</Text>
-                <Text style={styles.ratingCount}>({place.review_count || 120} traveler reviews)</Text>
-                {place.is_verified && (
-                  <View style={styles.verifiedBadge}>
-                    <Ionicons name="shield-checkmark" size={12} color="#4ADE80" style={{ marginRight: 3 }} />
-                    <Text style={styles.verifiedText}>Verified Spot</Text>
-                  </View>
-                )}
-              </View>
+              {/* Rating & Review Count or Proximity Badge */}
+              {place.rating ? (
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={14} color="#B99A5E" style={{ marginRight: 4 }} />
+                  <Text style={styles.ratingNumber}>{place.rating.toFixed(1)}</Text>
+                  {place.review_count ? (
+                    <Text style={styles.ratingCount}>({place.review_count} reviews)</Text>
+                  ) : null}
+                </View>
+              ) : place.distance_text ? (
+                <View style={styles.ratingRow}>
+                  <Ionicons name="navigate-circle" size={14} color="#059669" style={{ marginRight: 4 }} />
+                  <Text style={[styles.ratingNumber, { color: '#059669' }]}>{place.distance_text}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
-          {/* Pricing & Budget Intelligence Card */}
+          {/* Pricing & Proximity Information Card */}
           <View style={styles.contentPadded}>
             <GlassCard material="pearl" style={styles.priceCard}>
               <View style={styles.priceHeaderRow}>
-                <View>
-                  <Text style={styles.priceLabel}>ESTIMATED TARIFF / EXPENSE</Text>
-                  <Text style={styles.priceValue}>
-                    {place.min_price === 0 && place.max_price === 0
-                      ? 'Free Access'
-                      : `${formatINR(place.min_price)} – ${formatINR(place.max_price)}`}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.priceLabel}>
+                    {place.min_price !== undefined && place.min_price !== null ? 'ESTIMATED TARIFF / EXPENSE' : 'LOCATION & PROXIMITY'}
                   </Text>
-                  <Text style={styles.priceSubtext}>Per person in Indian Rupees (INR)</Text>
+                  <Text style={styles.priceValue}>
+                    {place.min_price !== undefined && place.min_price !== null
+                      ? (place.min_price === 0 && place.max_price === 0
+                          ? 'Free Access'
+                          : `${formatINR(place.min_price)} – ${formatINR(place.max_price)}`)
+                      : (place.distance_text || place.category || 'Real-World POI')}
+                  </Text>
+                  <Text style={styles.priceSubtext} numberOfLines={1}>
+                    {place.min_price !== undefined && place.min_price !== null
+                      ? 'Per person in Indian Rupees (INR)'
+                      : (place.address || 'Verified physical venue')}
+                  </Text>
                 </View>
 
-                <View style={[styles.tierTag, { backgroundColor: place.min_price > 3000 ? '#F1EEE6' : '#DCE5DF' }]}>
-                  <Text style={[styles.tierTagText, { color: '#33463C' }]}>
-                    {place.min_price === 0 ? 'Free' : place.min_price > 3000 ? 'Luxury' : place.min_price > 1000 ? 'Moderate' : 'Budget'}
-                  </Text>
-                </View>
+                {place.price_level ? (
+                  <View style={[styles.tierTag, { backgroundColor: '#DCE5DF' }]}>
+                    <Text style={[styles.tierTagText, { color: '#33463C' }]}>
+                      {place.price_level}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </GlassCard>
 
@@ -228,8 +242,22 @@ export default function PlaceDetailModal({
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.detailRowTitle, { color: colors.textPrimary }]}>Location & Coordinates</Text>
                   <Text style={[styles.detailRowSubtitle, { color: colors.textSecondary }]}>
-                    {place.address || `${place.destination}, ${place.state}`} ({place.latitude?.toFixed(4)}, {place.longitude?.toFixed(4)})
+                    {place.address || `${place.destination || ''}, ${place.state || ''}`} {place.latitude && place.longitude ? `(${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)})` : ''}
                   </Text>
+                  <TouchableOpacity
+                    style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
+                    onPress={() => {
+                      const url =
+                        place.navigation_url ||
+                        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          `${place.name}, ${place.address || ''}`
+                        )}`;
+                      Linking.openURL(url).catch(() => {});
+                    }}
+                  >
+                    <Ionicons name="map-outline" size={14} color="#B99A5E" style={{ marginRight: 4 }} />
+                    <Text style={{ color: '#B99A5E', fontFamily: FONTS.bold, fontSize: 12 }}>Open in Maps</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -298,11 +326,18 @@ export default function PlaceDetailModal({
                 ))}
               </View>
             )}
+
+            {/* Provider Attribution */}
+            <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 12 }}>
+              <Text style={{ fontSize: 11, color: colors.textMuted, fontFamily: FONTS.regular, textAlign: 'center' }}>
+                {place.attribution?.text || 'Points of interest © OpenStreetMap contributors.'}
+              </Text>
+            </View>
           </View>
         </ScrollView>
 
         {/* Floating Bottom Action CTA */}
-        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + 8, borderTopColor: colors.border }]}>
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom || 0, Platform.OS === 'android' ? 24 : 16) + 12, borderTopColor: colors.border }]}>
           {onPlanHangoutHere ? (
             <TouchableOpacity
               style={[styles.hangoutBtn, { borderColor: colors.border }]}
@@ -372,7 +407,7 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   heroContainer: {
-    width: SCREEN_W,
+    width: '100%',
     height: 360,
     position: 'relative',
     justifyContent: 'flex-end',
@@ -380,6 +415,7 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#2A2825',
   },
   heroOverlayContent: {
     padding: 20,

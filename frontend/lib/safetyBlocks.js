@@ -128,23 +128,36 @@ export async function getBlockedUsers(userId) {
  */
 export async function submitSafetyReport({
   reporterId,
-  reportedId,
+  reportedId = null,
+  targetType = 'user',
+  targetId = null,
   reason,
   messageId = null,
   hangoutId = null,
   details = '',
 }) {
-  if (!reporterId || !reportedId) throw new Error('Reporter and reported IDs required');
+  if (!reporterId) throw new Error('Reporter ID is required');
   if (reporterId === reportedId) throw new Error('Cannot report yourself');
   if (!reason || !reason.trim()) throw new Error('Report reason is required');
+
+  const resolvedTargetType = targetType || (messageId ? 'message' : hangoutId ? 'hangout' : 'user');
+  const resolvedTargetId = String(targetId || messageId || hangoutId || reportedId || 'unknown');
+
+  const validTargetTypes = ['user', 'post', 'comment', 'story', 'hangout', 'message'];
+  if (!validTargetTypes.includes(resolvedTargetType)) {
+    throw new Error(`Invalid target_type: ${resolvedTargetType}`);
+  }
+
+  const validReasons = ['harassment', 'spam', 'inappropriate_content', 'safety_concern', 'scam', 'other'];
+  const normalizedReason = validReasons.includes(reason.trim()) ? reason.trim() : 'other';
 
   const report = {
     id: `rep-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
     reporter_id: reporterId,
-    reported_id: reportedId,
-    reason: reason.trim(),
-    message_id: messageId,
-    hangout_id: hangoutId,
+    reported_id: reportedId || null,
+    target_type: resolvedTargetType,
+    target_id: resolvedTargetId,
+    reason: normalizedReason,
     details: (details || '').trim(),
     status: 'pending',
     created_at: new Date().toISOString(),
@@ -160,19 +173,27 @@ export async function submitSafetyReport({
 
   if (isSupabaseConfigured && reporterId) {
     try {
-      await supabase.from('reports').insert([
+      const { data, error } = await supabase.from('reports').insert([
         {
           reporter_id: reporterId,
-          reported_id: reportedId,
-          reason: report.reason,
-          message_id: report.message_id,
-          hangout_id: report.hangout_id,
+          reported_id: reportedId || null,
+          target_type: resolvedTargetType,
+          target_id: resolvedTargetId,
+          reason: normalizedReason,
           details: report.details,
           status: 'pending',
         }
-      ]);
+      ]).select();
+      if (error) {
+        console.warn('Supabase submitSafetyReport error:', error.message);
+        throw error;
+      }
+      if (data && data[0]) {
+        return { success: true, report_id: data[0].id };
+      }
     } catch (err) {
       console.warn('Supabase submitSafetyReport fallback:', err);
+      throw err;
     }
   }
 

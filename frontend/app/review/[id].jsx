@@ -8,7 +8,6 @@ import {
   Alert,
   Animated,
   Image,
-  Dimensions,
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,8 +18,6 @@ import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/the
 import { useAuth } from '../../lib/authContext';
 import { useTheme } from '../../lib/themeContext';
 import { submitReview } from '../../lib/reviews';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 const RATING_DESCRIPTORS = {
   5: '🌟 Outstanding travel companion! Highly recommended for solo wanderers.',
@@ -165,7 +162,11 @@ export default function ReviewScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollBody}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Header Eyebrow & Title */}
         <View style={styles.titleSection}>
           <View style={styles.eyebrowPill}>

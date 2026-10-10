@@ -66,7 +66,7 @@ export default function InputField({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [colors.inputBorder, colors.primary],
+    outputRange: ['#E5DFD5', '#C5A880'],
   });
 
   const borderWidth = borderAnim.interpolate({
@@ -106,7 +106,7 @@ export default function InputField({
             inputStyle,
           ]}
           placeholder={placeholder}
-          placeholderTextColor={colors.textDisabled}
+          placeholderTextColor='#7D756D'
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry && !showPassword}
@@ -158,15 +158,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: FONTS.semiBold,
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '600',
-    marginBottom: 7,
-    letterSpacing: 0.2,
+    marginBottom: 6,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: '#7D756D',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: RADII.lg,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     minHeight: 52,
     paddingHorizontal: 14,

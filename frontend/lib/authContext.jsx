@@ -758,6 +758,64 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Delete Account handler (Full Cascade Purge & Session Termination)
+  const deleteAccount = async () => {
+    setIsLoading(true);
+    try {
+      if (isSupabaseConfigured) {
+        // Invoke delete-account Edge Function (official Supabase Storage API + admin cascade)
+        const { data: edgeData, error: edgeErr } = await supabase.functions.invoke('delete-account', {
+          method: 'POST',
+        });
+
+        if (edgeErr) {
+          console.warn('[Auth] delete-account Edge Function invoke error:', edgeErr);
+          return {
+            success: false,
+            error: edgeErr.message || 'Failed to securely delete account and storage files.',
+          };
+        }
+
+        if (edgeData && !edgeData.success) {
+          return {
+            success: false,
+            error: edgeData.error || 'Server error occurred during account deletion.',
+          };
+        }
+
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutErr) {
+          console.warn('[Auth] Sign out error post-deletion:', signOutErr);
+        }
+      }
+
+      // Comprehensive local storage & session state purge
+      await AsyncStorage.multiRemove([
+        DEMO_AUTH_KEY,
+        DEMO_PROFILE_KEY,
+        '@maybewe_cached_profile',
+        GUIDELINES_KEY,
+        '@solo_traveler_stored_trips',
+        '@solo_traveler_chat_reads',
+        '@maybewe_theme_preference',
+      ]);
+
+      setHasAgreedToGuidelines(false);
+      setSession(null);
+      setProfile(null);
+      setIsPasswordRecovery(false);
+      setIsDemoMode(false);
+
+      return { success: true };
+    } catch (err) {
+      console.warn('[Auth] deleteAccount exception:', err);
+      return { success: false, error: err.message || 'An unexpected error occurred during account deletion.' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Update profile
   const updateProfile = async (updates) => {
     try {
@@ -1270,6 +1328,7 @@ export function AuthProvider({ children }) {
         resetPassword,
         updateUserPassword,
         logout,
+        deleteAccount,
         updateProfile,
         repairProfile,
         submitVerification,

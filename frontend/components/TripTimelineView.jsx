@@ -36,6 +36,7 @@ export default function TripTimelineView({
   trip,
   onClose,
   onEditTrip,
+  onDeleteTrip,
 }) {
   const { colors, isDark } = useTheme();
 
@@ -251,9 +252,16 @@ export default function TripTimelineView({
           <Ionicons name="close" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Trip Planner Plus</Text>
-        <TouchableOpacity onPress={handleShareItinerary} style={styles.headerBtn}>
-          <Ionicons name="share-social-outline" size={20} color="#B99A5E" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {onDeleteTrip && (
+            <TouchableOpacity onPress={onDeleteTrip} style={styles.headerBtn} accessibilityLabel="Delete Trip">
+              <Ionicons name="trash-outline" size={19} color="#9E3A3A" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={handleShareItinerary} style={styles.headerBtn}>
+            <Ionicons name="share-social-outline" size={20} color="#B99A5E" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>

@@ -58,21 +58,32 @@ async function saveStoredSessions(sessions) {
   }
 }
 
+export function isValidCoordinate(latitude, longitude) {
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
+  if (isNaN(latitude) || isNaN(longitude)) return false;
+  if (latitude < -90 || latitude > 90) return false;
+  if (longitude < -180 || longitude > 180) return false;
+  return true;
+}
+
 /**
  * 1. Start a live location session
- * Explicit foreground activation only.
+ * Explicit foreground activation only. Requires genuine device GPS coordinates.
  */
 export async function startLiveLocationSession({
-  ownerId = 'user-demo-priya',
+  ownerId = null,
   targetUserId = null,
   chatGroupId = null,
   matchId = null,
-  coords = { latitude: 15.5801, longitude: 73.7432 },
+  coords = null,
   duration = '1h',
   privacyMode = 'precise',
   accuracy = 12,
 }) {
   if (!ownerId) throw new Error('Owner ID is required to start live location');
+  if (!coords || !isValidCoordinate(coords.latitude, coords.longitude)) {
+    throw new Error('Valid device GPS coordinates (latitude and longitude) are required to start a live location session.');
+  }
   if (!targetUserId && !chatGroupId && !matchId) {
     throw new Error('An authorized target (user, chat group, or match) is required');
   }
@@ -173,6 +184,10 @@ let lastUpdateTimestamp = 0;
 const THROTTLE_INTERVAL_MS = 6000; // 6-second throttle for foreground travel use
 
 export async function updateLiveLocationCoordinates(sessionId, coords, accuracy = null, privacyMode = null) {
+  if (!coords || !isValidCoordinate(coords.latitude, coords.longitude)) {
+    return { error: 'Valid device GPS coordinates are required to update live location' };
+  }
+
   const now = Date.now();
   if (now - lastUpdateTimestamp < THROTTLE_INTERVAL_MS) {
     return { throttled: true };
@@ -260,7 +275,7 @@ export async function getActiveLiveLocationSession({
   chatGroupId = null,
   matchId = null,
   targetUserId = null,
-  currentUserId = 'user-demo-priya',
+  currentUserId = null,
 }) {
   // If target user is blocked, return null immediately
   if (targetUserId) {

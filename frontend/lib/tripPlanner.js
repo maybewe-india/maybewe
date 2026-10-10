@@ -5,7 +5,6 @@
 // ============================================================================
 
 import AsyncStorage from './safeStorage.js';
-import { PLACES_DATA } from '../data/placesData.js';
 
 const ITINERARY_STORAGE_PREFIX = '@maybewe_trip_itinerary_';
 const PACKING_STORAGE_PREFIX = '@maybewe_trip_packing_';
@@ -31,41 +30,6 @@ export function generateDefaultItinerary(trip) {
       title: i === 1 ? 'Arrival & First Impressions' : i === daysCount ? 'Farewells & Golden Hour' : `Exploring ${trip?.destination || 'Destination'}`,
       notes: '',
       activities: [],
-    });
-  }
-
-  // Pre-seed 1-2 curated activities for Day 1 and Day 2 if destination matches
-  const matchingPlaces = PLACES_DATA.filter((p) =>
-    (trip?.destination || '').toLowerCase().includes((p.destination || '').toLowerCase())
-  );
-
-  if (matchingPlaces.length > 0 && days.length > 0) {
-    days[0].activities.push({
-      id: `act-seed-${Date.now()}-1`,
-      title: matchingPlaces[0].name,
-      description: matchingPlaces[0].description,
-      place_id: matchingPlaces[0].id,
-      time_slot: 'afternoon',
-      start_time: '14:30',
-      end_time: '16:30',
-      estimated_cost: matchingPlaces[0].min_price || 350,
-      currency: 'INR',
-      order_index: 0,
-    });
-  }
-
-  if (matchingPlaces.length > 1 && days.length > 1) {
-    days[1].activities.push({
-      id: `act-seed-${Date.now()}-2`,
-      title: matchingPlaces[1].name,
-      description: matchingPlaces[1].description,
-      place_id: matchingPlaces[1].id,
-      time_slot: 'morning',
-      start_time: '09:30',
-      end_time: '12:00',
-      estimated_cost: matchingPlaces[1].min_price || 500,
-      currency: 'INR',
-      order_index: 0,
     });
   }
 
@@ -143,32 +107,24 @@ export async function addActivityToTrip(tripId, activityData, dayNumber = 1) {
   return { success: true, activity: newActivity, itinerary };
 }
 
+const TRIPS_STORAGE_KEY = '@solo_traveler_stored_trips';
+
 /**
  * Fetch trips for the active user
  */
 export async function getUserTrips() {
-  return [
-    {
-      id: 'trip-demo-goa',
-      title: 'Goa Coastal Exploration',
-      destination: 'Goa',
-      start_date: '2026-10-15',
-      end_date: '2026-10-20',
-      budget_category: 'balanced',
-      companion_mode: 'active',
-      days: [{}, {}, {}, {}],
-    },
-    {
-      id: 'trip-demo-hampi',
-      title: 'Hampi Heritage Wandering',
-      destination: 'Hampi',
-      start_date: '2026-11-04',
-      end_date: '2026-11-08',
-      budget_category: 'luxury',
-      companion_mode: 'quiet',
-      days: [{}, {}, {}, {}],
-    },
-  ];
+  try {
+    const raw = await AsyncStorage.getItem(TRIPS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((t) => t.status !== 'cancelled' && t.status !== 'deleted');
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return [];
 }
 
 /**
@@ -252,12 +208,12 @@ export function analyzeDaySchedule(activities = []) {
  * PLANNING INTELLIGENCE:
  * Suggest empty-day or light-day activities based on trip destination and style
  */
-export function suggestEmptyDayPlaces(destination, existingActivityPlaceIds = []) {
+export function suggestEmptyDayPlaces(destination, existingActivityPlaceIds = [], placesPool = []) {
   const destNorm = (destination || '').toLowerCase();
-  const pool = PLACES_DATA.filter((p) => {
-    const pDest = (p.destination || '').toLowerCase();
-    const isMatching = pDest.includes(destNorm) || destNorm.includes(pDest);
-    const notScheduled = !existingActivityPlaceIds.includes(p.id);
+  const pool = (Array.isArray(placesPool) ? placesPool : []).filter((p) => {
+    const pDest = (p.destination || p.address || '').toLowerCase();
+    const isMatching = !destNorm || pDest.includes(destNorm) || destNorm.includes(pDest);
+    const notScheduled = !existingActivityPlaceIds.includes(p.id || p.place_id);
     return isMatching && notScheduled;
   });
 

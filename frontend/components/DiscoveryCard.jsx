@@ -87,12 +87,7 @@ export default function DiscoveryCard({
         style,
       ]}
     >
-      <View
-        onStartShouldSetResponder={() => true}
-        onResponderGrant={handlePressIn}
-        onResponderRelease={handlePressOut}
-        style={styles.cardInner}
-      >
+      <View style={styles.cardInner}>
         {/* Top Hero Image Section */}
         <View style={[styles.imageWrapper, { backgroundColor: '#EDE5DA' }]}>
           <Image
@@ -131,18 +126,37 @@ export default function DiscoveryCard({
 
           {/* Destination & Dates Overlay */}
           <View style={styles.imageBottomContent}>
-            <View style={styles.destinationRow}>
-              <Ionicons name="location-sharp" size={16} color="#FFFFFF" />
-              <Text style={styles.destinationText} numberOfLines={1}>
-                {traveler.destination}
-              </Text>
-            </View>
-            <View style={styles.datesRow}>
-              <Ionicons name="calendar-outline" size={13} color="rgba(255, 255, 255, 0.85)" />
-              <Text style={styles.datesText}>
-                {traveler.trip_date_from} – {traveler.trip_date_to}
-              </Text>
-            </View>
+            {traveler.is_nearby ? (
+              <>
+                <View style={styles.destinationRow}>
+                  <Ionicons name="navigate-circle" size={17} color="#6EE7B7" />
+                  <Text style={[styles.destinationText, { color: '#6EE7B7', fontWeight: '800' }]} numberOfLines={1}>
+                    {traveler.distance_text || 'Nearby'}
+                  </Text>
+                </View>
+                <View style={styles.datesRow}>
+                  <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#6EE7B7', marginRight: 6 }} />
+                  <Text style={styles.datesText}>
+                    Active Nearby Now
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.destinationRow}>
+                  <Ionicons name="location-sharp" size={16} color="#FFFFFF" />
+                  <Text style={styles.destinationText} numberOfLines={1}>
+                    {traveler.destination}
+                  </Text>
+                </View>
+                <View style={styles.datesRow}>
+                  <Ionicons name="calendar-outline" size={13} color="rgba(255, 255, 255, 0.85)" />
+                  <Text style={styles.datesText}>
+                    {traveler.trip_date_from} – {traveler.trip_date_to}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 

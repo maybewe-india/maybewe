@@ -19,6 +19,10 @@ import { useTheme } from '../lib/themeContext.jsx';
 import { COLORS, RADII, SHADOWS, FONTS } from '../lib/theme.js';
 import { getPlaceById } from '../lib/places.js';
 import {
+  joinHangout,
+  leaveHangout,
+  cancelHangout,
+  subscribeToHangoutUpdates,
   castHangoutVote,
   getUserHangoutVotes,
   addHangoutPlaceSuggestion,
@@ -29,13 +33,12 @@ import LiveLocationConsentModal from './LiveLocationConsentModal.jsx';
 import LiveLocationMapModal from './LiveLocationMapModal.jsx';
 import { getActiveLiveLocationSession, formatRemainingTime } from '../lib/liveLocation.js';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-
 export default function HangoutDetailModal({
   visible,
   hangout,
   onClose,
   onHangoutUpdated,
+  onUpdate = null,
   currentUser = null,
   onOpenAddToTrip = null,
   onOpenPlaceDetail = null,
@@ -44,6 +47,10 @@ export default function HangoutDetailModal({
   const { colors } = useTheme();
   const router = useRouter();
 
+  const notifyUpdated = (updated) => {
+    notifyUpdated(updated);
+    if (onUpdate) onUpdate(updated);
+  };
   const [activeHangout, setActiveHangout] = useState(hangout);
   const [userVotes, setUserVotes] = useState({});
   const [votingId, setVotingId] = useState(null);
@@ -80,7 +87,7 @@ export default function HangoutDetailModal({
       // Check for active live location session for this hangout
       getActiveLiveLocationSession({
         chatGroupId: `group-hangout-${hangout.id}`,
-        currentUserId: currentUser?.id || 'user-demo-priya',
+        currentUserId: currentUser?.id || currentUser?.id,
       }).then(setHangoutLiveSession).catch(() => {});
     }
   }, [hangout, currentUser?.id]);
@@ -134,7 +141,7 @@ export default function HangoutDetailModal({
 
       const updatedHangout = { ...activeHangout, suggestions: updatedSugg };
       setActiveHangout(updatedHangout);
-      if (onHangoutUpdated) onHangoutUpdated(updatedHangout);
+      notifyUpdated(updatedHangout);
     } catch (e) {
       console.warn('Error voting:', e);
     } finally {
@@ -159,7 +166,7 @@ export default function HangoutDetailModal({
         suggestions: [...(activeHangout.suggestions || []), newSugg],
       };
       setActiveHangout(updated);
-      if (onHangoutUpdated) onHangoutUpdated(updated);
+      notifyUpdated(updated);
 
       setCustomSuggName('');
       setCustomSuggNotes('');
@@ -193,13 +200,100 @@ export default function HangoutDetailModal({
         finalized_plan: plan,
       };
       setActiveHangout(updated);
-      if (onHangoutUpdated) onHangoutUpdated(updated);
+      notifyUpdated(updated);
       setShowFinalizeSheet(false);
     } catch (e) {
       console.warn('Error finalizing plan:', e);
     } finally {
       setFinalizing(false);
     }
+  };
+
+  
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const participantsList = activeHangout.participants || activeHangout.members || [];
+  const isJoined = participantsList.some(
+    (m) => (m.user_id || m.id) === currentUser?.id
+  );
+  const isHost = activeHangout.creator_id === currentUser?.id;
+  const isCancelled = activeHangout.status === "cancelled";
+
+  useEffect(() => {
+    if (activeHangout?.id) {
+      const unsub = subscribeToHangoutUpdates(activeHangout.id, () => {
+        notifyUpdated();
+      });
+      return () => {
+        if (typeof unsub === "function") unsub();
+      };
+    }
+  }, [activeHangout?.id]);
+
+  const handleJoinHangout = async () => {
+    if (!currentUser?.id) {
+      Alert.alert("Login Required", "Please sign in to join this meetup.");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await joinHangout(activeHangout.id, currentUser.id);
+      Alert.alert("Joined Meetup! 🎉", "You are now part of this travel hangout.");
+      notifyUpdated();
+      onClose();
+    } catch (err) {
+      Alert.alert("Could Not Join", err.message || "Failed to join hangout.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLeaveHangout = async () => {
+    if (!currentUser?.id) return;
+    Alert.alert("Leave Meetup?", "Are you sure you want to leave this hangout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Leave",
+        style: "destructive",
+        onPress: async () => {
+          setActionLoading(true);
+          try {
+            await leaveHangout(activeHangout.id, currentUser.id);
+            Alert.alert("Left Meetup", "You have left this hangout.");
+            notifyUpdated();
+            onClose();
+          } catch (err) {
+            Alert.alert("Error", err.message || "Failed to leave hangout.");
+          } finally {
+            setActionLoading(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCancelHangout = async () => {
+    if (!currentUser?.id) return;
+    Alert.alert("Cancel Meetup?", "Are you sure you want to cancel this hangout for all travelers?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Cancel Meetup",
+        style: "destructive",
+        onPress: async () => {
+          setActionLoading(true);
+          try {
+            await cancelHangout(activeHangout.id, currentUser.id);
+            Alert.alert("Meetup Cancelled", "This hangout has been cancelled.");
+            notifyUpdated();
+            onClose();
+          } catch (err) {
+            Alert.alert("Error", err.message || "Failed to cancel hangout.");
+          } finally {
+            setActionLoading(false);
+          }
+        },
+      },
+    ]);
   };
 
   const handleAddToTripCTA = () => {
@@ -215,7 +309,7 @@ export default function HangoutDetailModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
           {/* Header */}
@@ -304,12 +398,79 @@ export default function HangoutDetailModal({
               ) : null}
             </View>
 
+            
+            {/* Meetup Action Buttons: Join, Leave, or Cancel */}
+            <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
+              {!isCancelled && !isJoined && (
+                <TouchableOpacity
+                  onPress={handleJoinHangout}
+                  disabled={actionLoading}
+                  style={{
+                    backgroundColor: "#171716",
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                    alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="person-add" size={16} color="#FAF8F3" style={{ marginRight: 8 }} />
+                  <Text style={{ color: "#FAF8F3", fontWeight: "700", fontSize: 14 }}>
+                    Join Meetup ({activeHangout.current_travelers_count || 1}/{activeHangout.max_travelers || 6})
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {!isCancelled && isJoined && !isHost && (
+                <TouchableOpacity
+                  onPress={handleLeaveHangout}
+                  disabled={actionLoading}
+                  style={{
+                    backgroundColor: "rgba(211, 47, 47, 0.12)",
+                    borderWidth: 1,
+                    borderColor: "rgba(211, 47, 47, 0.3)",
+                    paddingVertical: 12,
+                    borderRadius: 14,
+                    alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="exit-outline" size={16} color="#D32F2F" style={{ marginRight: 8 }} />
+                  <Text style={{ color: "#D32F2F", fontWeight: "700", fontSize: 13 }}>Leave Meetup</Text>
+                </TouchableOpacity>
+              )}
+
+              {!isCancelled && isHost && (
+                <TouchableOpacity
+                  onPress={handleCancelHangout}
+                  disabled={actionLoading}
+                  style={{
+                    backgroundColor: "rgba(211, 47, 47, 0.12)",
+                    borderWidth: 1,
+                    borderColor: "rgba(211, 47, 47, 0.3)",
+                    paddingVertical: 12,
+                    borderRadius: 14,
+                    alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="close-circle-outline" size={16} color="#D32F2F" style={{ marginRight: 8 }} />
+                  <Text style={{ color: "#D32F2F", fontWeight: "700", fontSize: 13 }}>Cancel Meetup (Host)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             {/* Open Hangout Group Chat CTA */}
             <TouchableOpacity
               onPress={() => {
                 onClose && onClose();
                 router.push({
-                  pathname: `/chat/group-hangout-${activeHangout.id}`,
+                  pathname: `/chat/${activeHangout.conversation_id || group-hangout- + activeHangout.id}`,
                   params: {
                     partnerName: activeHangout.title,
                     destination: activeHangout.destination,
@@ -400,8 +561,13 @@ export default function HangoutDetailModal({
                       style={styles.memberAvatar}
                     />
                     <View style={{ marginLeft: 8 }}>
-                      <Text style={[styles.memberName, { color: colors.textPrimary }]} numberOfLines={1}>{m.name}</Text>
-                      <Text style={styles.memberRole}>{m.role === 'organizer' ? 'Organizer' : 'Member'}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={[styles.memberName, { color: colors.textPrimary }]} numberOfLines={1}>{m.name}</Text>
+                        {(m.verification_status === 'verified' || m.verified) && (
+                          <Ionicons name="shield-checkmark" size={11} color="#C8B27A" style={{ marginLeft: 4 }} />
+                        )}
+                      </View>
+                      <Text style={styles.memberRole}>{m.role === 'organizer' ? 'Organizer' : (m.verification_status === 'verified' ? 'Verified Traveler' : 'Member')}</Text>
                     </View>
                   </View>
                 ))}
@@ -628,7 +794,7 @@ export default function HangoutDetailModal({
         onClose={() => setLiveConsentVisible(false)}
         targetName={activeHangout.title}
         chatGroupId={`group-hangout-${activeHangout.id}`}
-        currentUserId={currentUser?.id || 'user-demo-priya'}
+        currentUserId={currentUser?.id || currentUser?.id}
         onSessionStarted={(sess) => {
           setHangoutLiveSession(sess);
           setLiveMapVisible(true);
@@ -641,7 +807,7 @@ export default function HangoutDetailModal({
         onClose={() => setLiveMapVisible(false)}
         session={hangoutLiveSession}
         companionName={activeHangout.title}
-        currentUserId={currentUser?.id || 'user-demo-priya'}
+        currentUserId={currentUser?.id || currentUser?.id}
         onSessionStopped={() => setHangoutLiveSession(null)}
       />
     </Modal>

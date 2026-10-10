@@ -44,29 +44,29 @@ export default function GlassCard({
 
 const GLASS_STYLES = StyleSheet.create({
   pearl: {
-    backgroundColor: 'rgba(247, 245, 240, 0.88)',
-    borderColor: 'rgba(215, 210, 200, 0.65)',
+    backgroundColor: "rgba(255, 255, 255, 0.88)",
+    borderColor: "rgba(197, 168, 128, 0.28)",
   },
   light: {
-    backgroundColor: 'rgba(251, 250, 247, 0.78)',
-    borderColor: 'rgba(255, 255, 255, 0.90)',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderColor: "rgba(197, 168, 128, 0.28)",
   },
   champagne: {
-    backgroundColor: 'rgba(230, 213, 175, 0.32)',
-    borderColor: 'rgba(185, 154, 94, 0.45)',
+    backgroundColor: "rgba(197, 168, 128, 0.16)",
+    borderColor: "rgba(197, 168, 128, 0.35)",
   },
   sage: {
-    backgroundColor: 'rgba(220, 229, 223, 0.38)',
-    borderColor: 'rgba(51, 70, 60, 0.28)',
+    backgroundColor: "rgba(244, 239, 235, 0.70)",
+    borderColor: "rgba(197, 168, 128, 0.20)",
   },
 });
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: RADII.xl,
+    borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(215, 210, 200, 0.65)',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
     overflow: 'hidden',
     position: 'relative',
   },

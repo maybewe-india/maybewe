@@ -157,7 +157,6 @@ export default function IndiaTravelMap({
                   styles.regionChipText,
                   {
                     color: isActive ? PALETTE.white : PALETTE.mediumGrey,
-                    fontWeight: isActive ? '700' : '600',
                   },
                 ]}
               >
@@ -378,7 +377,7 @@ export default function IndiaTravelMap({
                     color: isSelected
                       ? PALETTE.white
                       : PALETTE.nearBlack,
-                    fontWeight: isSelected ? '700' : '500',
+                    fontFamily: isSelected ? FONTS.bold : FONTS.semiBold,
                   },
                 ]}
               >
@@ -463,7 +462,8 @@ const styles = StyleSheet.create({
   // Realistic Satellite Perspective Map Styles
   satelliteMapWrapper: {
     width: '100%',
-    height: 440,
+    aspectRatio: 0.88,
+    maxHeight: 460,
     borderRadius: RADII['2xl'],
     overflow: 'hidden',
     borderWidth: 1,

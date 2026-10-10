@@ -14,7 +14,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
   Alert,
   Image,
   Modal,
@@ -47,12 +46,12 @@ import {
   toggleMessageReaction,
   deleteChatMessage,
   markConversationRead,
+  checkBlockStatus,
+  uploadChatMedia,
   ALLOWED_REACTIONS,
 } from '../../lib/groupChat';
 import { getMessages, sendMessage, subscribeToMessages } from '../../lib/messages';
 import { scanMessageForSafety } from '../../lib/safety';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -75,6 +74,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
   const [safetyAlertReason, setSafetyAlertReason] = useState(null);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   // Modals state
   const [sharePickerVisible, setSharePickerVisible] = useState(false);
@@ -94,7 +94,7 @@ export default function ChatScreen() {
 
   const flatListRef = useRef(null);
 
-  const currentUserId = user?.id || 'user-demo-priya';
+  const currentUserId = user?.id || null;
   const currentUserName = user?.user_metadata?.name || 'Priya Sharma';
   const currentUserAvatar = user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500';
 
@@ -108,13 +108,19 @@ export default function ChatScreen() {
   // Load chat history & initialize realtime subscription
   const loadChat = useCallback(async () => {
     try {
-      if (isGroupChat || resolvedId.startsWith('direct-')) {
-        const history = await fetchGroupMessages(resolvedId);
-        setMessages(history);
+      if (currentUserId && partnerName) {
+        // Look up partner user ID if available
+        const { data: partU } = await import('../../lib/supabaseClient.js').then(m => m.supabase.from('users').select('id').eq('name', partnerName).maybeSingle());
+        if (partU?.id) {
+          const blocked = await checkBlockStatus(currentUserId, partU.id);
+          setIsBlocked(blocked);
+        }
+      }
+
+      const history = await fetchGroupMessages(resolvedId);
+      setMessages(history);
+      if (currentUserId) {
         await markConversationRead(resolvedId, currentUserId);
-      } else {
-        const legacyHistory = await getMessages(resolvedId);
-        setMessages(legacyHistory);
       }
 
       // Check active live location session
@@ -295,8 +301,21 @@ export default function ChatScreen() {
     } catch (err) {}
   };
 
-  const handleSharePhoto = async (photoUrl) => {
+  const handleSharePhoto = async (photoUri) => {
+    if (isBlocked) {
+      Alert.alert('Blocked', 'Cannot send media: An active block is in place.');
+      return;
+    }
     try {
+      let finalUrl = photoUri;
+      if (photoUri && !photoUri.startsWith('http')) {
+        finalUrl = await uploadChatMedia({
+          uri: photoUri,
+          conversationId: resolvedId,
+          userId: currentUserId,
+        });
+      }
+
       const sent = await sendChatMessage({
         groupId: resolvedId,
         senderId: currentUserId,
@@ -304,13 +323,16 @@ export default function ChatScreen() {
         senderAvatar: currentUserAvatar,
         content: 'Shared a travel photograph',
         messageType: 'image',
-        attachmentUrl: photoUrl,
+        attachmentUrl: finalUrl,
+        mediaUrl: finalUrl,
       });
       if (sent) {
         setMessages((prev) => [...prev, sent]);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       }
-    } catch (err) {}
+    } catch (err) {
+      Alert.alert('Upload Error', err.message || 'Could not send image');
+    }
   };
 
   // Live Location session start / stop handlers
@@ -586,9 +608,17 @@ export default function ChatScreen() {
           />
 
           <View style={styles.headerTitleColumn}>
-            <Text style={styles.headerName} numberOfLines={1}>
-              {displayName}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {displayName}
+              </Text>
+              {(partnerVerified === 'true' || partnerVerified === true) && (
+                <View style={{ marginLeft: 6, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(200, 178, 122, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, borderWidth: 1, borderColor: '#C8B27A' }}>
+                  <Ionicons name="shield-checkmark" size={11} color="#C8B27A" style={{ marginRight: 3 }} />
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#756345' }}>Verified Traveler</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
               📍 {displayDestination}
             </Text>
@@ -637,6 +667,16 @@ export default function ChatScreen() {
             <Ionicons name="chevron-forward" size={13} color="#FAF8F3" />
           </View>
         </TouchableOpacity>
+      )}
+
+      {/* Safety Block Banner */}
+      {isBlocked && (
+        <View style={{ backgroundColor: '#FFECEB', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderBottomColor: '#F5C6CB' }}>
+          <Ionicons name="shield-half-outline" size={18} color="#D9381E" />
+          <Text style={{ color: '#D9381E', fontSize: 13, fontWeight: '600', flex: 1 }}>
+            Messaging is disabled. An active safety block is in place between participants.
+          </Text>
+        </View>
       )}
 
       {/* Safety Warning Banner if triggered */}

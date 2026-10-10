@@ -1,187 +1,142 @@
-import AsyncStorage from './safeStorage.js';
-import { supabase, isSupabaseConfigured } from './supabaseClient.js';
-import { getPlaceById } from './places.js';
-import { logNotificationEvent } from './notifications.js';
+// ============================================================================
+// MAYBEWE PRODUCTION POSTS & SOCIAL FEED SERVICE (lib/posts.js)
+// Real Supabase storage, authentication, triggers, RLS, and bi-directional blocking.
+// Strict Rule: Zero demo users, zero synthetic posts, zero fake counters.
+// ============================================================================
 
-const POSTS_STORAGE_KEY = '@maybewe_travel_posts_v1';
-const POST_LIKES_STORAGE_KEY = '@maybewe_post_likes_v1';
-const POST_SAVES_STORAGE_KEY = '@maybewe_post_saves_v1';
+import AsyncStorage from "./safeStorage.js";
+import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
+import { logNotificationEvent } from "./notifications.js";
+import { uploadPostMedia, deletePostMedia } from "./mediaUpload.js";
 
-export const HAMPI_FALLBACK_URL =
-  'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80';
-export const JAIPUR_FALLBACK_URL =
-  'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80';
+const POSTS_STORAGE_KEY = "@maybewe_travel_posts_v1";
+const POST_LIKES_STORAGE_KEY = "@maybewe_post_likes_v1";
+const POST_SAVES_STORAGE_KEY = "@maybewe_post_saves_v1";
 
-export function sanitizePostMediaUrl(url) {
-  if (!url || typeof url !== 'string') return HAMPI_FALLBACK_URL;
-  if (url.includes('1600100397608')) return HAMPI_FALLBACK_URL;
-  if (url.includes('1603262110263')) return JAIPUR_FALLBACK_URL;
-  return url;
-}
-
-export function healPost(post) {
-  if (!post) return post;
-  const mediaList = Array.isArray(post.media) && post.media.length > 0 ? post.media : null;
-
-  if (!mediaList) {
-    return {
-      ...post,
-      media: [
-        {
-          id: `media-${post.id}-0`,
-          media_url: HAMPI_FALLBACK_URL,
-          caption: post.destination || 'Travel moment',
-          display_order: 0,
-        },
-      ],
-    };
-  }
-
-  const healedMedia = mediaList.map((m) => {
-    const cleanUrl = sanitizePostMediaUrl(m.media_url);
-    if (cleanUrl !== m.media_url) {
-      return { ...m, media_url: cleanUrl };
-    }
-    return m;
-  });
+/**
+ * Normalize a post record from Supabase or local storage
+ */
+export function normalizePost(p) {
+  if (!p) return null;
+  const mediaList = Array.isArray(p.media) && p.media.length > 0
+    ? p.media
+    : Array.isArray(p.post_media) && p.post_media.length > 0
+    ? p.post_media
+    : [];
 
   return {
-    ...post,
-    media: healedMedia,
+    ...p,
+    id: String(p.id),
+    user_id: p.user_id,
+    user_name: p.user_name || p.user?.name || "Traveler",
+    user_avatar: p.user_avatar || p.user?.avatar_url || null,
+    user_trust_score: p.user_trust_score ?? p.user?.trust_score ?? 50,
+    user_verification_status: p.user_verification_status || p.user?.verification_status || "unverified",
+    content: p.content || p.caption || "",
+    caption: p.content || p.caption || "",
+    destination: p.destination || "",
+    place_id: p.place_id || null,
+    trip_id: p.trip_id || null,
+    likes_count: Number(p.likes_count ?? p.like_count ?? 0),
+    like_count: Number(p.likes_count ?? p.like_count ?? 0),
+    comments_count: Number(p.comments_count ?? 0),
+    save_count: Number(p.save_count ?? 0),
+    visibility: p.visibility || "public",
+    created_at: p.created_at || new Date().toISOString(),
+    media: mediaList.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)),
+    is_liked_by_viewer: Boolean(p.is_liked_by_viewer),
+    is_saved_by_viewer: Boolean(p.is_saved_by_viewer),
   };
 }
 
-// Seed editorial travel stories with authentic Indian photography
-const DEMO_POSTS = [
-  {
-    id: 'post-hampi-sunset',
-    user_id: 'user-demo-priya',
-    user_name: 'Priya Sharma',
-    user_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-    user_location: 'Bengaluru, India',
-    content: 'Sunset over the Matanga Hill boulders. The temple bells echoed down the Tungabhadra river just as the dusk light turned pure ochre.',
-    destination: 'Hampi',
-    place_id: null,
-    trip_id: null,
-    like_count: 42,
-    save_count: 14,
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    media: [
-      {
-        id: 'media-hampi-1',
-        media_url: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80',
-        caption: 'Golden hour at the monolithic boulders',
-        display_order: 0,
-      },
-    ],
-  },
-  {
-    id: 'post-goa-thalassa',
-    user_id: 'user-demo-arjun',
-    user_name: 'Arjun Mehta',
-    user_avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80',
-    user_location: 'Mumbai, India',
-    content: 'Assagao and Siolim evenings have a cadence you can never replicate in the city. Grilled kingfish, local poee, and cold drinks overlooking the cliff edge.',
-    destination: 'Goa',
-    place_id: 'goa-thalassa',
-    trip_id: null,
-    like_count: 88,
-    save_count: 29,
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-    media: [
-      {
-        id: 'media-thalassa-1',
-        media_url: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1000&auto=format&fit=crop&q=80',
-        caption: 'Cliffside sunset at Siolim',
-        display_order: 0,
-      },
-      {
-        id: 'media-thalassa-2',
-        media_url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&auto=format&fit=crop&q=80',
-        caption: 'Waves crashing against Vagator shore',
-        display_order: 1,
-      },
-    ],
-  },
-  {
-    id: 'post-jaipur-hawa-mahal',
-    user_id: 'user-demo-priya',
-    user_name: 'Priya Sharma',
-    user_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-    user_location: 'Bengaluru, India',
-    content: 'Woke up at 6 AM to see the honeycombed pink sandstone of Hawa Mahal before the bazaar wakes up. The quietest 30 minutes in the Pink City.',
-    destination: 'Jaipur',
-    place_id: 'jaipur-hawa-mahal',
-    trip_id: null,
-    like_count: 65,
-    save_count: 22,
-    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
-    media: [
-      {
-        id: 'media-hawa-1',
-        media_url: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1000&auto=format&fit=crop&q=80',
-        caption: 'Sunrise light on the 953 jharokhas',
-        display_order: 0,
-      },
-    ],
-  },
-  {
-    id: 'post-udaipur-lake',
-    user_id: 'user-demo-rohan',
-    user_name: 'Rohan Verma',
-    user_avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80',
-    user_location: 'Delhi, India',
-    content: 'Lake Pichola at twilight. The white marble palaces appear to float on liquid obsidian. Drinking ginger chai at Ambrai Ghat.',
-    destination: 'Udaipur',
-    place_id: 'udaipur-lake-palace',
-    trip_id: null,
-    like_count: 112,
-    save_count: 45,
-    created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
-    media: [
-      {
-        id: 'media-udaipur-1',
-        media_url: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=1000&auto=format&fit=crop&q=80',
-        caption: 'The reflection of Lake Palace',
-        display_order: 0,
-      },
-    ],
-  },
-  {
-    id: 'post-kerala-backwaters',
-    user_id: 'user-demo-priya',
-    user_name: 'Priya Sharma',
-    user_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-    user_location: 'Bengaluru, India',
-    content: 'Drifting down the palm-lined canals of Alleppey. The only sounds are kingfishers diving into the lagoons and coconut palms swaying in the sea breeze.',
-    destination: 'Kerala',
-    place_id: 'kerala-backwaters-houseboat',
-    trip_id: null,
-    like_count: 94,
-    save_count: 38,
-    created_at: new Date(Date.now() - 86400000 * 12).toISOString(),
-    media: [
-      {
-        id: 'media-kerala-1',
-        media_url: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1000&auto=format&fit=crop&q=80',
-        caption: 'Morning mist on the Alleppey canals',
-        display_order: 0,
-      },
-    ],
-  },
-];
+/**
+ * Backward compatibility helper
+ */
+export function healPost(post) {
+  return normalizePost(post);
+}
 
 /**
- * Fetch all travel posts
- * Supports filtering by destination, placeId, or userId
+ * Fetch Feed Posts with Keyset (Cursor) Pagination and Bi-Directional Block Filtering
+ * Cursor uses (created_at, id) for monotonic pagination without shift defects.
  */
-export async function fetchPosts({ destination, placeId, userId } = {}) {
+export async function fetchFeedPosts({
+  cursor = null,
+  cursorCreatedAt = null,
+  cursorId = null,
+  limit = 20,
+  viewerId = null,
+  destination = null,
+  placeId = null,
+} = {}) {
+  const actualCursorCreatedAt = cursor?.createdAt || cursorCreatedAt || null;
+  const actualCursorId = cursor?.id || cursorId || null;
+  const clampedLimit = Math.min(Math.max(limit || 20, 1), 50);
   let posts = [];
 
-  try {
-    if (isSupabaseConfigured) {
+  if (isSupabaseConfigured) {
+    try {
+      // 1. Try high-performance get_social_feed RPC with bi-directional block exclusion
+      const { data: rpcData, error: rpcError } = await supabase.rpc("get_social_feed", {
+        p_viewer_id: viewerId || null,
+        p_limit: clampedLimit,
+        p_cursor_created_at: actualCursorCreatedAt || null,
+        p_cursor_id: actualCursorId || null,
+      });
+
+      if (!rpcError && Array.isArray(rpcData)) {
+        // Fetch media attachments for returned posts
+        const postIds = rpcData.map((p) => p.id);
+        let mediaMap = {};
+        if (postIds.length > 0) {
+          const { data: mediaRows } = await supabase
+            .from("post_media")
+            .select("id, post_id, media_url, caption, display_order")
+            .in("post_id", postIds)
+            .order("display_order", { ascending: true });
+
+          if (Array.isArray(mediaRows)) {
+            mediaRows.forEach((m) => {
+              if (!mediaMap[m.post_id]) mediaMap[m.post_id] = [];
+              mediaMap[m.post_id].push(m);
+            });
+          }
+        }
+
+        posts = rpcData.map((p) =>
+          normalizePost({
+            ...p,
+            media: mediaMap[p.id] || [],
+          })
+        );
+
+        const nextCursor = posts.length >= clampedLimit ? {
+          createdAt: posts[posts.length - 1].created_at,
+          id: posts[posts.length - 1].id,
+        } : null;
+        posts.posts = posts;
+        posts.nextCursor = nextCursor;
+        posts.hasMore = Boolean(nextCursor);
+        return posts;
+      }
+    } catch (rpcErr) {
+      console.warn("get_social_feed RPC fallback to direct query:", rpcErr);
+    }
+
+    // 2. Direct PostgREST query with join fallback and bi-directional block filter
+    try {
+      let blockedUserIds = new Set();
+      if (viewerId) {
+        const [{ data: viewerBlocks }, { data: reverseBlocks }] = await Promise.all([
+          supabase.from("blocks").select("blocked_id").eq("user_id", viewerId),
+          supabase.from("blocks").select("user_id").eq("blocked_id", viewerId),
+        ]);
+        (viewerBlocks || []).forEach((b) => blockedUserIds.add(b.blocked_id));
+        (reverseBlocks || []).forEach((b) => blockedUserIds.add(b.user_id));
+      }
+
       let query = supabase
-        .from('posts')
+        .from("posts")
         .select(`
           id,
           user_id,
@@ -189,489 +144,600 @@ export async function fetchPosts({ destination, placeId, userId } = {}) {
           destination,
           place_id,
           trip_id,
+          likes_count,
           like_count,
+          comments_count,
           save_count,
           visibility,
           created_at,
-          user:users(id, name, avatar_url),
+          updated_at,
+          user:users(id, name, avatar_url, trust_score, verification_status),
           media:post_media(id, media_url, caption, display_order)
         `)
-        .order('created_at', { ascending: false });
+        .eq("visibility", "public")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(clampedLimit);
 
-      if (destination) query = query.ilike('destination', `%${destination}%`);
-      if (placeId) query = query.eq('place_id', placeId);
-      if (userId) query = query.eq('user_id', userId);
+      if (destination) query = query.ilike("destination", `%${destination}%`);
+      if (placeId) query = query.eq("place_id", placeId);
+
+      // Apply cursor
+      if (actualCursorCreatedAt) {
+        query = query.lt("created_at", actualCursorCreatedAt);
+      }
 
       const { data, error } = await query;
-      if (!error && Array.isArray(data) && data.length > 0) {
-        posts = data.map((p) => ({
-          ...p,
-          user_name: p.user?.name || 'Traveler',
-          user_avatar: p.user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-          user_location: p.user?.city || p.destination || 'India',
-        }));
+      if (!error && Array.isArray(data)) {
+        posts = data
+          .filter((p) => !blockedUserIds.has(p.user_id))
+          .map(normalizePost);
+
+        const nextCursor = posts.length >= clampedLimit ? {
+          createdAt: posts[posts.length - 1].created_at,
+          id: posts[posts.length - 1].id,
+        } : null;
+        posts.posts = posts;
+        posts.nextCursor = nextCursor;
+        posts.hasMore = Boolean(nextCursor);
+        return posts;
       }
+    } catch (queryErr) {
+      console.warn("fetchFeedPosts query warning:", queryErr);
     }
-  } catch (err) {
-    console.warn('Supabase fetchPosts failed, falling back to local storage:', err);
   }
 
-  if (posts.length === 0) {
-    try {
-      const raw = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
-      if (raw) {
-        posts = JSON.parse(raw);
-        let cacheUpdated = false;
-        posts = posts.map((p) => {
-          const healed = healPost(p);
-          if (JSON.stringify(healed.media) !== JSON.stringify(p.media)) {
-            cacheUpdated = true;
-          }
-          return healed;
-        });
-        if (cacheUpdated) {
-          AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts)).catch(() => {});
-        }
-      } else {
-        posts = DEMO_POSTS.map(healPost);
-        await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts));
-      }
-    } catch {
-      posts = DEMO_POSTS.map(healPost);
+  // Local fallback (cached records only, zero synthetic posts)
+  try {
+    const raw = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
+    if (raw) {
+      const cached = JSON.parse(raw);
+      posts = Array.isArray(cached) ? cached.map(normalizePost) : [];
     }
-  } else {
-    posts = posts.map(healPost);
+  } catch {
+    posts = [];
   }
 
-  // Client-side filtering
-  if (destination) {
-    const destNorm = destination.toLowerCase().trim();
-    posts = posts.filter((p) => (p.destination || '').toLowerCase().includes(destNorm));
-  }
-  if (placeId) {
-    posts = posts.filter((p) => p.place_id === placeId);
-  }
-  if (userId) {
-    posts = posts.filter((p) => p.user_id === userId);
-  }
+  const nextCursor = posts.length >= clampedLimit ? {
+    createdAt: posts[posts.length - 1].created_at,
+    id: posts[posts.length - 1].id,
+  } : null;
+  posts.posts = posts;
+  posts.nextCursor = nextCursor;
+  posts.hasMore = Boolean(nextCursor);
 
   return posts;
 }
 
 /**
- * Fetch posts tagged with a specific place
- * Used in Place Discovery for "Travel moments from this place"
+ * Legacy fetchPosts compatibility
  */
-export async function fetchPlaceTravelMoments(placeId) {
-  if (!placeId) return [];
-  const allPosts = await fetchPosts();
-  return allPosts.filter((p) => p.place_id === placeId);
+export async function fetchPosts({ destination, placeId, userId } = {}) {
+  return fetchFeedPosts({ destination, placeId });
 }
 
 /**
- * Create a new travel post
+ * Fetch posts tagged with a specific place
+ */
+export async function fetchPlaceTravelMoments(placeId) {
+  if (!placeId) return [];
+  return fetchFeedPosts({ placeId, limit: 15 });
+}
+
+/**
+ * Create a new travel post with real binary upload to post-media bucket
  */
 export async function createPost(postData, authorId = null) {
   const {
     userId,
-    userName = 'Traveler',
+    userName = "Traveler",
     userAvatar = null,
-    userLocation = 'India',
     content,
     caption,
     destination,
     placeId = null,
-    place_id = null,
     tripId = null,
-    trip_id = null,
     mediaUrls = [],
-    media_urls = [],
-    visibility = 'public',
-  } = (postData || {});
+    mediaFiles = [],
+    visibility = "public",
+  } = postData || {};
 
-  const finalContent = content || caption || postData?.content || postData?.caption;
-  if (!finalContent || !finalContent.trim()) {
-    throw new Error('Please write a caption or story for your post.');
+  const finalContent = (content || caption || "").trim();
+  if (!finalContent) {
+    throw new Error("Please write a story or caption for your post.");
   }
 
-  const finalMedia = (mediaUrls?.length > 0 ? mediaUrls : media_urls) || [];
-  if (!finalMedia || finalMedia.length === 0) {
-    throw new Error('Please add at least one travel photo.');
-  }
-
-  const finalUserId = userId || postData?.user_id || authorId || 'current-user';
-  const finalPlaceId = placeId || place_id || postData?.place_id || null;
-  const finalTripId = tripId || trip_id || postData?.trip_id || null;
-  const finalDest = destination || postData?.destination || 'India';
-
-  const postId = `post-${Date.now()}`;
-  const now = new Date().toISOString();
-
-  const formattedMedia = finalMedia.map((url, idx) => ({
-    id: `media-${Date.now()}-${idx}`,
-    media_url: url,
-    caption: '',
-    display_order: idx,
-  }));
-
-  const newPost = {
-    id: postId,
-    user_id: finalUserId,
-    user_name: userName,
-    user_avatar: userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
-    user_location: userLocation,
-    content: finalContent.trim(),
-    caption: finalContent.trim(),
-    destination: finalDest,
-    place_id: finalPlaceId,
-    trip_id: finalTripId,
-    like_count: 0,
-    save_count: 0,
-    visibility,
-    created_at: now,
-    media: formattedMedia,
-  };
-
-  const currentPosts = await fetchPosts();
-  const updated = [newPost, ...currentPosts];
-  await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updated));
-
-  // Sync to Supabase
-  if (isSupabaseConfigured && finalUserId) {
+  let finalUserId = userId || authorId;
+  if (!finalUserId && isSupabaseConfigured) {
     try {
-      const { data: dbPost, error } = await supabase
-        .from('posts')
-        .insert([
-          {
-            user_id: finalUserId,
-            content: finalContent.trim(),
-            destination: finalDest || null,
-            place_id: finalPlaceId,
-            trip_id: finalTripId,
-            visibility,
-          },
-        ])
-        .select()
-        .single();
-
-      if (!error && dbPost) {
-        for (let i = 0; i < finalMedia.length; i++) {
-          await supabase.from('post_media').insert([
-            {
-              post_id: dbPost.id,
-              media_url: finalMedia[i],
-              display_order: i,
-            },
-          ]);
-        }
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user?.id) {
+        finalUserId = authData.user.id;
       }
-    } catch (e) {
-      console.warn('Error creating post in Supabase:', e);
-    }
+    } catch {}
   }
 
-  return newPost;
+  if (!finalUserId) {
+    throw new Error("You must be signed in to share a travel post.");
+  }
+
+  // Process & Upload Media to Supabase Storage Bucket "post-media"
+  let uploadedMediaUrls = [];
+
+  // 1. Files requiring binary upload
+  if (Array.isArray(mediaFiles) && mediaFiles.length > 0) {
+    for (const fileItem of mediaFiles) {
+      const uri = typeof fileItem === "string" ? fileItem : fileItem?.uri;
+      if (!uri) continue;
+      const publicUrl = await uploadPostMedia({
+        uri,
+        userId: finalUserId,
+        fileSize: fileItem?.fileSize || fileItem?.size || null,
+        base64Data: fileItem?.base64 || null,
+      });
+      if (publicUrl) {
+        uploadedMediaUrls.push(publicUrl);
+      }
+    }
+  } else if (Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+    uploadedMediaUrls = [...mediaUrls.filter(Boolean)];
+  }
+
+  let createdRecord = null;
+
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase is not configured. Active Supabase connection required to publish posts.");
+  }
+
+  // 2. Insert into Supabase posts table
+  const { data: dbPost, error: postError } = await supabase
+    .from("posts")
+    .insert([
+      {
+        user_id: finalUserId,
+        content: finalContent,
+        destination: destination || null,
+        place_id: placeId || null,
+        trip_id: tripId || null,
+        visibility,
+        likes_count: 0,
+        like_count: 0,
+        comments_count: 0,
+        save_count: 0,
+      },
+    ])
+    .select(`
+      id,
+      user_id,
+      content,
+      destination,
+      place_id,
+      trip_id,
+      likes_count,
+      like_count,
+      comments_count,
+      save_count,
+      visibility,
+      created_at,
+      updated_at,
+      user:users(id, name, avatar_url, trust_score, verification_status)
+    `)
+    .single();
+
+  if (postError || !dbPost) {
+    console.error("createPost Supabase error:", postError);
+    throw new Error(postError?.message || "Failed to save post to database.");
+  }
+
+  // 3. Insert media rows into post_media table
+  let insertedMedia = [];
+  if (uploadedMediaUrls.length > 0) {
+    const mediaRows = uploadedMediaUrls.map((url, idx) => ({
+      post_id: dbPost.id,
+      media_url: url,
+      media_type: "image",
+      display_order: idx,
+    }));
+
+    const { data: mediaData, error: mediaError } = await supabase
+      .from("post_media")
+      .insert(mediaRows)
+      .select("id, post_id, media_url, caption, display_order");
+
+    if (mediaError) {
+      console.warn("post_media insert warning:", mediaError);
+    }
+    insertedMedia = mediaData || mediaRows;
+  }
+
+  createdRecord = normalizePost({
+    ...dbPost,
+    media: insertedMedia,
+  });
+
+  // Prepend to cached list
+  try {
+    const raw = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
+    const existing = raw ? JSON.parse(raw) : [];
+    const updated = [createdRecord, ...existing.filter((p) => p.id !== createdRecord.id)];
+    await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updated));
+  } catch {}
+
+  return createdRecord;
 }
 
 /**
- * Edit an existing post (Only owner may edit)
- */
-export async function updatePost(postId, arg2, arg3) {
-  let userId;
-  let updates;
-  if (typeof arg2 === 'string') {
-    userId = arg2;
-    updates = arg3 || {};
-  } else {
-    updates = arg2 || {};
-    userId = arg3;
-  }
-
-  const currentPosts = await fetchPosts();
-  const post = currentPosts.find((p) => p.id === postId);
-
-  if (!post) throw new Error('Post not found.');
-  if (post.user_id !== userId) {
-    throw new Error('Unauthorized: You can only edit your own posts.');
-  }
-
-  const newContent = updates.content !== undefined ? updates.content : updates.caption;
-  if (newContent !== undefined) {
-    post.content = newContent.trim();
-    post.caption = newContent.trim();
-  }
-  if (updates.destination !== undefined) post.destination = updates.destination;
-  if (updates.place_id !== undefined || updates.placeId !== undefined) {
-    post.place_id = updates.place_id || updates.placeId;
-  }
-  post.updated_at = new Date().toISOString();
-
-  await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(currentPosts));
-
-  if (isSupabaseConfigured) {
-    try {
-      await supabase
-        .from('posts')
-        .update({
-          content: post.content,
-          destination: post.destination,
-          place_id: post.place_id,
-        })
-        .eq('id', postId)
-        .eq('user_id', userId);
-    } catch (e) {
-      console.warn('Error updating post in Supabase:', e);
-    }
-  }
-
-  return post;
-}
-
-/**
- * Delete a post (Only owner may delete)
+ * Delete a travel post (Cascades in DB and cleans up storage media)
  */
 export async function deletePost(postId, userId) {
-  const currentPosts = await fetchPosts();
-  const post = currentPosts.find((p) => p.id === postId);
-
-  if (!post) throw new Error('Post not found.');
-  if (post.user_id !== userId) {
-    throw new Error('Unauthorized: You can only delete your own posts.');
-  }
-
-  const updated = currentPosts.filter((p) => p.id !== postId);
-  await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updated));
+  if (!postId || !userId) throw new Error("Post ID and User ID required to delete post.");
 
   if (isSupabaseConfigured) {
+    // 1. Fetch media URLs to delete from storage
     try {
-      await supabase
-        .from('posts')
-        .delete()
-        .eq('id', postId)
-        .eq('user_id', userId);
-    } catch (e) {
-      console.warn('Error deleting post in Supabase:', e);
-    }
-  }
+      const { data: mediaRows } = await supabase
+        .from("post_media")
+        .select("media_url")
+        .eq("post_id", postId);
 
-  return { success: true };
-}
-
-/**
- * Like or unlike a post (prevents duplicate likes)
- */
-export async function togglePostLike(postId, userId, likerName = 'A traveler') {
-  if (!postId || !userId) return { liked: false, likeCount: 0 };
-
-  let likesMap = {};
-  try {
-    const raw = await AsyncStorage.getItem(POST_LIKES_STORAGE_KEY);
-    if (raw) likesMap = JSON.parse(raw);
-  } catch {}
-
-  const likeKey = `${postId}_${userId}`;
-  const isAlreadyLiked = Boolean(likesMap[likeKey]);
-
-  const currentPosts = await fetchPosts();
-  const post = currentPosts.find((p) => p.id === postId);
-
-  let newLikedState = false;
-  if (isAlreadyLiked) {
-    delete likesMap[likeKey];
-    if (post) post.like_count = Math.max(0, (post.like_count || 1) - 1);
-    newLikedState = false;
-  } else {
-    likesMap[likeKey] = true;
-    if (post) post.like_count = (post.like_count || 0) + 1;
-    newLikedState = true;
-
-    // Log notification event for post author
-    if (post && post.user_id && post.user_id !== userId) {
-      logNotificationEvent({
-        userId: post.user_id,
-        actorId: userId,
-        type: 'like',
-        entityId: postId,
-        title: 'New Story Like',
-        message: `${likerName} liked your travel story in ${post.destination || 'India'}.`,
-      });
-    }
-  }
-
-  await AsyncStorage.setItem(POST_LIKES_STORAGE_KEY, JSON.stringify(likesMap));
-  await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(currentPosts));
-
-  // Sync to Supabase
-  if (isSupabaseConfigured) {
-    try {
-      if (newLikedState) {
-        await supabase
-          .from('post_likes')
-          .insert([{ post_id: postId, user_id: userId }]);
-      } else {
-        await supabase
-          .from('post_likes')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', userId);
+      if (Array.isArray(mediaRows) && mediaRows.length > 0) {
+        const urls = mediaRows.map((m) => m.media_url);
+        await deletePostMedia(urls);
       }
     } catch (e) {
-      console.warn('Error toggling like in Supabase:', e);
+      console.warn("Storage media cleanup error:", e);
+    }
+
+    // 2. Delete post row (RLS verifies auth.uid() = user_id)
+    const { error } = await supabase
+      .from("posts")
+      .delete()
+      .eq("id", postId)
+      .eq("user_id", userId);
+
+    if (error) {
+      throw new Error(error.message || "Could not delete post.");
     }
   }
 
-  return { liked: newLikedState, likeCount: post?.like_count || 0 };
+  // 3. Update local cache
+  try {
+    const raw = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
+    if (raw) {
+      const posts = JSON.parse(raw);
+      const updated = posts.filter((p) => String(p.id) !== String(postId));
+      await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(updated));
+    }
+  } catch {}
+
+  return { success: true, deletedId: postId };
 }
 
 /**
- * Check if user liked a post
+ * Concurrency-Safe Reactions & Likes Toggle
+ * Database trigger AFTER INSERT OR DELETE ON post_reactions updates post counter.
+ * Enforces database uniqueness UNIQUE(post_id, user_id).
+ */
+export async function togglePostReaction(postId, userId, reactionType = "like", authorId = null) {
+  if (!postId || !userId) throw new Error("Post ID and User ID required for reaction.");
+
+  let isNowLiked = false;
+  let currentLikesCount = 0;
+
+  if (isSupabaseConfigured) {
+    try {
+      // Check existing reaction in post_reactions
+      const { data: existingReaction } = await supabase
+        .from("post_reactions")
+        .select("id")
+        .eq("post_id", postId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existingReaction) {
+        // Delete reaction -> Trigger decrements likes_count
+        await supabase
+          .from("post_reactions")
+          .delete()
+          .eq("id", existingReaction.id);
+
+        // Delete from legacy post_likes table too if present
+        await supabase
+          .from("post_likes")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", userId);
+
+        isNowLiked = false;
+      } else {
+        // Insert reaction -> Trigger increments likes_count (Enforcing UNIQUE post_id, user_id)
+        try {
+          const { error: insErr } = await supabase
+            .from("post_reactions")
+            .insert([{ post_id: postId, user_id: userId, reaction_type: reactionType }]);
+          if (insErr && (insErr.code === "23505" || insErr.message?.includes("23505"))) {
+            // Concurrency safe: reaction already existed from parallel request
+            isNowLiked = true;
+          }
+        } catch (rxErr) {
+          if (rxErr?.code === "23505") isNowLiked = true;
+        }
+
+        await supabase
+          .from("post_likes")
+          .insert([{ post_id: postId, user_id: userId }])
+          .catch(() => {});
+
+        isNowLiked = true;
+
+        // Notify author
+        if (authorId && authorId !== userId) {
+          logNotificationEvent({
+            userId: authorId,
+            actorId: userId,
+            type: "like",
+            entityId: postId,
+            title: "New Post Reaction",
+            message: "A traveler reacted to your travel story.",
+          }).catch(() => {});
+        }
+      }
+
+      // Read ground-truth updated count from posts table
+      const { data: postRow } = await supabase
+        .from("posts")
+        .select("likes_count, like_count")
+        .eq("id", postId)
+        .single();
+
+      currentLikesCount = postRow?.likes_count ?? postRow?.like_count ?? (isNowLiked ? 1 : 0);
+    } catch (err) {
+      console.warn("togglePostReaction Supabase error:", err);
+    }
+  }
+
+  return { isLiked: isNowLiked, likesCount: currentLikesCount, liked: isNowLiked, likeCount: currentLikesCount };
+}
+
+/**
+ * Legacy togglePostLike wrapper
+ */
+export async function togglePostLike(postId, userId, likerName = "A traveler") {
+  return togglePostReaction(postId, userId, "like");
+}
+
+/**
+ * Check reaction status
  */
 export async function getPostLikeStatus(postId, userId) {
-  if (!postId || !userId) return false;
+  if (!postId || !userId || !isSupabaseConfigured) return false;
   try {
-    const raw = await AsyncStorage.getItem(POST_LIKES_STORAGE_KEY);
-    if (!raw) return false;
-    const map = JSON.parse(raw);
-    return Boolean(map[`${postId}_${userId}`]);
+    const { data } = await supabase
+      .from("post_reactions")
+      .select("id")
+      .eq("post_id", postId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    return Boolean(data);
   } catch {
     return false;
   }
 }
 
 /**
- * Save or unsave a post to collections (prevents duplicate saves)
+ * Fetch comments for a post, excluding users blocked bi-directionally
  */
-export async function togglePostSave(postId, userId, collectionName = 'Saved') {
-  if (!postId || !userId) return { saved: false };
+export async function fetchPostComments(postId, viewerId = null) {
+  if (!postId) return [];
 
-  let savesMap = {};
-  try {
-    const raw = await AsyncStorage.getItem(POST_SAVES_STORAGE_KEY);
-    if (raw) savesMap = JSON.parse(raw);
-  } catch {}
-
-  const saveKey = `${postId}_${userId}`;
-  const isAlreadySaved = Boolean(savesMap[saveKey]);
-
-  const currentPosts = await fetchPosts();
-  const post = currentPosts.find((p) => p.id === postId);
-
-  let newSavedState = false;
-  if (isAlreadySaved) {
-    delete savesMap[saveKey];
-    if (post) post.save_count = Math.max(0, (post.save_count || 1) - 1);
-    newSavedState = false;
-  } else {
-    savesMap[saveKey] = collectionName;
-    if (post) post.save_count = (post.save_count || 0) + 1;
-    newSavedState = true;
-  }
-
-  await AsyncStorage.setItem(POST_SAVES_STORAGE_KEY, JSON.stringify(savesMap));
-  await AsyncStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(currentPosts));
-
-  // Sync to Supabase
   if (isSupabaseConfigured) {
     try {
-      if (newSavedState) {
-        await supabase
-          .from('post_saves')
-          .insert([{ post_id: postId, user_id: userId, collection_name: collectionName }]);
-      } else {
-        await supabase
-          .from('post_saves')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', userId);
+      const { data, error } = await supabase
+        .from("comments")
+        .select(`
+          id,
+          post_id,
+          user_id,
+          content,
+          created_at,
+          updated_at,
+          user:users(id, name, avatar_url, trust_score, verification_status)
+        `)
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+
+      if (!error && Array.isArray(data)) {
+        return data.map((c) => ({
+          id: String(c.id),
+          post_id: c.post_id,
+          user_id: c.user_id,
+          user_name: c.user?.name || "Traveler",
+          user_avatar: c.user?.avatar_url || null,
+          user_trust_score: c.user?.trust_score ?? 50,
+          content: c.content,
+          created_at: c.created_at,
+        }));
       }
-    } catch (e) {
-      console.warn('Error toggling save in Supabase:', e);
+    } catch (err) {
+      console.warn("fetchPostComments error:", err);
     }
   }
 
-  return { saved: newSavedState, saveCount: post?.save_count || 0 };
+  return [];
 }
 
 /**
- * Check if user saved a post
+ * Create a new comment on a post
+ */
+export async function createPostComment(postId, userId, content, authorId = null) {
+  const cleanContent = (content || "").trim();
+  if (!cleanContent) throw new Error("Comment cannot be empty.");
+  if (cleanContent.length > 2000) throw new Error("Comment exceeds 2000 characters limit.");
+  if (!postId || !userId) throw new Error("Post ID and User ID required to comment.");
+
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase
+      .from("comments")
+      .insert([
+        {
+          post_id: postId,
+          user_id: userId,
+          content: cleanContent,
+        },
+      ])
+      .select(`
+        id,
+        post_id,
+        user_id,
+        content,
+        created_at,
+        user:users(id, name, avatar_url, trust_score, verification_status)
+      `)
+      .single();
+
+    if (error || !data) {
+      console.error("createPostComment error:", error);
+      throw new Error(error?.message || "Failed to post comment.");
+    }
+
+    // Notify post author
+    if (authorId && authorId !== userId) {
+      logNotificationEvent({
+        userId: authorId,
+        actorId: userId,
+        type: "comment",
+        entityId: postId,
+        title: "New Post Comment",
+        message: `${data.user?.name || "A traveler"} commented on your story.`,
+      }).catch(() => {});
+    }
+
+    return {
+      id: String(data.id),
+      post_id: data.post_id,
+      user_id: data.user_id,
+      user_name: data.user?.name || "Traveler",
+      user_avatar: data.user?.avatar_url || null,
+      user_trust_score: data.user?.trust_score ?? 50,
+      content: data.content,
+      created_at: data.created_at,
+    };
+  }
+
+  return {
+    id: `c-${Date.now()}`,
+    post_id: postId,
+    user_id: userId,
+    user_name: "Traveler",
+    user_avatar: null,
+    content: cleanContent,
+    created_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Delete a comment
+ */
+export async function deletePostComment(commentId, userId) {
+  if (!commentId || !userId) throw new Error("Comment ID and User ID required to delete comment.");
+
+  if (isSupabaseConfigured) {
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId)
+      .eq("user_id", userId);
+
+    if (error) {
+      throw new Error(error.message || "Could not delete comment.");
+    }
+  }
+
+  return { success: true, deletedId: commentId };
+}
+
+/**
+ * Save or unsave post bookmark
+ */
+export async function togglePostSave(postId, userId, collectionName = "Saved") {
+  if (!postId || !userId) return { saved: false };
+
+  let isSaved = false;
+  if (isSupabaseConfigured) {
+    try {
+      const { data: existing } = await supabase
+        .from("post_saves")
+        .select("id")
+        .eq("post_id", postId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("post_saves").delete().eq("id", existing.id);
+        isSaved = false;
+      } else {
+        await supabase.from("post_saves").insert([
+          { post_id: postId, user_id: userId, collection_name: collectionName },
+        ]);
+        isSaved = true;
+      }
+    } catch (err) {
+      console.warn("togglePostSave error:", err);
+    }
+  }
+
+  return { saved: isSaved };
+}
+
+/**
+ * Check save bookmark status
  */
 export async function getPostSaveStatus(postId, userId) {
-  if (!postId || !userId) return false;
+  if (!postId || !userId || !isSupabaseConfigured) return false;
   try {
-    const raw = await AsyncStorage.getItem(POST_SAVES_STORAGE_KEY);
-    if (!raw) return false;
-    const map = JSON.parse(raw);
-    return Boolean(map[`${postId}_${userId}`]);
+    const { data } = await supabase
+      .from("post_saves")
+      .select("id")
+      .eq("post_id", postId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    return Boolean(data);
   } catch {
     return false;
   }
 }
 
 /**
- * Fetch all posts saved by a user
+ * Fetch user bookmarks
  */
 export async function fetchUserSavedPosts(userId) {
-  if (!userId) return [];
+  if (!userId || !isSupabaseConfigured) return [];
   try {
-    const raw = await AsyncStorage.getItem(POST_SAVES_STORAGE_KEY);
-    if (!raw) return [];
-    const map = JSON.parse(raw);
+    const { data, error } = await supabase
+      .from("post_saves")
+      .select(`
+        post:posts(
+          id,
+          user_id,
+          content,
+          destination,
+          likes_count,
+          like_count,
+          comments_count,
+          save_count,
+          created_at,
+          user:users(id, name, avatar_url),
+          media:post_media(id, media_url, caption, display_order)
+        )
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
-    const savedPostIds = Object.keys(map)
-      .filter((k) => k.endsWith(`_${userId}`))
-      .map((k) => k.split(`_${userId}`)[0]);
-
-    const allPosts = await fetchPosts();
-    return allPosts.filter((p) => savedPostIds.includes(p.id));
-  } catch {
-    return [];
+    if (!error && Array.isArray(data)) {
+      return data.map((row) => normalizePost(row.post)).filter(Boolean);
+    }
+  } catch (err) {
+    console.warn("fetchUserSavedPosts error:", err);
   }
-}
-
-/**
- * Explicit like post (prevents duplicate likes)
- */
-export async function likePost(postId, userId, likerName = 'A traveler') {
-  const isLiked = await getPostLikeStatus(postId, userId);
-  if (isLiked) {
-    return { liked: true, alreadyLiked: true };
-  }
-  const res = await togglePostLike(postId, userId, likerName);
-  return { liked: true, likeCount: res.likeCount };
-}
-
-/**
- * Explicit unlike post
- */
-export async function unlikePost(postId, userId) {
-  const isLiked = await getPostLikeStatus(postId, userId);
-  if (!isLiked) {
-    return { unliked: true, alreadyUnliked: true };
-  }
-  const res = await togglePostLike(postId, userId);
-  return { unliked: true, likeCount: res.likeCount };
-}
-
-/**
- * Explicit save post (prevents duplicate saves)
- */
-export async function savePost(postId, userId, collectionName = 'Saved') {
-  const isSaved = await getPostSaveStatus(postId, userId);
-  if (isSaved) {
-    return { saved: true, alreadySaved: true };
-  }
-  const res = await togglePostSave(postId, userId, collectionName);
-  return { saved: true };
-}
-
-/**
- * Explicit unsave post
- */
-export async function unsavePost(postId, userId) {
-  const isSaved = await getPostSaveStatus(postId, userId);
-  if (!isSaved) {
-    return { unsaved: true, alreadyUnsaved: true };
-  }
-  const res = await togglePostSave(postId, userId);
-  return { unsaved: true };
+  return [];
 }

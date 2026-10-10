@@ -114,6 +114,7 @@ export default function AddToTripModal({
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={[styles.root, { backgroundColor: colors.modalBg }]}>
@@ -126,7 +127,11 @@ export default function AddToTripModal({
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Target Place Summary */}
           <View style={[styles.placeSummaryCard, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F1EEE6', borderColor: colors.border }]}>
             <Ionicons name="sparkles" size={18} color="#B99A5E" style={{ marginRight: 10 }} />

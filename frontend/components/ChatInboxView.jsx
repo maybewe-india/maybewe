@@ -4,7 +4,7 @@
 // Zero TypeScript, Pure JavaScript/JSX
 // ============================================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,25 +18,39 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { fetchConversations, searchConversations } from '../lib/groupChat.js';
 import { SHADOWS } from '../lib/theme';
+import { useAuth } from '../lib/authContext';
+import { supabase } from '../lib/supabaseClient.js';
 
 export default function ChatInboxView({
-  userId = 'user-demo-priya',
+  userId = null,
   onSelectConversation,
   onCreateHangout,
 }) {
+  const { user } = useAuth();
+  const activeUserId = userId || user?.id;
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filterType, setFilterType] = useState('all'); // 'all' | 'direct' | 'hangouts'
   const [searchQuery, setSearchQuery] = useState('');
 
+  const searchQueryRef = useRef(searchQuery);
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
+
   const loadConversations = useCallback(async (query = '') => {
+    if (!activeUserId) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
     try {
       if (query.trim()) {
-        const results = await searchConversations(userId, query);
+        const results = await searchConversations(activeUserId, query);
         setConversations(results);
       } else {
-        const data = await fetchConversations(userId);
+        const data = await fetchConversations(activeUserId);
         setConversations(data);
       }
     } catch (err) {
@@ -45,7 +59,48 @@ export default function ChatInboxView({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [activeUserId]);
+
+  const loadConversationsRef = useRef(loadConversations);
+  useEffect(() => {
+    loadConversationsRef.current = loadConversations;
+  }, [loadConversations]);
+
+  // Realtime subscription for incoming message alerts & unread counters
+  useEffect(() => {
+    if (!activeUserId) return;
+
+    // Clean up any lingering channels matching this user prefix to prevent duplicate listeners
+    if (typeof supabase?.getChannels === 'function') {
+      const existing = supabase.getChannels().filter(
+        (c) => c.topic && c.topic.includes(`user_inbox_${activeUserId}`)
+      );
+      existing.forEach((c) => {
+        try {
+          supabase.removeChannel(c);
+        } catch (_) {}
+      });
+    }
+
+    // Unique channel identifier ensures a clean channel instance is created,
+    // avoiding collisions with any channel still closing and preventing the
+    // 'cannot add postgres_changes callbacks after subscribe()' error.
+    const channelName = `user_inbox_${activeUserId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        if (loadConversationsRef.current) {
+          loadConversationsRef.current(searchQueryRef.current);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
+    };
+  }, [activeUserId]);
 
   useEffect(() => {
     loadConversations(searchQuery);

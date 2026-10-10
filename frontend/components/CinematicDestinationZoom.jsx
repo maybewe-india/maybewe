@@ -6,21 +6,19 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  useWindowDimensions,
   Image,
   Platform,
   Easing,
+  Modal,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { RADII, SHADOWS, FONTS, PALETTE } from '../lib/theme';
 import { useTheme } from '../lib/themeContext';
 import { SATELLITE_IMAGE, resolveDestination, getBundledImage } from '../lib/cinematicDestinations';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Aspect ratio of the satellite map image is 2:3
-const MAP_STAGE_WIDTH = 440;
-const MAP_STAGE_HEIGHT = 660;
 
 /**
  * CinematicDestinationZoom
@@ -39,6 +37,7 @@ export default function CinematicDestinationZoom({
   onClose,
   onSelectAnotherDestination,
 }) {
+  const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
 
   // Resolve target destination profile
@@ -142,13 +141,15 @@ export default function CinematicDestinationZoom({
     };
   }, [visible, destination.id]);
 
-  if (!visible) return null;
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const mapStageWidth = windowWidth || 412;
+  const mapStageHeight = windowHeight || 892;
 
   // Calculate translation offsets to anchor target (x%, y%) dead-center at max zoom
   // When scale = 1, center is (50, 50).
   // Target offset from center in pixels on the map stage:
-  const targetOffsetX = ((50 - currentCoords.x) / 100) * MAP_STAGE_WIDTH;
-  const targetOffsetY = ((50 - currentCoords.y) / 100) * MAP_STAGE_HEIGHT;
+  const targetOffsetX = ((50 - currentCoords.x) / 100) * mapStageWidth;
+  const targetOffsetY = ((50 - currentCoords.y) / 100) * mapStageHeight;
 
   // Camera scale: accelerates from continental view (1.0) into close destination view (9.5)
   const cameraScale = animProgress.interpolate({
@@ -169,14 +170,14 @@ export default function CinematicDestinationZoom({
 
   // Fast, smooth cross-dissolve into scenic destination layer as altitude approaches
   const scenicLayerOpacity = animProgress.interpolate({
-    inputRange: [0, 0.2, 0.65, 1],
-    outputRange: [0, 0.25, 0.85, 1],
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.85, 0.95, 1],
   });
 
-  // Smooth satellite layer: dissolves completely to 0 as camera settles into destination
+  // Smooth satellite layer: dissolves gracefully
   const satelliteOpacity = animProgress.interpolate({
-    inputRange: [0, 0.35, 0.7, 1],
-    outputRange: [1, 0.85, 0.25, 0],
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.8, 0.3, 0],
   });
 
   // Destination Marker scale - counter-scaled against cameraScale (1.0 -> 9.5) so pin preserves an elegant physical ratio
@@ -197,36 +198,46 @@ export default function CinematicDestinationZoom({
 
   // Destination glass panel entry
   const panelTranslateY = animProgress.interpolate({
-    inputRange: [0, 0.85, 1],
-    outputRange: [240, 140, 0],
+    inputRange: [0, 1],
+    outputRange: [30, 0],
   });
   const panelOpacity = animProgress.interpolate({
-    inputRange: [0, 0.85, 1],
-    outputRange: [0, 0.2, 1],
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.7, 0.9, 1],
   });
 
   const activeBreadcrumb = destination.breadcrumbHierarchy[currentBreadcrumbIndex] || destination.breadcrumbHierarchy[0];
 
-  return (
-    <View style={styles.fullscreenOverlay}>
-      {/* 1. Deep Midnight Space Background */}
-      <View style={styles.deepSpaceCanvas}>
-        <LinearGradient
-          colors={['#070B10', '#0B131E', '#060A0F']}
-          style={StyleSheet.absoluteFillObject}
-        />
-        {/* Subtle atmospheric radial lighting */}
-        <View style={styles.atmosphericGlow} />
-      </View>
+  const topInset = Math.max(insets.top || 0, StatusBar.currentHeight || 0, Platform.OS === 'android' ? 36 : 24);
+  const bottomInset = Math.max(insets.bottom || 0, Platform.OS === 'android' ? 24 : 16);
 
-      {/* 2. THE ZOOMING CONTINUOUS MAP STAGE */}
-      <Animated.View
-        style={[
-          styles.mapStageContainer,
-          { opacity: satelliteOpacity },
-        ]}
-        pointerEvents="box-none"
-      >
+  return (
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent={false}
+      statusBarTranslucent
+      onRequestClose={() => onClose?.(destination.name)}
+    >
+      <View style={styles.fullscreenOverlay}>
+        {/* 1. Deep Midnight Space Background */}
+        <View style={styles.deepSpaceCanvas}>
+          <LinearGradient
+            colors={['#070B10', '#0B131E', '#060A0F']}
+            style={StyleSheet.absoluteFillObject}
+          />
+          {/* Subtle atmospheric radial lighting */}
+          <View style={styles.atmosphericGlow} />
+        </View>
+
+        {/* 2. THE ZOOMING CONTINUOUS MAP STAGE */}
+        <Animated.View
+          style={[
+            styles.mapStageContainer,
+            { opacity: satelliteOpacity },
+          ]}
+          pointerEvents="box-none"
+        >
         <Animated.View
           style={[
             styles.animatedCameraRig,
@@ -269,7 +280,7 @@ export default function CinematicDestinationZoom({
               style={[
                 styles.radarPingCircle,
                 {
-                  transform: [{ scale: Animated.multiply(radarScale, markerScale) }],
+                  transform: [{ scale: radarScale }],
                   opacity: radarOpacity,
                 },
               ]}
@@ -315,7 +326,7 @@ export default function CinematicDestinationZoom({
       </Animated.View>
 
       {/* 4. TOP HUD & PROGRESSIVE BREADCRUMBS */}
-      <View style={styles.topHudContainer} pointerEvents="box-none">
+      <View style={[styles.topHudContainer, { top: topInset }]} pointerEvents="box-none">
         {/* Back / Cancel Button */}
         <TouchableOpacity
           onPress={() => onClose?.(destination.name)}
@@ -348,7 +359,7 @@ export default function CinematicDestinationZoom({
       </View>
 
       {/* Progressive Breadcrumb Steps Indicator */}
-      <View style={styles.breadcrumbBarContainer} pointerEvents="none">
+      <View style={[styles.breadcrumbBarContainer, { top: topInset + 46 }]} pointerEvents="none">
         <View style={styles.breadcrumbBarInner}>
           {destination.breadcrumbHierarchy.map((crumb, idx) => {
             const isCompleted = idx <= currentBreadcrumbIndex;
@@ -385,6 +396,7 @@ export default function CinematicDestinationZoom({
         style={[
           styles.arrivalCardContainer,
           {
+            bottom: bottomInset + 12,
             transform: [{ translateY: panelTranslateY }],
             opacity: panelOpacity,
           },
@@ -454,6 +466,7 @@ export default function CinematicDestinationZoom({
         </View>
       </Animated.View>
     </View>
+    </Modal>
   );
 }
 
@@ -500,8 +513,8 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   animatedCameraRig: {
-    width: MAP_STAGE_WIDTH,
-    height: MAP_STAGE_HEIGHT,
+    width: '100%',
+    height: '100%',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
@@ -509,7 +522,6 @@ const styles = StyleSheet.create({
   satelliteImage: {
     width: '100%',
     height: '100%',
-    borderRadius: RADII.xl,
   },
   scenicLocalOverlay: {
     position: 'absolute',
@@ -685,14 +697,14 @@ const styles = StyleSheet.create({
   },
   arrivalCardContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 104 : 92,
     left: 16,
     right: 16,
     zIndex: 110,
+    elevation: 50,
   },
   arrivalCardGlass: {
     backgroundColor: 'rgba(251, 250, 247, 0.95)',
-    borderRadius: RADII.xxl,
+    borderRadius: RADII['2xl'] || 20,
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(200, 178, 122, 0.65)',

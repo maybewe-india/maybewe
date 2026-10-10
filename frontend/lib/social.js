@@ -1,86 +1,53 @@
-import AsyncStorage from './safeStorage.js';
-import { supabase, isSupabaseConfigured } from './supabaseClient.js';
-import { logNotificationEvent } from './notifications.js';
+// ============================================================================
+// MAYBEWE PRODUCTION SOCIAL GRAPH & MODERATION (lib/social.js)
+// Follows, Bi-Directional Blocks, and Moderation Reports.
+// ============================================================================
 
-const FOLLOWS_STORAGE_KEY = '@maybewe_social_follows_v1';
+import AsyncStorage from "./safeStorage.js";
+import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
+import { logNotificationEvent } from "./notifications.js";
 
-// Seed demo social relationships
-const DEMO_FOLLOWS = [
-  { follower_id: 'user-demo-arjun', following_id: 'user-demo-priya', created_at: '2026-08-10T10:00:00Z' },
-  { follower_id: 'user-demo-rohan', following_id: 'user-demo-priya', created_at: '2026-08-15T14:30:00Z' },
-  { follower_id: 'user-demo-meera', following_id: 'user-demo-priya', created_at: '2026-09-01T09:15:00Z' },
-  { follower_id: 'user-demo-priya', following_id: 'user-demo-arjun', created_at: '2026-08-11T12:00:00Z' },
-  { follower_id: 'user-demo-priya', following_id: 'user-demo-meera', created_at: '2026-09-02T16:45:00Z' },
-];
-
-/**
- * Fetch all follow relationships
- */
-async function getAllFollows() {
-  try {
-    const raw = await AsyncStorage.getItem(FOLLOWS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-    await AsyncStorage.setItem(FOLLOWS_STORAGE_KEY, JSON.stringify(DEMO_FOLLOWS));
-    return DEMO_FOLLOWS;
-  } catch {
-    return DEMO_FOLLOWS;
-  }
-}
+const FOLLOWS_STORAGE_KEY = "@maybewe_social_follows_v1";
+const BLOCKS_STORAGE_KEY = "@maybewe_social_blocks_v1";
 
 /**
  * Follow a traveler
  * Rules:
- * 1. Cannot follow yourself (follower_id !== following_id).
- * 2. Cannot follow twice (duplicate prevention).
- * 3. Authenticated user can only follow on their own behalf.
+ * 1. Cannot follow yourself (chk_no_self_follow).
+ * 2. Cannot follow twice (uq_follow_pair).
  */
-export async function followUser(followerId, followingId, followerName = 'Traveler') {
+export async function followUser(followerId, followingId, followerName = "Traveler") {
   if (!followerId || !followingId) {
-    throw new Error('Both follower and following IDs are required.');
+    throw new Error("Both follower and following IDs are required.");
   }
 
-  if (followerId === followingId) {
-    throw new Error('You cannot follow your own travel profile.');
+  if (String(followerId) === String(followingId)) {
+    throw new Error("You cannot follow your own travel profile.");
   }
 
-  const allFollows = await getAllFollows();
-  const exists = allFollows.some(
-    (f) => f.follower_id === followerId && f.following_id === followingId
-  );
-
-  if (exists) {
-    return { success: true, alreadyFollowing: true, message: 'Already following.' };
-  }
-
-  const newFollow = {
-    follower_id: followerId,
-    following_id: followingId,
-    created_at: new Date().toISOString(),
-  };
-
-  allFollows.push(newFollow);
-  await AsyncStorage.setItem(FOLLOWS_STORAGE_KEY, JSON.stringify(allFollows));
-
-  // Log notification event for the person being followed
-  await logNotificationEvent({
-    userId: followingId,
-    actorId: followerId,
-    type: 'follow',
-    title: 'New Travel Connection',
-    message: `${followerName} started following your travel stories.`,
-  });
-
-  // Sync to Supabase
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('follows').insert([
-        {
-          follower_id: followerId,
-          following_id: followingId,
-        },
-      ]);
-    } catch (e) {
-      console.warn('Error inserting follow in Supabase:', e);
+      const { error } = await supabase
+        .from("follows")
+        .insert([{ follower_id: followerId, following_id: followingId }]);
+
+      if (error && error.code !== "23505") {
+        throw new Error(error.message || "Failed to follow user.");
+      }
+
+      // Send notification
+      logNotificationEvent({
+        userId: followingId,
+        actorId: followerId,
+        type: "follow",
+        title: "New Companion Follower",
+        message: `${followerName} started following your travel journey.`,
+      }).catch(() => {});
+
+      return { success: true, isFollowing: true };
+    } catch (err) {
+      console.warn("followUser error:", err);
+      throw err;
     }
   }
 
@@ -91,26 +58,21 @@ export async function followUser(followerId, followingId, followerName = 'Travel
  * Unfollow a traveler
  */
 export async function unfollowUser(followerId, followingId) {
-  if (!followerId || !followingId) {
-    throw new Error('Both follower and following IDs are required.');
-  }
-
-  const allFollows = await getAllFollows();
-  const updated = allFollows.filter(
-    (f) => !(f.follower_id === followerId && f.following_id === followingId)
-  );
-
-  await AsyncStorage.setItem(FOLLOWS_STORAGE_KEY, JSON.stringify(updated));
+  if (!followerId || !followingId) return { success: false };
 
   if (isSupabaseConfigured) {
     try {
-      await supabase
-        .from('follows')
+      const { error } = await supabase
+        .from("follows")
         .delete()
-        .eq('follower_id', followerId)
-        .eq('following_id', followingId);
-    } catch (e) {
-      console.warn('Error deleting follow in Supabase:', e);
+        .eq("follower_id", followerId)
+        .eq("following_id", followingId);
+
+      if (error) throw new Error(error.message);
+      return { success: true, isFollowing: false };
+    } catch (err) {
+      console.warn("unfollowUser error:", err);
+      throw err;
     }
   }
 
@@ -118,43 +80,200 @@ export async function unfollowUser(followerId, followingId) {
 }
 
 /**
- * Check if followerId is following followingId
+ * Check if followerId follows followingId
  */
-export async function getFollowStatus(followerId, followingId) {
-  if (!followerId || !followingId || followerId === followingId) return false;
-  const allFollows = await getAllFollows();
-  return allFollows.some(
-    (f) => f.follower_id === followerId && f.following_id === followingId
-  );
-}
 
 /**
  * Get follower and following counts for a user
  */
 export async function getFollowCounts(userId) {
-  if (!userId) return { followersCount: 0, followingCount: 0 };
-  const allFollows = await getAllFollows();
+  if (!userId || !isSupabaseConfigured) {
+    return { followersCount: 0, followingCount: 0 };
+  }
 
-  const followersCount = allFollows.filter((f) => f.following_id === userId).length;
-  const followingCount = allFollows.filter((f) => f.follower_id === userId).length;
+  try {
+    const [followersRes, followingRes] = await Promise.all([
+      supabase
+        .from('follows')
+        .select('follower_id', { count: 'exact', head: true })
+        .eq('following_id', userId),
+      supabase
+        .from('follows')
+        .select('following_id', { count: 'exact', head: true })
+        .eq('follower_id', userId),
+    ]);
 
-  return { followersCount, followingCount };
+    return {
+      followersCount: followersRes?.count || 0,
+      followingCount: followingRes?.count || 0,
+    };
+  } catch (err) {
+    console.warn('getFollowCounts error:', err);
+    return { followersCount: 0, followingCount: 0 };
+  }
+}
+
+export async function getFollowStatus(followerId, followingId) {
+  if (!followerId || !followingId) return false;
+
+  if (isSupabaseConfigured) {
+    try {
+      const { data } = await supabase
+        .from("follows")
+        .select("id")
+        .eq("follower_id", followerId)
+        .eq("following_id", followingId)
+        .maybeSingle();
+
+      return Boolean(data);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 /**
- * Get list of followers for a user
+ * Block a user (Bi-Directional Safety Barrier)
+ * Guarantees viewer and target cannot see each other's posts, comments, or presence.
  */
-export async function fetchFollowers(userId) {
-  if (!userId) return [];
-  const allFollows = await getAllFollows();
-  return allFollows.filter((f) => f.following_id === userId);
+export async function blockUser(viewerId, targetId) {
+  if (!viewerId || !targetId) throw new Error("Both user IDs required for block action.");
+  if (String(viewerId) === String(targetId)) throw new Error("You cannot block yourself.");
+
+  if (isSupabaseConfigured) {
+    try {
+      // 1. Insert into blocks table
+      await supabase
+        .from("blocks")
+        .insert([{ user_id: viewerId, blocked_id: targetId }])
+        .catch(() => {});
+
+      // 2. Insert into user_blocks table (compatibility)
+      await supabase
+        .from("user_blocks")
+        .insert([{ blocker_user_id: viewerId, blocked_user_id: targetId }])
+        .catch(() => {});
+
+      // 3. Remove any active follow links between them
+      await supabase
+        .from("follows")
+        .delete()
+        .or(`and(follower_id.eq.${viewerId},following_id.eq.${targetId}),and(follower_id.eq.${targetId},following_id.eq.${viewerId})`)
+        .catch(() => {});
+
+      return { success: true, isBlocked: true };
+    } catch (err) {
+      console.warn("blockUser error:", err);
+      throw err;
+    }
+  }
+
+  return { success: true, isBlocked: true };
 }
 
 /**
- * Get list of users that a user is following
+ * Unblock a user
  */
-export async function fetchFollowing(userId) {
-  if (!userId) return [];
-  const allFollows = await getAllFollows();
-  return allFollows.filter((f) => f.follower_id === userId);
+export async function unblockUser(viewerId, targetId) {
+  if (!viewerId || !targetId) return { success: false };
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase
+        .from("blocks")
+        .delete()
+        .eq("user_id", viewerId)
+        .eq("blocked_id", targetId);
+
+      await supabase
+        .from("user_blocks")
+        .delete()
+        .eq("blocker_user_id", viewerId)
+        .eq("blocked_user_id", targetId);
+
+      return { success: true, isBlocked: false };
+    } catch (err) {
+      console.warn("unblockUser error:", err);
+      throw err;
+    }
+  }
+
+  return { success: true, isBlocked: false };
+}
+
+/**
+ * Check if a bi-directional block exists between two users
+ */
+export async function isUserBlocked(viewerId, targetId) {
+  if (!viewerId || !targetId || !isSupabaseConfigured) return false;
+
+  try {
+    const { data: b1 } = await supabase
+      .from("blocks")
+      .select("id")
+      .or(`and(user_id.eq.${viewerId},blocked_id.eq.${targetId}),and(user_id.eq.${targetId},blocked_id.eq.${viewerId})`)
+      .limit(1);
+
+    if (Array.isArray(b1) && b1.length > 0) return true;
+
+    const { data: b2 } = await supabase
+      .from("user_blocks")
+      .select("id")
+      .or(`and(blocker_user_id.eq.${viewerId},blocked_user_id.eq.${targetId}),and(blocker_user_id.eq.${targetId},blocked_user_id.eq.${viewerId})`)
+      .limit(1);
+
+    return Boolean(Array.isArray(b2) && b2.length > 0);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Submit a moderation report against a post, comment, or user
+ */
+export async function submitReport({
+  reporterId,
+  targetType = "post",
+  targetId,
+  reportedId = null,
+  reason,
+  details = "",
+}) {
+  if (!reporterId) throw new Error("Reporter ID is required.");
+  if (!targetId) throw new Error("Target ID is required.");
+  if (!reason) throw new Error("Please select a reason for the report.");
+
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from("reports")
+        .insert([
+          {
+            reporter_id: reporterId,
+            target_type: targetType,
+            target_id: String(targetId),
+            reported_id: reportedId || null,
+            reason,
+            details,
+            status: "pending",
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.warn("submitReport error:", error);
+        throw new Error(error.message || "Failed to submit safety report.");
+      }
+
+      return { success: true, reportId: data?.id };
+    } catch (err) {
+      console.warn("submitReport error:", err);
+      throw err;
+    }
+  }
+
+  return { success: true, reportId: `rep-${Date.now()}` };
 }

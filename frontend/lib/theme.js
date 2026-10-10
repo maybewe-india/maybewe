@@ -1,388 +1,426 @@
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
 // ============================================================
-// MaybeWe — Warm Champagne Pearl Design System
-// Theme: Warm Champagne Pearl
+// MaybeWe — Alabaster, French Linen & Champagne Gold
+// Quiet Luxury Concierge Design System
 //
-// Exact brand colours (DO NOT ALTER):
-//   Pearl White  #EFDCCC  — main page / background foundation
-//   Champagne    #E7D3B5  — CTAs, active nav, highlights, accents
-//   Warm Beige   #D9C8B2  — cards, inputs, chips, dividers, surfaces
-//   Deep Charcoal #171817 — readable text and important icons
+// Master Brand Tokens:
+//   Background:         #FAF8F5 (Alabaster French Linen)
+//   Surface Cards:      #FFFFFF (Silk Ivory) with border: 1px solid rgba(197, 168, 128, 0.28)
+//   Surface Secondary:  #F4EFEB (Warm Cashmere Sand)
+//   Primary Contrast:   #1C1917 (Warm Espresso / Deep Obsidian — NEVER #000000)
+//   Accent:             #C5A880 & #D4AF37 (Champagne Gold / Muted Brass)
+//   Text Primary:       #1E1B18 (Deep Warm Charcoal)
+//   Text Muted:         #7D756D (Cashmere Taupe)
+//   Dividers:           rgba(28, 25, 23, 0.06)
 // ============================================================
+
+export const LUXURY_TOKENS = {
+  background: "#FAF8F5",
+  surfaceCards: "#FFFFFF",
+  surfaceCardsBorder: "rgba(197, 168, 128, 0.28)",
+  surfaceSecondary: "#F4EFEB",
+  primaryContrast: "#1C1917",
+  accent: "#C5A880",
+  accentGold: "#D4AF37",
+  textPrimary: "#1E1B18",
+  textMuted: "#7D756D",
+  dividers: "rgba(28, 25, 23, 0.06)",
+  radii: {
+    pills: 9999,
+    buttons: 9999,
+    cards: 24,
+    containers: 24,
+    inputFields: 16,
+    full: 9999,
+  },
+  shadows: {
+    soft: {
+      shadowColor: "#1C1917",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.04,
+      shadowRadius: 20,
+      elevation: 2,
+    },
+    card: {
+      shadowColor: "#1C1917",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.04,
+      shadowRadius: 20,
+      elevation: 2,
+    },
+  },
+};
 
 export const FONTS = {
-  regular: Platform.select({ web: '"Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', default: 'Manrope_400Regular' }),
-  medium: Platform.select({ web: '"Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', default: 'Manrope_500Medium' }),
-  semiBold: Platform.select({ web: '"Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', default: 'Manrope_600SemiBold' }),
-  bold: Platform.select({ web: '"Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', default: 'Manrope_700Bold' }),
-  extraBold: Platform.select({ web: '"Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', default: 'Manrope_800ExtraBold' }),
+  regular: Platform.select({ web: "'Manrope', -apple-system, BlinkMacSystemFont, sans-serif", default: "Manrope_400Regular" }),
+  medium: Platform.select({ web: "'Manrope', -apple-system, BlinkMacSystemFont, sans-serif", default: "Manrope_500Medium" }),
+  semiBold: Platform.select({ web: "'Manrope', -apple-system, BlinkMacSystemFont, sans-serif", default: "Manrope_600SemiBold" }),
+  bold: Platform.select({ web: "'Manrope', -apple-system, BlinkMacSystemFont, sans-serif", default: "Manrope_700Bold" }),
+  extraBold: Platform.select({ web: "'Manrope', -apple-system, BlinkMacSystemFont, sans-serif", default: "Manrope_800ExtraBold" }),
 };
 
 export const TYPOGRAPHY = {
-  // Display / Hero headings → Manrope 800
   hero: {
     fontFamily: FONTS.extraBold,
-    fontWeight: '800',
+    fontWeight: "800",
     fontSize: 34,
     lineHeight: 44,
     letterSpacing: -0.8,
-    color: '#171817',
+    color: "#1E1B18",
   },
   display: {
     fontFamily: FONTS.extraBold,
-    fontWeight: '800',
+    fontWeight: "800",
     fontSize: 28,
     lineHeight: 36,
     letterSpacing: -0.6,
-    color: '#171817',
+    color: "#1E1B18",
   },
-  // Large headings → Manrope 700–800
   headingLarge: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 24,
     lineHeight: 32,
     letterSpacing: -0.4,
-    color: '#171817',
+    color: "#1E1B18",
   },
   heading2: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 20,
     lineHeight: 28,
     letterSpacing: -0.3,
-    color: '#171817',
+    color: "#1E1B18",
   },
-  // Section headings → Manrope 700
   sectionHeading: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 18,
     lineHeight: 26,
     letterSpacing: -0.2,
-    color: '#171817',
+    color: "#1E1B18",
   },
-  // Card titles → Manrope 600–700
   cardTitle: {
     fontFamily: FONTS.semiBold,
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: -0.2,
-    color: '#171817',
+    color: "#1E1B18",
   },
   cardTitleBold: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: -0.2,
-    color: '#171817',
+    color: "#1E1B18",
   },
-  // Body text → Manrope 400–500
   body: {
     fontFamily: FONTS.regular,
-    fontWeight: '400',
+    fontWeight: "400",
     fontSize: 15,
     lineHeight: 24,
-    color: '#363633',
+    color: "#4A443E",
   },
   bodyMedium: {
     fontFamily: FONTS.medium,
-    fontWeight: '500',
+    fontWeight: "500",
     fontSize: 15,
     lineHeight: 24,
-    color: '#171817',
+    color: "#1E1B18",
   },
   bodySmall: {
     fontFamily: FONTS.regular,
-    fontWeight: '400',
+    fontWeight: "400",
     fontSize: 13,
     lineHeight: 20,
-    color: '#8A8984',
+    color: "#7D756D",
   },
-  // Buttons → Manrope 600–700
   button: {
     fontFamily: FONTS.semiBold,
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 15,
     letterSpacing: -0.1,
   },
   buttonBold: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 15,
     letterSpacing: -0.1,
   },
-  // Navigation labels → Manrope 600
   navLabel: {
     fontFamily: FONTS.semiBold,
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 11,
     letterSpacing: 0.2,
   },
-  // Eyebrow labels → Manrope 600–700
   eyebrow: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 11,
     letterSpacing: 1.8,
-    textTransform: 'uppercase',
-    color: '#8A8984',
+    textTransform: "uppercase",
+    color: "#7D756D",
   },
-  // Stats / percentages / dates → Manrope 700
   stats: {
     fontFamily: FONTS.bold,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 18,
-    color: '#171817',
+    color: "#1E1B18",
   },
   caption: {
     fontFamily: FONTS.medium,
-    fontWeight: '500',
+    fontWeight: "500",
     fontSize: 12,
     lineHeight: 18,
-    color: '#8A8984',
+    color: "#7D756D",
   },
 };
 
-// Warm Champagne Pearl — Lighter surface tokens
-// Main background: #FFFDFC (almost white)
-// Secondary bg:    #FBF8F3 (very light warm ivory)
-// Cards/surfaces:  #F5EEE5 (very light beige)
-// Champagne:       #E7D3B5 (soft accent)
-// Borders:         #EDE5DA (subtle warm beige)
 export const SURFACES = {
-  pearl: '#FFFDFC',       // Near-white main background
-  warmIvory: '#FBF8F3',   // Very light warm ivory
-  silk: '#FBF8F3',        // alias
-  softChampagne: '#E7D3B5', // Champagne — accents
-  mistSage: '#F5EEE5',    // Very light beige — surfaces
-  powderBlue: '#F5EEE5',  // alias
-  warmSand: '#F5EEE5',    // Very light beige
-  softRose: '#FFFDFC',    // alias → near-white
-  stone: '#EDE5DA',       // Border/divider beige
+  pearl: "#FAF8F5",
+  warmIvory: "#FAF8F5",
+  silk: "#FFFFFF",
+  softChampagne: "#C5A880",
+  mistSage: "#F4EFEB",
+  powderBlue: "#F4EFEB",
+  warmSand: "#F4EFEB",
+  softRose: "#FAF8F5",
+  stone: "rgba(197, 168, 128, 0.28)",
 };
 
 export const TEXT = {
-  obsidian: '#171817',
-  graphite: '#2B2C29',
-  warmCharcoal: '#45453F',
-  muted: '#77766F',
+  obsidian: "#1C1917",
+  graphite: "#1C1917",
+  warmCharcoal: "#1E1B18",
+  muted: "#7D756D",
 };
 
 export const ACCENTS = {
-  champagneGold: '#E7D3B5', // Champagne — primary accent
-  deepOlive: '#33463C',
-  mutedTerracotta: '#A96F5C',
-  deepOcean: '#405B68',
+  champagneGold: "#C5A880",
+  deepOlive: "#2C3E35",
+  mutedTerracotta: "#A96F5C",
+  deepOcean: "#3B5360",
+  gold: "#D4AF37",
+  mutedBrass: "#D4AF37",
 };
 
 export const GLASS_MATERIALS = {
   light: {
-    backgroundColor: 'rgba(255, 253, 252, 0.92)',
-    borderColor: 'rgba(237, 229, 218, 0.75)',
+    backgroundColor: "rgba(255, 255, 255, 0.88)",
+    borderColor: "rgba(197, 168, 128, 0.28)",
   },
   pearl: {
-    backgroundColor: 'rgba(251, 248, 243, 0.90)',
-    borderColor: 'rgba(237, 229, 218, 0.65)',
+    backgroundColor: "rgba(250, 248, 245, 0.92)",
+    borderColor: "rgba(197, 168, 128, 0.28)",
   },
   champagne: {
-    backgroundColor: 'rgba(231, 211, 181, 0.28)',
-    borderColor: 'rgba(237, 229, 218, 0.50)',
+    backgroundColor: "rgba(197, 168, 128, 0.16)",
+    borderColor: "rgba(197, 168, 128, 0.35)",
   },
   sage: {
-    backgroundColor: 'rgba(245, 238, 229, 0.38)',
-    borderColor: 'rgba(51, 70, 60, 0.20)',
+    backgroundColor: "rgba(244, 239, 235, 0.70)",
+    borderColor: "rgba(197, 168, 128, 0.20)",
   },
 };
 
 export const PALETTE = {
-  // BASE — Warm Champagne Pearl (Lighter Edition)
-  pearl: '#FFFDFC',         // Near-white main background
-  warmIvory: '#FBF8F3',     // Very light warm ivory
-  silk: '#FBF8F3',          // alias
-  softChampagne: '#E7D3B5', // Champagne — accents/highlights
-  mistSage: '#F5EEE5',      // Very light beige — surfaces
-  powderBlue: '#F5EEE5',    // alias
-  warmSand: '#F5EEE5',      // Very light beige
-  softRose: '#FFFDFC',      // alias → near-white
-  stone: '#EDE5DA',         // Border/divider
-
-  // TEXT
-  obsidian: '#171817',
-  graphite: '#2B2C29',
-  warmCharcoal: '#45453F',
-  muted: '#77766F',
-
-  // ACCENTS
-  champagneGold: '#E7D3B5', // Champagne
-  deepOlive: '#33463C',
-  mutedTerracotta: '#A96F5C',
-  deepOcean: '#405B68',
-
-  // Legacy & compatibility aliases
-  softPearl: '#FFFDFC',
-  deepCharcoal: '#171817',
-  softStone: '#EDE5DA',
-  warmGrey: '#77766F',
-  textPrimary: '#171817',
-  textSecondary: '#45453F',
-  textMuted: '#77766F',
-  champagne: '#E7D3B5',
-  champagneHighlight: '#E7D3B5',
-  deepBronze: '#756345',
-  deepForest: '#33463C',
-  warmOffWhite: '#FBF8F3',
-  softIvory: '#FBF8F3',
-  white: '#FFFFFF',
-  lightGrey: '#FFFDFC',
-  borderGrey: '#EDE5DA',
-  mediumGrey: '#45453F',
-  darkGrey: '#2B2C29',
-  nearBlack: '#171817',
+  pearl: "#FAF8F5",
+  warmIvory: "#FAF8F5",
+  silk: "#FFFFFF",
+  softChampagne: "#C5A880",
+  mistSage: "#F4EFEB",
+  powderBlue: "#F4EFEB",
+  warmSand: "#F4EFEB",
+  softRose: "#FAF8F5",
+  stone: "rgba(197, 168, 128, 0.28)",
+  obsidian: "#1C1917",
+  graphite: "#1C1917",
+  warmCharcoal: "#1E1B18",
+  muted: "#7D756D",
+  champagneGold: "#C5A880",
+  deepOlive: "#2C3E35",
+  mutedTerracotta: "#A96F5C",
+  deepOcean: "#3B5360",
+  softPearl: "#FAF8F5",
+  deepCharcoal: "#1E1B18",
+  softStone: "rgba(197, 168, 128, 0.28)",
+  warmGrey: "#7D756D",
+  textPrimary: "#1E1B18",
+  textSecondary: "#4A443E",
+  textMuted: "#7D756D",
+  champagne: "#C5A880",
+  champagneHighlight: "#C5A880",
+  deepBronze: "#8E7355",
+  deepForest: "#2C3E35",
+  warmOffWhite: "#FAF8F5",
+  softIvory: "#FAF8F5",
+  white: "#FFFFFF",
+  lightGrey: "#FAF8F5",
+  borderGrey: "rgba(197, 168, 128, 0.28)",
+  mediumGrey: "#4A443E",
+  darkGrey: "#1C1917",
+  nearBlack: "#1C1917",
 };
 
 export const DARK_COLORS = {
-  mode: 'dark',
-  isDark: false, // Locked to luxury light palette
-  background: '#061522',
-  backgroundSecondary: '#1D1D1B',
-  surface: '#242422',
-  surfaceElevated: '#363633',
-  surfaceGlass: 'rgba(29, 29, 27, 0.85)',
-  surfaceGlassDark: '#111210',
-  surfaceGlassUltra: '#1D1D1B',
-
-  // Borders
-  border: '#363633',
-  borderLight: '#242422',
-  borderGlass: '#363633',
-  borderActive: '#E7D3B5',
-
-  // Text
-  text: '#FAF8F3',
-  textPrimary: '#FAF8F3',
-  textSecondary: '#D8D4CB',
-  textMuted: '#96938B',
-  textDisabled: '#66645F',
-
-  primary: '#FAF8F3',
-  primaryText: '#1D1D1B',
-  primaryLight: '#D8D4CB',
-  primaryDark: '#96938B',
-
-  success: '#3D7A5A',
-  danger: '#B34A4A',
-  warning: '#E7D3B5',
-  info: '#4A6B82',
-
-  overlay: 'rgba(17, 18, 16, 0.50)',
-  overlayHeavy: 'rgba(17, 18, 16, 0.75)',
-  overlayCard: '#242422',
-  bgGradientOverlay: ['rgba(17, 18, 16, 0.20)', 'rgba(17, 18, 16, 0.50)', '#111210'],
-  heroGradientOverlay: ['rgba(17, 18, 16, 0.15)', 'rgba(17, 18, 16, 0.40)', '#111210'],
-
-  cardBg: '#1D1D1B',
-  cardBorder: '#363633',
-  input: '#242422',
-  inputBg: '#242422',
-  inputBorder: '#363633',
-  chipBg: '#242422',
-  chipBorder: '#363633',
-  tabBarBg: '#111210',
-  modalBg: '#1D1D1B',
-  surfaceSubtle: '#242422',
-  surfaceCard: '#1D1D1B',
-  textSecondaryLight: '#D8D4CB',
+  mode: "dark",
+  isDark: false, // Locked to luxury aesthetic
+  background: "#FAF8F5",
+  backgroundSecondary: "#F4EFEB",
+  surface: "#FFFFFF",
+  surfaceElevated: "#FFFFFF",
+  surfaceGlass: "rgba(255, 255, 255, 0.85)",
+  surfaceGlassDark: "rgba(28, 25, 23, 0.90)",
+  surfaceGlassUltra: "rgba(250, 248, 245, 0.92)",
+  border: "rgba(197, 168, 128, 0.28)",
+  borderLight: "rgba(28, 25, 23, 0.06)",
+  borderGlass: "rgba(197, 168, 128, 0.28)",
+  borderActive: "#C5A880",
+  borderChampagne: "#C5A880",
+  text: "#1E1B18",
+  textPrimary: "#1E1B18",
+  textSecondary: "#4A443E",
+  textMuted: "#7D756D",
+  textDisabled: "#B5AFA7",
+  primary: "#1C1917",
+  primaryContrast: "#1C1917",
+  primaryText: "#FAF8F5",
+  primaryLight: "#2B2724",
+  primaryDark: "#141210",
+  success: "#2C3E35",
+  danger: "#8B3A3A",
+  warning: "#C5A880",
+  info: "#3B5360",
+  overlay: "rgba(28, 25, 23, 0.40)",
+  overlayHeavy: "rgba(28, 25, 23, 0.65)",
+  overlayCard: "transparent",
+  bgGradientOverlay: ["transparent", "transparent", "transparent"],
+  heroGradientOverlay: ["transparent", "transparent", "transparent"],
+  cardBg: "#FFFFFF",
+  cardBackground: "#FFFFFF",
+  card: "#FFFFFF",
+  cardBorder: "rgba(197, 168, 128, 0.28)",
+  input: "#FFFFFF",
+  inputBg: "#FFFFFF",
+  inputBorder: "#E5DFD5",
+  chipBg: "#F4EFEB",
+  chipBorder: "rgba(197, 168, 128, 0.28)",
+  tabBarBg: "rgba(250, 248, 245, 0.92)",
+  modalBg: "#FFFFFF",
+  surfaceSubtle: "#F4EFEB",
+  surfaceCard: "#FFFFFF",
+  textSecondaryLight: "#7D756D",
 };
 
 export const LIGHT_COLORS = {
-  mode: 'light',
+  mode: "light",
   isDark: false,
 
-  // ─── Background & Surface tokens (light warm ivory & pearl) ───
-  background: '#FFFDFC',
-  backgroundSecondary: '#FBF8F3',
-  surface: '#FFFDFC',
-  surfaceElevated: '#FFFFFF',
-  surfaceGlass: 'rgba(255, 253, 252, 0.95)',
-  surfaceGlassDark: 'rgba(23, 24, 23, 0.88)',
-  surfaceGlassUltra: 'rgba(251, 248, 243, 0.95)',
+  // ─── Background & Surface tokens ───
+  background: "#FAF8F5",             // Alabaster French Linen
+  backgroundSecondary: "#F4EFEB",    // Warm Cashmere Sand
+  surface: "#FFFFFF",                // Silk Ivory
+  surfaceElevated: "#FFFFFF",
+  surfaceGlass: "rgba(255, 255, 255, 0.88)",
+  surfaceGlassDark: "rgba(28, 25, 23, 0.90)",
+  surfaceGlassUltra: "rgba(250, 248, 245, 0.92)",
+  surfaceCard: "#FFFFFF",
+  surfaceCards: "#FFFFFF",
+  surfaceSecondary: "#F4EFEB",
+  surfaceSubtle: "#F4EFEB",
 
-  // ─── Borders: subtle warm beige ───
-  border: '#EDE5DA',
-  borderLight: 'rgba(237, 229, 218, 0.55)',
-  borderGlass: 'rgba(237, 229, 218, 0.65)',
-  borderActive: '#E7D3B5',         // Champagne — active border
-  borderChampagne: '#E7D3B5',      // Champagne
+  // ─── Borders & Dividers ───
+  border: "rgba(197, 168, 128, 0.28)",
+  borderLight: "rgba(28, 25, 23, 0.06)",
+  borderGlass: "rgba(197, 168, 128, 0.28)",
+  borderActive: "#C5A880",
+  borderChampagne: "#C5A880",
+  divider: "rgba(28, 25, 23, 0.06)",
+  dividers: "rgba(28, 25, 23, 0.06)",
 
-  // ─── Text: Deep Charcoal (unchanged) ───
-  text: '#171817',
-  textPrimary: '#171817',
-  textSecondary: '#45453F',
-  textMuted: '#77766F',
-  textDisabled: '#EDE5DA',
+  // ─── Text: Deep Warm Charcoal & Cashmere Taupe ───
+  text: "#1E1B18",
+  textPrimary: "#1E1B18",
+  textSecondary: "#4A443E",
+  textMuted: "#7D756D",
+  textDisabled: "#B5AFA7",
+  textSecondaryLight: "#7D756D",
 
-  // ─── Champagne accents ───
-  champagne: '#E7D3B5',
-  champagneHighlight: '#E7D3B5',
-  deepOlive: '#33463C',
-  mutedTerracotta: '#A96F5C',
-  deepOcean: '#405B68',
-  deepBronze: '#756345',
-  deepForest: '#33463C',
+  // ─── Champagne Accents & Contrast ───
+  champagne: "#C5A880",
+  champagneHighlight: "#C5A880",
+  accent: "#C5A880",
+  accentGold: "#D4AF37",
+  gold: "#D4AF37",
+  brass: "#D4AF37",
+  sand: "#F4EFEB",
+  deepOlive: "#2C3E35",
+  mutedTerracotta: "#A96F5C",
+  deepOcean: "#3B5360",
+  deepBronze: "#8E7355",
+  deepForest: "#2C3E35",
+
+  // ─── Brand Luxuries ───
+  alabaster: "#FAF8F5",
+  silkIvory: "#FFFFFF",
+  warmSand: "#F4EFEB",
+  warmEspresso: "#1C1917",
+  obsidian: "#1C1917",
+  cashmereTaupe: "#7D756D",
 
   // ─── Semantic ───
-  success: '#33463C',
-  successBg: '#F5EEE5',
-  danger: '#A96F5C',
-  dangerBg: '#FBF8F3',
-  warning: '#E7D3B5',
-  warningBg: '#FBF8F3',
-  info: '#405B68',
-  infoBg: '#F5EEE5',
+  success: "#2C3E35",
+  successBg: "#F0F5F2",
+  danger: "#8B3A3A",
+  dangerBg: "#FDF2F2",
+  warning: "#C5A880",
+  warningBg: "#FAF5EE",
+  info: "#3B5360",
+  infoBg: "#F0F4F6",
 
   // ─── Overlays ───
-  overlay: 'rgba(23, 24, 23, 0.35)',
-  overlayHeavy: 'rgba(23, 24, 23, 0.60)',
-  overlayCard: 'transparent',
-  bgGradientOverlay: ['transparent', 'transparent', 'transparent'],
-  heroGradientOverlay: ['transparent', 'transparent', 'transparent'],
+  overlay: "rgba(28, 25, 23, 0.40)",
+  overlayHeavy: "rgba(28, 25, 23, 0.65)",
+  overlayCard: "transparent",
+  bgGradientOverlay: ["transparent", "transparent", "transparent"],
+  heroGradientOverlay: ["transparent", "transparent", "transparent"],
 
-  // ─── Component-specific ───
-  primary: '#171817',
-  primaryText: '#FBF8F3',
-  primaryLight: '#2B2C29',
-  primaryDark: '#111210',
-  glassBg: 'rgba(251, 248, 243, 0.92)',
-  glassBorder: 'rgba(237, 229, 218, 0.65)',
+  // ─── Primary Contrast ───
+  primary: "#1C1917",
+  primaryContrast: "#1C1917",
+  primaryText: "#FAF8F5",
+  primaryLight: "#2B2724",
+  primaryDark: "#141210",
+  glassBg: "rgba(250, 248, 245, 0.92)",
+  glassBorder: "rgba(197, 168, 128, 0.28)",
 
-  // Cards / inputs / chips → very light beige
-  surfaceSubtle: '#F5EEE5',
-  surfaceCard: '#F5EEE5',
-  cardBg: '#F5EEE5',
-  cardBorder: '#EDE5DA',
-  input: '#F5EEE5',
-  inputBg: '#F5EEE5',
-  inputBorder: '#EDE5DA',
-  chipBg: '#F5EEE5',
-  chipBorder: '#EDE5DA',
+  // ─── Cards & Inputs ───
+  cardBg: "#FFFFFF",
+  cardBackground: "#FFFFFF",
+  card: "#FFFFFF",
+  cardBorder: "rgba(197, 168, 128, 0.28)",
+  input: "#FFFFFF",
+  inputBg: "#FFFFFF",
+  inputBorder: "#E5DFD5",
+  inputFocusBorder: "#C5A880",
+  chipBg: "#F4EFEB",
+  chipBorder: "rgba(197, 168, 128, 0.28)",
 
-  // Modal → near-white (modal needs a real background)
-  modalBg: '#FFFDFC',
-  tabBarBg: 'transparent',
-  textSecondaryLight: '#77766F',
+  // ─── Modal & TabBar ───
+  modalBg: "#FFFFFF",
+  tabBarBg: "rgba(250, 248, 245, 0.92)",
 };
 
-export const getThemeColors = (mode = 'light') => {
+export const getThemeColors = (mode = "light") => {
   return LIGHT_COLORS;
 };
 
-export const getTheme = (mode = 'light') => {
+export const getTheme = (mode = "light") => {
   return {
-    mode: 'light',
+    mode: "light",
     isDark: false,
     colors: LIGHT_COLORS,
     typography: TYPOGRAPHY,
@@ -394,180 +432,175 @@ export const getTheme = (mode = 'light') => {
   };
 };
 
-// Default export permanently locked to LIGHT_COLORS
 export const COLORS = LIGHT_COLORS;
 
 export const GRADIENTS = {
-  // 3D physical graphite gradients
-  primary3D: ['#282824', '#1D1D1B', '#111210'],
-  lavenderViolet: ['#282824', '#1D1D1B', '#111210'],
-  peachLavender: ['#282824', '#1D1D1B', '#111210'],
-  sunsetPeachViolet: ['#1D1D1B', '#282824', '#756345'],
-  sunsetToNavy: ['#1D1D1B', '#282824', '#1D1D1B'],
+  primary3D: ["#1C1917", "#282420", "#1C1917"],
+  lavenderViolet: ["#1C1917", "#282420", "#1C1917"],
+  peachLavender: ["#1C1917", "#282420", "#1C1917"],
+  sunsetPeachViolet: ["#1C1917", "#282420", "#8E7355"],
+  sunsetToNavy: ["#1C1917", "#282420", "#1C1917"],
 
-  // Champagne Pearl reflections
-  champagneReflect: ['#E7D3B5', '#F5EEE5', '#E7D3B5'],
-  champagneSubtle: ['rgba(231, 211, 181, 0.16)', 'rgba(231, 211, 181, 0.02)'],
-  pearlGlass: ['rgba(255, 253, 252, 0.96)', 'rgba(251, 248, 243, 0.88)'],
-  cardHighlight: ['rgba(255, 253, 252, 0.92)', 'rgba(255, 253, 252, 0)'],
-  ambientLight: ['rgba(231, 211, 181, 0.14)', 'rgba(255, 253, 252, 0)'],
+  champagneReflect: ["#C5A880", "#FAF8F5", "#D4AF37"],
+  champagneSubtle: ["rgba(197, 168, 128, 0.16)", "rgba(197, 168, 128, 0.02)"],
+  pearlGlass: ["rgba(255, 255, 255, 0.95)", "rgba(250, 248, 245, 0.88)"],
+  cardHighlight: ["rgba(255, 255, 255, 0.92)", "rgba(255, 255, 255, 0)"],
+  ambientLight: ["rgba(197, 168, 128, 0.14)", "rgba(255, 255, 255, 0)"],
 
-  // Subtle tonal transitions
-  heroOverlay: ['transparent', 'rgba(251, 248, 243, 0.70)', '#FBF8F3'],
-  heroOverlayTop: ['rgba(255, 253, 252, 0.85)', 'transparent'],
-  cardOverlay: ['transparent', 'rgba(17, 18, 16, 0.65)'],
-  cardOverlayMedium: ['transparent', 'rgba(17, 18, 16, 0.40)'],
-  darkBase: ['#FFFDFC', '#FBF8F3'],
-  surface: ['#FFFDFC', '#FBF8F3'],
-  glassGradient: ['rgba(255, 253, 252, 0.94)', 'rgba(251, 248, 243, 0.88)'],
+  heroOverlay: ["transparent", "rgba(250, 248, 245, 0.70)", "#FAF8F5"],
+  heroOverlayTop: ["rgba(255, 255, 255, 0.85)", "transparent"],
+  cardOverlay: ["transparent", "rgba(28, 25, 23, 0.65)"],
+  cardOverlayMedium: ["transparent", "rgba(28, 25, 23, 0.40)"],
+  darkBase: ["#FAF8F5", "#F4EFEB"],
+  surface: ["#FFFFFF", "#FAF8F5"],
+  glassGradient: ["rgba(255, 255, 255, 0.94)", "rgba(250, 248, 245, 0.88)"],
 
-  morning: ['#FFFDFC', '#FBF8F3'],
-  afternoon: ['#FFFDFC', '#FBF8F3'],
-  sunset: ['#FFFDFC', '#FBF8F3'],
-  night: ['#FFFDFC', '#FBF8F3'],
+  morning: ["#FAF8F5", "#F4EFEB"],
+  afternoon: ["#FAF8F5", "#F4EFEB"],
+  sunset: ["#FAF8F5", "#F4EFEB"],
+  night: ["#FAF8F5", "#F4EFEB"],
 
-  // Tab / pill
-  tabPill: ['#FFFDFC', '#FBF8F3'],
-  tabPillActive: ['#282824', '#1D1D1B'],
-  ocean: ['#1D1D1B', '#282824'],
-  hero: ['#1D1D1B', '#282824'],
-  cardAccent: ['transparent', 'transparent'],
+  tabPill: ["#FFFFFF", "#FAF8F5"],
+  tabPillActive: ["#1C1917", "#2B2724"],
+  ocean: ["#1C1917", "#282420"],
+  hero: ["#1C1917", "#282420"],
+  cardAccent: ["transparent", "transparent"],
 };
 
 export const SHADOWS = {
   none: {
-    shadowColor: 'transparent',
+    shadowColor: "transparent",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0,
     shadowRadius: 0,
     elevation: 0,
   },
   subtle: {
-    shadowColor: '#111210',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
     elevation: 1,
     ...Platform.select({
       web: {
-        boxShadow: '0 1px 3px rgba(17, 18, 16, 0.04), 0 1px 2px rgba(17, 18, 16, 0.02)',
+        boxShadow: "0 2px 6px rgba(28, 25, 23, 0.03)",
       },
       default: {},
     }),
   },
   card: {
-    shadowColor: '#111210',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
     elevation: 2,
     ...Platform.select({
       web: {
-        boxShadow: '0 4px 16px -2px rgba(17, 18, 16, 0.06), 0 1px 3px rgba(17, 18, 16, 0.03)',
+        boxShadow: "0 8px 20px rgba(28, 25, 23, 0.04), 0 1px 3px rgba(28, 25, 23, 0.02)",
       },
       default: {},
     }),
   },
   card3D: {
-    shadowColor: '#111210',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
     elevation: 4,
     ...Platform.select({
       web: {
-        boxShadow: '0 10px 28px -4px rgba(17, 18, 16, 0.08), 0 2px 6px -1px rgba(17, 18, 16, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+        boxShadow: "0 12px 28px -4px rgba(28, 25, 23, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
       },
       default: {},
     }),
   },
   soft: {
-    shadowColor: '#111210',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 20,
     elevation: 2,
     ...Platform.select({
       web: {
-        boxShadow: '0 2px 8px rgba(17, 18, 16, 0.04)',
+        boxShadow: "0 8px 20px rgba(28, 25, 23, 0.04)",
       },
       default: {},
     }),
   },
   large: {
-    shadowColor: '#111210',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.10,
-    shadowRadius: 28,
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.08,
+    shadowRadius: 32,
     elevation: 6,
     ...Platform.select({
       web: {
-        boxShadow: '0 16px 36px -6px rgba(17, 18, 16, 0.10), 0 4px 12px rgba(17, 18, 16, 0.03)',
+        boxShadow: "0 16px 32px -6px rgba(28, 25, 23, 0.08), 0 4px 12px rgba(28, 25, 23, 0.03)",
       },
       default: {},
     }),
   },
   buttonPrimary: {
-    shadowColor: '#111210',
+    shadowColor: "#1C1917",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.20,
+    shadowOpacity: 0.16,
     shadowRadius: 12,
     elevation: 3,
     ...Platform.select({
       web: {
-        boxShadow: '0 4px 14px rgba(17, 18, 16, 0.18), 0 1px 2px rgba(17, 18, 16, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
+        boxShadow: "0 4px 14px rgba(28, 25, 23, 0.16)",
       },
       default: {},
     }),
   },
   buttonSecondary: {
-    shadowColor: '#111210',
+    shadowColor: "#1C1917",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 1,
     ...Platform.select({
       web: {
-        boxShadow: '0 2px 8px rgba(17, 18, 16, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+        boxShadow: "0 2px 8px rgba(28, 25, 23, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.95)",
       },
       default: {},
     }),
   },
   glassFloat: {
-    shadowColor: '#111210',
+    shadowColor: "#1C1917",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 24,
     elevation: 5,
     ...Platform.select({
       web: {
-        boxShadow: '0 12px 32px -4px rgba(17, 18, 16, 0.08), 0 2px 8px rgba(17, 18, 16, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.85)',
+        boxShadow: "0 10px 24px -4px rgba(28, 25, 23, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.85)",
       },
       default: {},
     }),
   },
   champagneGlow: {
-    shadowColor: '#E7D3B5',
+    shadowColor: "#C5A880",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 2,
     ...Platform.select({
       web: {
-        boxShadow: '0 0 16px rgba(231, 211, 181, 0.25)',
+        boxShadow: "0 0 16px rgba(197, 168, 128, 0.25)",
       },
       default: {},
     }),
   },
   hover: {
-    shadowColor: '#111210',
+    shadowColor: "#1C1917",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 14,
     elevation: 3,
     ...Platform.select({
       web: {
-        boxShadow: '0 6px 20px -2px rgba(17, 18, 16, 0.08)',
+        boxShadow: "0 6px 18px -2px rgba(28, 25, 23, 0.06)",
       },
       default: {},
     }),
@@ -578,11 +611,19 @@ export const RADII = {
   xs: 4,
   sm: 8,
   md: 12,
-  lg: 14,
+  lg: 16,
   xl: 16,
-  '2xl': 18,
-  '3xl': 22,
-  '4xl': 28,
+  "2xl": 20,
+  "3xl": 24,
+  "4xl": 28,
+  card: 24,
+  container: 24,
+  input: 16,
+  inputFields: 16,
+  pill: 9999,
+  pills: 9999,
+  button: 9999,
+  buttons: 9999,
   full: 9999,
 };
 
@@ -594,44 +635,44 @@ export const SPACING = {
   md: 16,
   lg: 20,
   xl: 24,
-  '2xl': 32,
-  '3xl': 40,
-  '4xl': 56,
+  "2xl": 32,
+  "3xl": 40,
+  "4xl": 56,
 };
 
-// Time-based atmospheric themes (used by useTimeTheme hook)
 export const TIME_THEMES = {
   morning: {
-    label: 'Morning',
-    gradient: ['#1A3A5C', '#2D5A8E', '#FFB39A'],
-    accentColor: '#FFB39A',
-    greeting: 'Good morning',
-    tagline: 'Fresh horizons await your journey.',
+    label: "Morning",
+    gradient: ["#FAF8F5", "#F4EFEB", "#C5A880"],
+    accentColor: "#C5A880",
+    greeting: "Good morning",
+    tagline: "Fresh horizons await your journey.",
   },
   afternoon: {
-    label: 'Afternoon',
-    gradient: ['#0B3D6E', '#1565A8', '#2196C9'],
-    accentColor: '#7DBFFF',
-    greeting: 'Good afternoon',
-    tagline: 'Vibrant paths to explore together.',
+    label: "Afternoon",
+    gradient: ["#FAF8F5", "#F4EFEB", "#D4AF37"],
+    accentColor: "#D4AF37",
+    greeting: "Good afternoon",
+    tagline: "Vibrant paths to explore together.",
   },
   sunset: {
-    label: 'Sunset',
-    gradient: ['#2A1540', '#6B2D6B', '#FFB39A'],
-    accentColor: '#FFD0A6',
-    greeting: 'Good evening',
-    tagline: 'Golden hour connections across the globe.',
+    label: "Sunset",
+    gradient: ["#FAF8F5", "#F4EFEB", "#C5A880"],
+    accentColor: "#C5A880",
+    greeting: "Good evening",
+    tagline: "Golden hour connections across the globe.",
   },
   night: {
-    label: 'Night',
-    gradient: ['#020B14', '#061522', '#0E2337'],
-    accentColor: '#FFFFFF',
-    greeting: 'Good night',
-    tagline: 'Under the same stars. Finding kindred spirits.',
+    label: "Night",
+    gradient: ["#FAF8F5", "#F4EFEB", "#1C1917"],
+    accentColor: "#D4AF37",
+    greeting: "Good night",
+    tagline: "Under the same stars. Finding kindred spirits.",
   },
 };
 
 export default {
+  LUXURY_TOKENS,
   FONTS,
   TYPOGRAPHY,
   COLORS,

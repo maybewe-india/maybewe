@@ -86,7 +86,7 @@ export default function SafetyReportModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.modalContent, { backgroundColor: '#FAF8F3', borderColor: '#E8E3D8' }]}>
           {/* Header */}
@@ -106,7 +106,11 @@ export default function SafetyReportModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.body}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text style={[styles.sectionLabel, { color: '#171817' }]}>Reason for reporting</Text>
             {REPORT_REASONS.map((r) => {
               const isSelected = selectedReason === r.id;

@@ -16,6 +16,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAllPlaces } from '../lib/places.js';
 import { getUserTrips } from '../lib/tripPlanner.js';
@@ -58,15 +59,7 @@ export default function ChatSharePickerModal({
     );
   });
 
-  const DEMO_PHOTO_OPTIONS = [
-    'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800',
-    'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=800',
-    'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800',
-    'https://images.unsplash.com/photo-1506461883276-594a12b11cf3?w=800',
-    'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=800',
-    'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=800',
-  ];
-
+  
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -255,25 +248,88 @@ export default function ChatSharePickerModal({
               </View>
             )}
 
-            {/* 4. PHOTOS TAB */}
+            {/* 4. PHOTOS TAB (Real Camera & Library) */}
             {activeTab === 'photo' && (
-              <View style={styles.photoGrid}>
-                {DEMO_PHOTO_OPTIONS.map((url, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.photoGridItem}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      onSharePhoto && onSharePhoto(url);
-                      onClose();
-                    }}
-                  >
-                    <Image source={{ uri: url }} style={styles.photoGridImg} resizeMode="cover" />
-                    <View style={styles.photoOverlayBadge}>
-                      <Ionicons name="send" size={12} color="#FAF8F3" />
-                    </View>
-                  </TouchableOpacity>
-                ))}
+              <View style={{ paddingVertical: 12, gap: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#FFFFFF',
+                    padding: 16,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: '#E2DCD1',
+                    gap: 12,
+                  }}
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    try {
+                      const res = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsEditing: true,
+                        quality: 0.8,
+                      });
+                      if (!res.canceled && res.assets && res.assets[0]?.uri) {
+                        onSharePhoto && (await onSharePhoto(res.assets[0].uri));
+                        onClose();
+                      }
+                    } catch (e) {
+                      Alert.alert('Error', e.message || 'Could not pick photo');
+                    }
+                  }}
+                >
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FAF8F3', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="images" size={22} color="#C8B27A" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#171817' }}>Choose from Photo Library</Text>
+                    <Text style={{ fontSize: 12, color: '#8A867E', marginTop: 2 }}>Upload a travel memory or spot photo</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#C8B27A" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#FFFFFF',
+                    padding: 16,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: '#E2DCD1',
+                    gap: 12,
+                  }}
+                  activeOpacity={0.8}
+                  onPress={async () => {
+                    try {
+                      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                      if (status !== 'granted') {
+                        Alert.alert('Camera Permission', 'Camera access is needed to capture photos.');
+                        return;
+                      }
+                      const res = await ImagePicker.launchCameraAsync({
+                        allowsEditing: true,
+                        quality: 0.8,
+                      });
+                      if (!res.canceled && res.assets && res.assets[0]?.uri) {
+                        onSharePhoto && (await onSharePhoto(res.assets[0].uri));
+                        onClose();
+                      }
+                    } catch (e) {
+                      Alert.alert('Error', e.message || 'Could not capture photo');
+                    }
+                  }}
+                >
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FAF8F3', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="camera" size={22} color="#C8B27A" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#171817' }}>Take Photo with Camera</Text>
+                    <Text style={{ fontSize: 12, color: '#8A867E', marginTop: 2 }}>Capture live moment at your destination</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#C8B27A" />
+                </TouchableOpacity>
               </View>
             )}
 

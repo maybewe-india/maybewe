@@ -82,7 +82,9 @@ export default function CinematicSearchModal({
   const handleSelect = (destName) => {
     Keyboard.dismiss();
     onClose?.();
-    onSelectDestination?.(destName);
+    setTimeout(() => {
+      onSelectDestination?.(destName);
+    }, Platform.OS === 'android' ? 60 : 0);
   };
 
   const handleCancel = () => {
@@ -97,6 +99,7 @@ export default function CinematicSearchModal({
       visible={visible}
       animationType="fade"
       transparent
+      statusBarTranslucent
       onRequestClose={handleCancel}
     >
       <View style={styles.backdrop}>
@@ -161,6 +164,7 @@ export default function CinematicSearchModal({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.quickChipsScroll}
           >
             {POPULAR_SEARCH_DESTINATIONS.map((dest) => (

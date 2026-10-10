@@ -9,6 +9,7 @@ import {
   Platform,
   Image,
   Animated,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,7 +99,7 @@ export default function SignupScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        alert('Permission is needed to access your photo library.');
+        Alert.alert('Permission Required', 'Permission is needed to access your photo library.');
         return;
       }
 
@@ -439,6 +440,18 @@ export default function SignupScreen() {
           size="lg"
           style={{ marginTop: 24 }}
         />
+
+        {/* Legal Links */}
+        <View style={styles.legalLinksRow}>
+          <Text style={styles.legalPrefixText}>By registering, you agree to our </Text>
+          <TouchableOpacity onPress={() => router.push('/terms')} activeOpacity={0.7}>
+            <Text style={styles.legalLinkText}>Terms</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalPrefixText}> & </Text>
+          <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+            <Text style={styles.legalLinkText}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -448,7 +461,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: '#FAF8F5',
   },
   innerWrapper: {
     flex: 1,
@@ -464,7 +477,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: '#D7D2C8',
+    borderBottomColor: 'rgba(197, 168, 128, 0.28)',
   },
   backBtn: {
     width: 40,
@@ -472,7 +485,7 @@ const styles = StyleSheet.create({
     borderRadius: RADII.full,
     backgroundColor: 'rgba(251, 250, 247, 0.90)',
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -489,26 +502,31 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     width: 140,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5D8C8',
-    overflow: 'hidden',
+    height: 3,
+    borderRadius: 9999,
+    backgroundColor: "rgba(197, 168, 128, 0.20)",
+    overflow: "hidden",
   },
   progressBarFill: {
-    height: '100%',
-    backgroundColor: '#171817',
-    borderRadius: 2,
+    height: "100%",
+    backgroundColor: "#C5A880",
+    borderRadius: 9999,
   },
   scrollBody: {
     padding: 24,
   },
   stepContainer: {
-    width: '100%',
-    backgroundColor: 'rgba(251, 250, 247, 0.95)',
-    borderRadius: RADII['2xl'],
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: "rgba(197, 168, 128, 0.28)",
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 2,
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px) saturate(180%)',
@@ -521,14 +539,14 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extraBold,
     fontSize: 28,
     fontWeight: '800',
-    color: '#171817',
+    color: '#1E1B18',
     letterSpacing: -0.6,
     marginBottom: 8,
   },
   stepSubtitle: {
     fontFamily: FONTS.regular,
     fontSize: 14,
-    color: '#45453F',
+    color: '#7D756D',
     lineHeight: 22,
     marginBottom: 26,
   },
@@ -626,5 +644,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    marginTop: 18,
+    marginBottom: 20,
+  },
+  legalPrefixText: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: '#7D756D',
+  },
+  legalLinkText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    color: '#1E1B18',
+    textDecorationLine: 'underline',
   },
 });

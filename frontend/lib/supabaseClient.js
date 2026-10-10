@@ -21,10 +21,28 @@ console.log('[Supabase] configured:', isSupabaseConfigured);
 console.log('[Supabase] URL:', supabaseUrl);
 
 // Resilient storage wrapper compatible with React Native, Web, and Test environments
+const nodeStorage = new Map();
 const storageAdapter = {
-  getItem: (key) => AsyncStorage.getItem(key),
-  setItem: (key, value) => AsyncStorage.setItem(key, value),
-  removeItem: (key) => AsyncStorage.removeItem(key),
+  getItem: (key) => {
+    if (typeof AsyncStorage?.getItem === 'function') {
+      return AsyncStorage.getItem(key);
+    }
+    return Promise.resolve(nodeStorage.get(key) || null);
+  },
+  setItem: (key, value) => {
+    if (typeof AsyncStorage?.setItem === 'function') {
+      return AsyncStorage.setItem(key, value);
+    }
+    nodeStorage.set(key, String(value));
+    return Promise.resolve();
+  },
+  removeItem: (key) => {
+    if (typeof AsyncStorage?.removeItem === 'function') {
+      return AsyncStorage.removeItem(key);
+    }
+    nodeStorage.delete(key);
+    return Promise.resolve();
+  },
 };
 
 const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';

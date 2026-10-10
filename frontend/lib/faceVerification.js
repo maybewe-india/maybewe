@@ -16,6 +16,25 @@ import { Platform, Image } from 'react-native';
 // 1. WEB IMPLEMENTATION (MediaPipe BlazeFace)
 // ==========================================
 
+// In Web development, Emscripten/WASM writes TFLite INFO messages to stderr/console.error.
+// Redirect these non-error informational logs to console.info so Expo doesn't trigger a RedBox modal.
+if (typeof window !== 'undefined' && !window._tfliteConsoleFiltered) {
+  window._tfliteConsoleFiltered = true;
+  const originalConsoleError = console.error;
+  console.error = (...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      (args[0].includes('INFO: Created TensorFlow Lite') ||
+       args[0].includes('INFO: Initialized TensorFlow Lite') ||
+       args[0].startsWith('INFO:'))
+    ) {
+      console.info(...args);
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
+}
+
 let webFaceDetectorInstance = null;
 let isWebInitializing = false;
 let webInitPromise = null;

@@ -25,6 +25,17 @@ export default function TrustBadge({ score = 0, verificationStatus, variant = 'c
 
   const scoreColor = getScoreColor();
 
+  if (variant === 'badge-only') {
+    return (
+      <View style={[styles.compactContainer, { backgroundColor: isVerified ? 'rgba(200, 178, 122, 0.15)' : colors.chipBg, borderColor: isVerified ? '#C8B27A' : colors.border }, style]}>
+        <Ionicons name={isVerified ? 'shield-checkmark' : 'shield-outline'} size={13} color={isVerified ? '#C8B27A' : colors.textMuted} />
+        <Text style={[styles.compactLabel, { color: isVerified ? '#756345' : colors.textMuted, fontWeight: '700' }]}>
+          {isVerified ? 'Verified Traveler' : 'Unverified'}
+        </Text>
+      </View>
+    );
+  }
+
   if (variant === 'score-only') {
     return (
       <View style={[styles.scoreOnly, style]}>

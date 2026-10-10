@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,33 +11,27 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../lib/themeContext.jsx';
-import { COLORS, RADII, SHADOWS, FONTS } from '../lib/theme.js';
-import { createHangout, getSmartHangoutSuggestions } from '../lib/hangouts.js';
-import { INDIA_DESTINATIONS } from '../lib/indiaData.js';
-
-const { width: SCREEN_W } = Dimensions.get('window');
+  Alert,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import { useTheme } from "../lib/themeContext.jsx";
+import { COLORS, RADII, SHADOWS, FONTS } from "../lib/theme.js";
+import { createHangout, getSmartHangoutSuggestions } from "../lib/hangouts.js";
+import { uploadHangoutMedia } from "../lib/mediaUpload.js";
+import { INDIA_DESTINATIONS } from "../lib/indiaData.js";
 
 const DESTINATION_NAMES = [
-  'Goa',
-  'Jaipur',
-  'Udaipur',
-  'Kashmir',
-  'Manali',
-  'Kerala',
-  'Ladakh',
-  'Varanasi',
-  'Andaman',
-];
-
-const COMPANIONS_PRESET = [
-  { id: 'user-demo-arjun', name: 'Arjun Mehta', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80', city: 'Mumbai' },
-  { id: 'user-demo-rohan', name: 'Rohan Verma', avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80', city: 'Delhi' },
-  { id: 'user-demo-meera', name: 'Meera Patel', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=80', city: 'Ahmedabad' },
-  { id: 'user-demo-ananya', name: 'Ananya Roy', avatar_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=500&auto=format&fit=crop&q=80', city: 'Kolkata' },
+  "Goa",
+  "Jaipur",
+  "Udaipur",
+  "Kashmir",
+  "Manali",
+  "Kerala",
+  "Ladakh",
+  "Varanasi",
+  "Andaman",
 ];
 
 export default function CreateHangoutModal({
@@ -51,21 +45,28 @@ export default function CreateHangoutModal({
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
-  const [title, setTitle] = useState('');
-  const [destination, setDestination] = useState(initialDestination || 'Goa');
-  const [description, setDescription] = useState('');
-  const [targetDate, setTargetDate] = useState('');
-  const [targetTime, setTargetTime] = useState('18:00');
-  const [selectedMembers, setSelectedMembers] = useState([]);
+  const [title, setTitle] = useState("");
+  const [destination, setDestination] = useState(initialDestination || "Goa");
+  const [description, setDescription] = useState("");
+  const [targetDate, setTargetDate] = useState("");
+  const [targetTime, setTargetTime] = useState("18:00");
+  const [maxTravelers, setMaxTravelers] = useState(6);
+  const [coverUri, setCoverUri] = useState(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState(initialPlace?.id || null);
   const [suggestions, setSuggestions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (visible) {
       if (initialDestination) setDestination(initialDestination);
       if (initialPlace) setSelectedPlaceId(initialPlace.id);
+
+      // Default date to tomorrow if empty
+      if (!targetDate) {
+        const tomorrow = new Date(Date.now() + 86400000);
+        setTargetDate(tomorrow.toISOString().split("T")[0]);
+      }
       loadSuggestions(initialDestination || destination);
     }
   }, [visible, initialDestination, initialPlace]);
@@ -83,55 +84,95 @@ export default function CreateHangoutModal({
     loadSuggestions(dest);
   };
 
-  const toggleMember = (companion) => {
-    if (selectedMembers.some((m) => m.id === companion.id)) {
-      setSelectedMembers(selectedMembers.filter((m) => m.id !== companion.id));
-    } else {
-      setSelectedMembers([...selectedMembers, companion]);
+  const pickCoverImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setCoverUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn("Cover image pick error:", e);
     }
   };
 
   const handleSubmit = async () => {
-    if (!title.trim()) {
-      setErrorMsg('Please give your hangout a name.');
+    if (!title.trim() || title.trim().length < 3) {
+      setErrorMsg("Please give your hangout a title (at least 3 characters).");
       return;
     }
-    setErrorMsg('');
+    if (!currentUser?.id) {
+      setErrorMsg("You must be logged in to create a meetup.");
+      return;
+    }
+
+    setErrorMsg("");
     setSubmitting(true);
 
     try {
+      let finalCoverUrl = null;
+      if (coverUri) {
+        try {
+          finalCoverUrl = await uploadHangoutMedia({
+            uri: coverUri,
+            userId: currentUser.id,
+          });
+        } catch (mediaErr) {
+          console.warn("Could not upload cover image, proceeding without cover:", mediaErr);
+        }
+      }
+
+      // Compute ISO start_time
+      const startTimeIso = new Date(`${targetDate}T${targetTime}:00Z`).toISOString();
+
       const created = await createHangout({
-        creatorId: currentUser?.id || 'current-user',
-        creatorName: currentUser?.name || 'Traveler',
-        title,
-        destination,
-        description,
-        targetDate: targetDate || '2026-10-25',
-        targetTime: targetTime || '18:00',
-        initialPlaceId: selectedPlaceId,
-        invitedMembers: selectedMembers,
+        creatorId: currentUser.id,
+        title: title.trim(),
+        destination: destination.trim(),
+        place_name: destination.trim(),
+        description: description.trim(),
+        start_time: startTimeIso,
+        max_travelers: maxTravelers,
+        place_id: selectedPlaceId,
+        cover_url: finalCoverUrl,
       });
+
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setCoverUri(null);
+      setErrorMsg("");
 
       if (onCreated) onCreated(created);
       onClose();
     } catch (err) {
-      setErrorMsg(err.message || 'Could not create hangout.');
+      setErrorMsg(err.message || "Could not create hangout.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+        <View
+          style={[
+            styles.modalSheet,
+            { backgroundColor: colors.background, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 },
+          ]}
+        >
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
             <View>
-              <Text style={styles.eyebrow}>SOCIAL HANGOUT PLANNING</Text>
-              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Plan a Meetup</Text>
+              <Text style={styles.eyebrow}>REAL-TIME TRAVEL HANGOUTS</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Host a Meetup</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: colors.cardBackground }]}>
+            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.cardBackground }]}>
               <Ionicons name="close" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -139,26 +180,27 @@ export default function CreateHangoutModal({
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
             {errorMsg ? (
               <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle-outline" size={16} color="#9E3A3A" style={{ marginRight: 6 }} />
+                <Ionicons name="alert-circle" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
                 <Text style={styles.errorText}>{errorMsg}</Text>
               </View>
             ) : null}
 
-            {/* Hangout Title */}
-            <View style={styles.fieldSection}>
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Hangout Title *</Text>
+            {/* Meetup Title */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>MEETUP TITLE *</Text>
               <TextInput
                 style={[styles.textInput, { backgroundColor: colors.cardBackground, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="e.g. Sunset Chai & Photography Walk"
+                placeholder="e.g. Sunset Seafood Feast & Live Music"
                 placeholderTextColor={colors.textSecondary}
                 value={title}
-                onChangeText={(t) => { setTitle(t); setErrorMsg(''); }}
+                onChangeText={setTitle}
+                maxLength={120}
               />
             </View>
 
-            {/* Destination Selector */}
-            <View style={styles.fieldSection}>
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Destination *</Text>
+            {/* Destination Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>DESTINATION / REGION *</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
                 {DESTINATION_NAMES.map((d) => {
                   const isSelected = destination.toLowerCase() === d.toLowerCase();
@@ -168,16 +210,11 @@ export default function CreateHangoutModal({
                       onPress={() => handleDestinationChange(d)}
                       style={[
                         styles.destChip,
-                        { borderColor: colors.border, backgroundColor: colors.cardBackground },
+                        { backgroundColor: colors.cardBackground, borderColor: colors.border },
                         isSelected && styles.destChipActive,
                       ]}
+                      activeOpacity={0.8}
                     >
-                      <Ionicons
-                        name="location"
-                        size={13}
-                        color={isSelected ? '#FAF8F3' : '#B99A5E'}
-                        style={{ marginRight: 4 }}
-                      />
                       <Text style={[styles.destChipText, { color: colors.textPrimary }, isSelected && styles.destChipTextActive]}>
                         {d}
                       </Text>
@@ -187,23 +224,42 @@ export default function CreateHangoutModal({
               </ScrollView>
             </View>
 
+            {/* Description / Vibe */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>THE PLAN & VIBE</Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  { backgroundColor: colors.cardBackground, color: colors.textPrimary, borderColor: colors.border },
+                ]}
+                placeholder="What are we doing? Meeting spot, budget expectations, chill/active vibe..."
+                placeholderTextColor={colors.textSecondary}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={3}
+                maxLength={1000}
+              />
+            </View>
+
             {/* Date & Time Row */}
-            <View style={styles.rowTwoCols}>
-              <View style={[styles.fieldSection, { flex: 1, marginRight: 8 }]}>
-                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Target Date</Text>
+            <View style={styles.rowInputs}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>DATE (YYYY-MM-DD)</Text>
                 <TextInput
                   style={[styles.textInput, { backgroundColor: colors.cardBackground, color: colors.textPrimary, borderColor: colors.border }]}
-                  placeholder="YYYY-MM-DD"
+                  placeholder="2026-10-25"
                   placeholderTextColor={colors.textSecondary}
                   value={targetDate}
                   onChangeText={setTargetDate}
                 />
               </View>
-              <View style={[styles.fieldSection, { flex: 1, marginLeft: 8 }]}>
-                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Target Time</Text>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>TIME (24H)</Text>
                 <TextInput
                   style={[styles.textInput, { backgroundColor: colors.cardBackground, color: colors.textPrimary, borderColor: colors.border }]}
-                  placeholder="e.g. 18:00"
+                  placeholder="18:00"
                   placeholderTextColor={colors.textSecondary}
                   value={targetTime}
                   onChangeText={setTargetTime}
@@ -211,115 +267,69 @@ export default function CreateHangoutModal({
               </View>
             </View>
 
-            {/* Description / Notes */}
-            <View style={styles.fieldSection}>
-              <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Notes & Vibe</Text>
-              <TextInput
-                style={[styles.textArea, { backgroundColor: colors.cardBackground, color: colors.textPrimary, borderColor: colors.border }]}
-                placeholder="What are we doing? Dress code, meeting vibes, recommendations..."
-                placeholderTextColor={colors.textSecondary}
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            {/* Invite Companions */}
-            <View style={styles.fieldSection}>
-              <View style={styles.labelWithSub}>
-                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Invite Travel Companions</Text>
-                <Text style={styles.fieldSub}>Selected: {selectedMembers.length}</Text>
+            {/* Capacity Stepper */}
+            <View style={styles.inputGroup}>
+              <View style={styles.capacityHeader}>
+                <Text style={[styles.inputLabel, { color: colors.textPrimary, marginBottom: 0 }]}>MAX TRAVELERS (2 - 50)</Text>
+                <Text style={styles.capacityValueText}>{maxTravelers} travelers</Text>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.companionsRow}>
-                {COMPANIONS_PRESET.map((c) => {
-                  const isInvited = selectedMembers.some((m) => m.id === c.id);
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      onPress={() => toggleMember(c)}
+              <View style={styles.stepperRow}>
+                {[2, 4, 6, 8, 12, 20].map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    onPress={() => setMaxTravelers(num)}
+                    style={[
+                      styles.stepperBtn,
+                      { backgroundColor: colors.cardBackground, borderColor: colors.border },
+                      maxTravelers === num && styles.stepperBtnActive,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.companionCard,
-                        { backgroundColor: colors.cardBackground, borderColor: colors.border },
-                        isInvited && styles.companionCardActive,
+                        styles.stepperBtnText,
+                        { color: colors.textPrimary },
+                        maxTravelers === num && styles.stepperBtnTextActive,
                       ]}
                     >
-                      <Image source={{ uri: c.avatar_url }} style={styles.companionAvatar} />
-                      <Text style={[styles.companionName, { color: colors.textPrimary }]} numberOfLines={1}>{c.name}</Text>
-                      <Text style={[styles.companionCity, { color: colors.textSecondary }]}>{c.city}</Text>
-                      <View style={[styles.checkCircle, isInvited && styles.checkCircleActive]}>
-                        <Ionicons
-                          name={isInvited ? 'checkmark' : 'add'}
-                          size={12}
-                          color={isInvited ? '#FAF8F3' : '#8C8983'}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
-            {/* Smart Suggested Places in Destination */}
-            {suggestions.length > 0 && (
-              <View style={styles.fieldSection}>
-                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Smart Suggested Places</Text>
-                <Text style={styles.fieldSub}>Choose an initial spot or decide together via group voting</Text>
-                <View style={styles.suggGrid}>
-                  {suggestions.map((p) => {
-                    const isPicked = selectedPlaceId === p.id;
-                    return (
-                      <TouchableOpacity
-                        key={p.id}
-                        onPress={() => setSelectedPlaceId(isPicked ? null : p.id)}
-                        style={[
-                          styles.suggCard,
-                          { backgroundColor: colors.cardBackground, borderColor: colors.border },
-                          isPicked && styles.suggCardActive,
-                        ]}
-                      >
-                        <Image source={{ uri: p.cover_image_url }} style={styles.suggImage} />
-                        <View style={styles.suggMeta}>
-                          <Text style={[styles.suggTitle, { color: colors.textPrimary }]} numberOfLines={1}>{p.name}</Text>
-                          <Text style={[styles.suggCategory, { color: colors.textSecondary }]}>{p.category} • ₹{p.price_inr}</Text>
-                          {p.recommendationTags && p.recommendationTags[0] ? (
-                            <View style={styles.tagPill}>
-                              <Text style={styles.tagPillText}>{p.recommendationTags[0]}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        {isPicked && (
-                          <View style={styles.pickedBadge}>
-                            <Ionicons name="checkmark-circle" size={18} color="#B99A5E" />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
+            {/* Cover Photo Picker */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>COVER PHOTO (OPTIONAL)</Text>
+              {coverUri ? (
+                <View style={styles.coverPreviewContainer}>
+                  <Image source={{ uri: coverUri }} style={styles.coverPreview} />
+                  <TouchableOpacity onPress={() => setCoverUri(null)} style={styles.removeCoverBtn}>
+                    <Ionicons name="trash" size={16} color="#FAF8F3" />
+                  </TouchableOpacity>
                 </View>
-              </View>
-            )}
+              ) : (
+                <TouchableOpacity onPress={pickCoverImage} style={[styles.pickCoverBtn, { borderColor: colors.border }]} activeOpacity={0.8}>
+                  <Ionicons name="image-outline" size={20} color="#B99A5E" style={{ marginRight: 8 }} />
+                  <Text style={[styles.pickCoverText, { color: colors.textPrimary }]}>Choose Meetup Banner</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-            <View style={{ height: 32 }} />
-          </ScrollView>
-
-          {/* Bottom Action */}
-          <View style={[styles.footerBar, { borderTopColor: colors.border }]}>
+            {/* Submit Button */}
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={submitting}
-              style={[styles.createButton, submitting && { opacity: 0.7 }]}
+              style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+              activeOpacity={0.85}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color="#FAF8F3" />
+                <ActivityIndicator color="#FAF8F3" size="small" />
               ) : (
-                <>
-                  <Ionicons name="sparkles" size={17} color="#B99A5E" style={{ marginRight: 8 }} />
-                  <Text style={styles.createButtonText}>Create Hangout</Text>
-                </>
+                <Text style={styles.submitBtnText}>Publish Meetup & Open Chat</Text>
               )}
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -329,231 +339,185 @@ export default function CreateHangoutModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(23, 23, 22, 0.65)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "flex-end",
   },
   modalSheet: {
-    maxHeight: '92%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "92%",
+    paddingHorizontal: 20,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 16,
   },
   eyebrow: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.bold,
     fontSize: 10,
-    letterSpacing: 1.5,
-    color: '#B99A5E',
-    marginBottom: 4,
+    color: "#B99A5E",
+    letterSpacing: 1,
+    marginBottom: 2,
   },
   headerTitle: {
     fontFamily: FONTS.bold,
-    fontSize: 20,
+    fontSize: 18,
   },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollBody: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingBottom: 30,
   },
   errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(158, 58, 58, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(211, 47, 47, 0.12)",
+    padding: 10,
     borderRadius: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   errorText: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: '#9E3A3A',
-  },
-  fieldSection: {
-    marginBottom: 18,
-  },
-  rowTwoCols: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  fieldLabel: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  labelWithSub: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  fieldSub: {
-    fontFamily: FONTS.regular,
+    color: "#D32F2F",
     fontSize: 12,
-    color: '#8C8983',
-    marginBottom: 8,
+    fontFamily: FONTS.medium,
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
   textInput: {
-    height: 48,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    fontFamily: FONTS.regular,
+    paddingHorizontal: 12,
     fontSize: 14,
+    fontFamily: FONTS.medium,
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 70,
     borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    padding: 12,
+    fontSize: 13,
     fontFamily: FONTS.regular,
-    fontSize: 14,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   chipRow: {
     gap: 8,
+    paddingVertical: 4,
   },
   destChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingVertical: 7,
+    borderRadius: 18,
     borderWidth: 1,
   },
   destChipActive: {
-    backgroundColor: '#171716',
-    borderColor: '#B99A5E',
+    backgroundColor: "#171716",
+    borderColor: "#171716",
   },
   destChipText: {
     fontFamily: FONTS.medium,
-    fontSize: 13,
+    fontSize: 12,
   },
   destChipTextActive: {
-    color: '#FAF8F3',
+    color: "#FAF8F3",
     fontFamily: FONTS.semiBold,
   },
-  companionsRow: {
-    gap: 12,
-    paddingVertical: 4,
+  rowInputs: {
+    flexDirection: "row",
   },
-  companionCard: {
-    width: 108,
-    padding: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
+  capacityHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  companionCardActive: {
-    borderColor: '#B99A5E',
-    backgroundColor: 'rgba(185, 154, 94, 0.08)',
-  },
-  companionAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginBottom: 6,
-  },
-  companionName: {
-    fontFamily: FONTS.semiBold,
+  capacityValueText: {
     fontSize: 12,
-    textAlign: 'center',
+    fontFamily: FONTS.bold,
+    color: "#B99A5E",
   },
-  companionCity: {
-    fontFamily: FONTS.regular,
-    fontSize: 10,
-    marginTop: 2,
-    marginBottom: 6,
+  stepperRow: {
+    flexDirection: "row",
+    gap: 8,
   },
-  checkCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(140, 137, 131, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkCircleActive: {
-    backgroundColor: '#171716',
-  },
-  suggGrid: {
-    gap: 10,
-  },
-  suggCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  suggCardActive: {
-    borderColor: '#B99A5E',
-    backgroundColor: 'rgba(185, 154, 94, 0.08)',
-  },
-  suggImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 10,
-  },
-  suggMeta: {
+  stepperBtn: {
     flex: 1,
-    marginLeft: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
   },
-  suggTitle: {
+  stepperBtnActive: {
+    backgroundColor: "#171716",
+    borderColor: "#171716",
+  },
+  stepperBtnText: {
     fontFamily: FONTS.semiBold,
-    fontSize: 14,
-  },
-  suggCategory: {
-    fontFamily: FONTS.regular,
     fontSize: 12,
-    marginTop: 2,
   },
-  tagPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(185, 154, 94, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginTop: 4,
+  stepperBtnTextActive: {
+    color: "#FAF8F3",
+    fontFamily: FONTS.bold,
   },
-  tagPillText: {
-    fontFamily: FONTS.medium,
-    fontSize: 10,
-    color: '#87692B',
+  coverPreviewContainer: {
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
   },
-  pickedBadge: {
-    paddingRight: 8,
+  coverPreview: {
+    width: "100%",
+    height: 140,
+    borderRadius: 12,
   },
-  footerBar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
+  removeCoverBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    padding: 6,
+    borderRadius: 14,
   },
-  createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#171716',
-    height: 52,
-    borderRadius: 16,
+  pickCoverBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    paddingVertical: 14,
   },
-  createButtonText: {
+  pickCoverText: {
     fontFamily: FONTS.semiBold,
-    fontSize: 15,
-    color: '#FAF8F3',
+    fontSize: 13,
+  },
+  submitBtn: {
+    backgroundColor: "#171716",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  submitBtnText: {
+    color: "#FAF8F3",
+    fontFamily: FONTS.bold,
+    fontSize: 14,
   },
 });

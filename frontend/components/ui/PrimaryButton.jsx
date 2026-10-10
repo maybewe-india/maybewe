@@ -67,9 +67,9 @@ export default function PrimaryButton({
   });
 
   const sizeStyles = {
-    sm: { paddingVertical: 10, paddingHorizontal: 16, minHeight: 40, borderRadius: RADII.sm },
-    md: { paddingVertical: 14, paddingHorizontal: 22, minHeight: 52, borderRadius: RADII.md },
-    lg: { paddingVertical: 16, paddingHorizontal: 28, minHeight: 56, borderRadius: RADII.md },
+    sm: { paddingVertical: 10, paddingHorizontal: 18, minHeight: 40, borderRadius: 9999 },
+    md: { paddingVertical: 14, paddingHorizontal: 24, minHeight: 52, borderRadius: 9999 },
+    lg: { paddingVertical: 16, paddingHorizontal: 28, minHeight: 56, borderRadius: 9999 },
   };
 
   const textSizes = {
@@ -80,7 +80,7 @@ export default function PrimaryButton({
 
   // Primary: Deep graphite / near-black physical surface with subtle top highlight & 3D shadow
   if (variant === 'primary' || variant === 'peach') {
-    const textColor = '#FAF8F3';
+    const textColor = '#FAF8F5';
 
     return (
       <Animated.View style={[{ transform: [{ scale }, { translateY }] }, style]}>
@@ -116,7 +116,7 @@ export default function PrimaryButton({
 
   // Secondary: Warm ivory frosted luxury glass surface with thin stone border & soft shadow
   if (variant === 'secondary' || variant === 'glass') {
-    const textColor = '#1D1D1B';
+    const textColor = '#1E1B18';
 
     return (
       <Animated.View style={[{ transform: [{ scale }, { translateY }] }, style]}>
@@ -217,7 +217,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryButtonSurface: {
-    backgroundColor: '#1D1D1B',
+    backgroundColor: '#1C1917',
+    borderColor: 'rgba(197, 168, 128, 0.40)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     ...Platform.select({
@@ -237,9 +238,9 @@ const styles = StyleSheet.create({
     }),
   },
   secondaryGlassSurface: {
-    backgroundColor: 'rgba(250, 248, 243, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderWidth: 1,
-    borderColor: 'rgba(216, 212, 203, 0.85)',
+    borderColor: 'rgba(197, 168, 128, 0.35)',
     ...Platform.select({
       ios: {
         shadowColor: '#1D1D1B',

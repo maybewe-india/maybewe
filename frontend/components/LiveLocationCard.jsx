@@ -18,7 +18,7 @@ import { SHADOWS } from '../lib/theme';
 
 export default function LiveLocationCard({
   session = {},
-  currentUserId = 'user-demo-priya',
+  currentUserId = null,
   onViewLiveMap,
   onSessionStopped,
 }) {

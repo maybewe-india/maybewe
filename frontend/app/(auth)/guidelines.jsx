@@ -68,7 +68,7 @@ export default function GuidelinesScreen() {
               if (router.canGoBack()) {
                 router.back();
               } else {
-                router.replace('/(tabs)/profile');
+                router.replace('/(auth)/welcome');
               }
             }}
             style={styles.backButton}
@@ -82,7 +82,7 @@ export default function GuidelinesScreen() {
 
         <View style={styles.header}>
           <View style={styles.badge}>
-            <Ionicons name="shield-checkmark" size={16} color={PALETTE.nearBlack} />
+            <Ionicons name="shield-checkmark" size={16} color="#C5A880" />
             <Text style={styles.badgeText}>COMMUNITY SAFETY</Text>
           </View>
           <Text style={styles.title}>Our Travel Principles</Text>
@@ -95,7 +95,7 @@ export default function GuidelinesScreen() {
           {GUIDELINES.map((item, idx) => (
             <View key={idx} style={[styles.card, SHADOWS.card]}>
               <View style={styles.iconCircle}>
-                <Ionicons name={item.icon} size={22} color={PALETTE.nearBlack} />
+                <Ionicons name={item.icon} size={22} color="#C5A880" />
               </View>
               <View style={styles.textContainer}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
@@ -107,7 +107,7 @@ export default function GuidelinesScreen() {
 
         <View style={styles.footer}>
           <PrimaryButton
-            title="I Agree & Continue  →"
+            title="I Agree & Continue"
             size="lg"
             loading={loading}
             onPress={handleAgree}
@@ -122,7 +122,7 @@ export default function GuidelinesScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.warmOffWhite,
+    backgroundColor: "#FAF8F5",
   },
   container: {
     flex: 1,
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontFamily: FONTS.semiBold,
     fontSize: 14,
-    color: PALETTE.nearBlack,
+    color: "#1E1B18",
     marginLeft: 6,
   },
   header: {
@@ -185,33 +185,37 @@ const styles = StyleSheet.create({
   subtitle: {
     fontFamily: FONTS.regular,
     fontSize: 14,
-    color: PALETTE.mediumGrey,
+    color: "#7D756D",
     lineHeight: 21,
   },
   list: {
     flex: 1,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: PALETTE.white,
-    borderRadius: RADII.xl,
-    padding: 18,
-    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: PALETTE.borderGrey,
-    ...SHADOWS.card,
+    borderColor: "rgba(197, 168, 128, 0.28)",
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 2,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: PALETTE.warmOffWhite,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#F3EFE6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
     borderWidth: 1,
-    borderColor: PALETTE.borderGrey,
+    borderColor: "rgba(197, 168, 128, 0.35)",
   },
   textContainer: {
     flex: 1,

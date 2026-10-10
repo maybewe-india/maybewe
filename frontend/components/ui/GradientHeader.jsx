@@ -49,7 +49,7 @@ export default function GradientHeader({
 
         <View style={styles.titleBlock}>
           {subtitle ? (
-            <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={2}>
               {subtitle}
             </Text>
           ) : null}
@@ -113,16 +113,18 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontFamily: FONTS.bold,
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
-    letterSpacing: 1.5,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 2,
+    textAlign: 'center',
   },
   title: {
     fontFamily: FONTS.bold,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.3,
+    textAlign: 'center',
   },
 });

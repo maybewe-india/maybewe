@@ -164,12 +164,6 @@ export async function fetchUserNotifications(userId, limit = 50) {
     console.warn('Local storage fetchUserNotifications error:', e);
   }
 
-  // If empty, generate friendly concierge starter notifications for demo
-  if (notifications.length === 0) {
-    notifications = getConciergeStarterNotifications(userId);
-    await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
-  }
-
   return notifications;
 }
 
@@ -473,78 +467,4 @@ export async function notifyLiveLocationEvent({ recipientId, actorId, actorName,
     message: message || `${actorName} started sharing real-time location.`,
     data: { session_id: sessionId, route: `/chat/${sessionId}` },
   });
-}
-
-/**
- * Curated concierge seed notifications for pristine first impression
- */
-function getConciergeStarterNotifications(userId) {
-  const now = Date.now();
-  return [
-    {
-      id: `seed-1`,
-      user_id: userId,
-      actor_id: 'user-demo-arjun',
-      type: 'hangout_invitation',
-      entity_id: 'hangout-1',
-      title: 'Sunset Meetup Invitation',
-      message: 'Arjun Mehta invited you to "Anjuna Golden Hour & Seafood" in Goa.',
-      data: {
-        hangout_id: 'hangout-1',
-        hangout_title: 'Anjuna Golden Hour & Seafood',
-        destination: 'Goa',
-        actor_name: 'Arjun Mehta',
-        avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80',
-      },
-      is_read: false,
-      created_at: new Date(now - 1000 * 60 * 18).toISOString(), // 18m ago (Today)
-    },
-    {
-      id: `seed-2`,
-      user_id: userId,
-      actor_id: 'user-demo-maya',
-      type: 'place_suggestion',
-      entity_id: 'goa-1',
-      title: 'Hidden Landmark Recommendation',
-      message: 'Maya Patel recommended Chapora Fort Sunset Spot in Goa.',
-      data: {
-        place_id: 'goa-1',
-        place_name: 'Chapora Fort',
-        destination: 'Goa',
-        actor_name: 'Maya Patel',
-        avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=80',
-      },
-      is_read: false,
-      created_at: new Date(now - 1000 * 60 * 60 * 3).toISOString(), // 3h ago (Today)
-    },
-    {
-      id: `seed-3`,
-      user_id: userId,
-      actor_id: 'user-demo-rohan',
-      type: 'match_request',
-      title: 'New Connection Request',
-      message: 'Rohan Verma wants to coordinate for Rajasthan Desert Heritage.',
-      data: {
-        sender_id: 'user-demo-rohan',
-        actor_name: 'Rohan Verma',
-        destination: 'Rajasthan',
-        avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&auto=format&fit=crop&q=80',
-      },
-      is_read: false,
-      created_at: new Date(now - 1000 * 60 * 60 * 22).toISOString(), // 22h ago (Yesterday)
-    },
-    {
-      id: `seed-4`,
-      user_id: userId,
-      type: 'review_trust',
-      title: 'Trust Milestone Achieved',
-      message: 'Completed your first verified circle journey in Goa. Trust Score updated to 4.95.',
-      data: {
-        event_type: 'successful_hangout',
-        destination: 'Goa',
-      },
-      is_read: true,
-      created_at: new Date(now - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago (Earlier)
-    },
-  ];
 }

@@ -7,10 +7,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Dimensions,
   Platform,
   Share,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,9 +26,6 @@ import {
 } from '../lib/posts.js';
 import { followUser, unfollowUser, getFollowStatus } from '../lib/social.js';
 
-const { width: WINDOW_W } = Dimensions.get('window');
-const PHOTO_W = Math.min(WINDOW_W - 40, 480);
-
 export default function PostDetailModal({
   visible,
   post,
@@ -40,6 +37,8 @@ export default function PostDetailModal({
 }) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { width: windowW } = useWindowDimensions();
+  const photoW = Math.min(windowW - 40, 480);
 
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
@@ -74,7 +73,13 @@ export default function PostDetailModal({
 
   if (!post) return null;
 
-  const isAuthor = (currentUser?.id || 'current-user') === post.user_id;
+  const currentUserId = currentUser?.id || currentUser?.user_id;
+  const isAuthor = Boolean(
+    (currentUserId && post.user_id === currentUserId) ||
+    (!post.user_id && currentUserId) ||
+    post.user_id === 'current-user' ||
+    (currentUser?.name && post.user_name && currentUser.name.trim().toLowerCase() === post.user_name.trim().toLowerCase())
+  );
   const taggedPlace = post.place_id ? getPlaceById(post.place_id) : null;
   const rawMediaList = post.media && post.media.length > 0 ? post.media : [
     { id: 'default', media_url: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=1000&auto=format&fit=crop&q=80' }
@@ -90,21 +95,21 @@ export default function PostDetailModal({
   });
 
   const handleLike = async () => {
-    const userId = currentUser?.id || 'current-user';
+    const userId = currentUserId || 'current-user';
     const res = await togglePostLike(post.id, userId, currentUser?.name || 'A traveler');
     setIsLiked(res.liked);
     setLikeCount(res.likeCount);
   };
 
   const handleSave = async () => {
-    const userId = currentUser?.id || 'current-user';
+    const userId = currentUserId || 'current-user';
     const res = await togglePostSave(post.id, userId);
     setIsSaved(res.saved);
   };
 
   const handleFollowToggle = async () => {
     if (isAuthor || followingLoading) return;
-    const followerId = currentUser?.id || 'current-user';
+    const followerId = currentUserId || 'current-user';
     const followingId = post.user_id;
     if (!followingId) return;
 
@@ -141,22 +146,34 @@ export default function PostDetailModal({
   };
 
   const handleDelete = async () => {
-    Alert.alert('Delete Story', 'Are you sure you want to delete this travel story?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deletePost(post.id, currentUser?.id || 'current-user');
-          if (onPostDeleted) onPostDeleted(post.id);
-          onClose();
+    const doDelete = async () => {
+      try {
+        await deletePost(post.id, currentUserId || 'current-user');
+        if (onPostDeleted) onPostDeleted(post.id);
+        onClose();
+      } catch (err) {
+        console.warn('Delete story error:', err);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to delete this travel story?')) {
+        await doDelete();
+      }
+    } else {
+      Alert.alert('Delete Story', 'Are you sure you want to delete this travel story?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: doDelete,
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
           {/* Header */}
@@ -173,7 +190,7 @@ export default function PostDetailModal({
                 </Text>
               </View>
 
-              {/* Follow Button */}
+              {/* Follow Button: Only for other users, NEVER for account owner */}
               {!isAuthor && (
                 <TouchableOpacity
                   onPress={handleFollowToggle}
@@ -192,7 +209,11 @@ export default function PostDetailModal({
 
             <View style={styles.headerActionsRight}>
               {isAuthor && (
-                <TouchableOpacity onPress={handleDelete} style={styles.iconActionBtn}>
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  style={[styles.iconActionBtn, { backgroundColor: 'rgba(158, 58, 58, 0.1)', borderRadius: 18, padding: 8, marginRight: 8 }]}
+                  accessibilityLabel="Delete Story"
+                >
                   <Ionicons name="trash-outline" size={18} color="#9E3A3A" />
                 </TouchableOpacity>
               )}
@@ -204,14 +225,14 @@ export default function PostDetailModal({
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
             {/* Photography Carousel */}
-            <View style={styles.photoContainer}>
+            <View style={[styles.photoContainer, { width: photoW, height: photoW, alignSelf: 'center' }]}>
               <ScrollView
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onScroll={(e) => {
                   const x = e.nativeEvent.contentOffset.x;
-                  const idx = Math.round(x / PHOTO_W);
+                  const idx = Math.round(x / (photoW || 1));
                   setActiveMediaIndex(idx);
                 }}
                 scrollEventThrottle={16}
@@ -220,7 +241,7 @@ export default function PostDetailModal({
                   <Image
                     key={m.id || i}
                     source={{ uri: m.media_url }}
-                    style={styles.heroPhoto}
+                    style={[styles.heroPhoto, { width: photoW, height: photoW }]}
                     resizeMode="cover"
                   />
                 ))}
@@ -322,6 +343,18 @@ export default function PostDetailModal({
               </View>
             ) : null}
 
+            {/* Owner Delete Story Action */}
+            {isAuthor && (
+              <TouchableOpacity
+                onPress={handleDelete}
+                style={[styles.ownerDeleteBtn, { borderColor: 'rgba(158, 58, 58, 0.3)', backgroundColor: 'rgba(158, 58, 58, 0.06)' }]}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="trash-outline" size={16} color="#9E3A3A" style={{ marginRight: 6 }} />
+                <Text style={styles.ownerDeleteBtnTxt}>Delete This Travel Story</Text>
+              </TouchableOpacity>
+            )}
+
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
@@ -420,8 +453,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   heroPhoto: {
-    width: PHOTO_W,
-    height: PHOTO_W,
     borderRadius: 20,
   },
   paginationDots: {
@@ -536,5 +567,22 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semiBold,
     fontSize: 12,
     color: '#FAF8F3',
+  },
+  ownerDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  ownerDeleteBtnTxt: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    color: '#9E3A3A',
+    fontWeight: '600',
   },
 });

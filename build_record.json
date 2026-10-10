@@ -1,0 +1,48 @@
+{
+  "id": "4ebed783-15d0-4001-b505-5c57a14a2087",
+  "status": "FINISHED",
+  "platform": "ANDROID",
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/VQFE4Xs474KUon9lrieisDrn5YNoK4gBtIVwnSRQiSw.apk",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/VQFE4Xs474KUon9lrieisDrn5YNoK4gBtIVwnSRQiSw.apk"
+  },
+  "fingerprint": {
+    "id": "01a12413-cf7b-7b1d-823c-8a262c72a160",
+    "hash": "af3f368f96b9211b6cc92bd3c49f32873aea8694"
+  },
+  "initiatingActor": {
+    "id": "e63cca52-83fd-4783-8ced-d13a3bf3174b",
+    "displayName": "maybewe26"
+  },
+  "logFiles": [
+    "https://storage.googleapis.com/eas-workflows-production/logs/2f4ff259-267f-477f-b97e-6384c9b1ae55/4ebed783-15d0-4001-b505-5c57a14a2087/2026-10-10T04%3A30%3A43Z-0846d3c9-6460-4b7e-aa50-f71cf38b1067.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261010%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261010T051235Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=471a4060f7ca8ee93caa4d4284b3cd323c4b7d5e5f1e23d76d69941ebac6baa27d78aab51d1928b8593998933c23462c23be39fa06ea18bf60df09bb4e1a2c09dd0c017d7ea50c2e592f1d5b28a8ee640c11ad2b34f11a29c07982a06bfe2ce303ed41e1d07a23e49f4bb6945128cafb45c04ec7fb68fe12b31cabf3dc6f386446960a6df7ae600f77af248514445b589e01d33f56c98dfff845f8fe22737ed252ab8bd490cb0cd758a95234a76d9aa1d67cdaf690df27fbe82c00701141661a7aef77de95772c48a693991ede3f8193d4fe5202160179d59138589486ab90b922c61b4aebef7319e5af2a00a0d787b62507d680378ec9739e012ddb9c3f14e2"
+  ],
+  "app": {
+    "id": "2f4ff259-267f-477f-b97e-6384c9b1ae55",
+    "name": "MaybeWe",
+    "slug": "solo-traveler",
+    "ownerAccount": {
+      "id": "7cc65cd4-7063-45f8-b35e-6de786ae184f",
+      "name": "maybewe26s-team"
+    }
+  },
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "appIdentifier": "com.maybewe.app",
+  "sdkVersion": "57.0.0",
+  "appVersion": "1.0.0",
+  "appBuildVersion": "1",
+  "gitCommitHash": "faab933bf2af89c0a1c0cd60784a3e8404e46ce2",
+  "gitCommitMessage": "Fix Expo Router native Android entrypoint",
+  "priority": "NORMAL_PLUS",
+  "createdAt": "2026-10-10T04:30:40.458Z",
+  "updatedAt": "2026-10-10T04:51:52.443Z",
+  "completedAt": "2026-10-10T04:51:52.227Z",
+  "expirationDate": "2026-10-24T04:30:40.493Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 2805,
+    "buildQueueTime": 4801,
+    "buildDuration": 1264163
+  }
+}

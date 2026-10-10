@@ -197,7 +197,9 @@ export default function MatchesScreen() {
           <HangoutsListView
             key={hangoutsKey}
             onSelectHangout={(h) => setSelectedHangout(h)}
+            onCreateNewHangout={() => setCreateHangoutVisible(true)}
             onCreateHangout={() => setCreateHangoutVisible(true)}
+            currentUser={user}
           />
         ) : mainSection === 'chats' ? (
           <ChatInboxView
@@ -304,6 +306,7 @@ export default function MatchesScreen() {
       <CreateHangoutModal
         visible={createHangoutVisible}
         onClose={() => setCreateHangoutVisible(false)}
+        currentUser={user}
         onCreated={(hangout) => {
           setHangoutsKey((k) => k + 1);
           setSelectedHangout(hangout);

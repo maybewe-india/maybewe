@@ -128,8 +128,11 @@ export const ALL_SCREENS = [
   },
 ];
 
+const categories = ['Authentication', 'Onboarding', 'Main App', 'Other'];
+
 export default function TestNavigatorModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -139,24 +142,47 @@ export default function TestNavigatorModal() {
     router.push(`${route}${separator}preview=true`);
   };
 
-  const categories = ['Authentication', 'Onboarding', 'Main App', 'Other'];
+  // On mobile native platforms, do not render the floating overlay to prevent obstructing touch controls
+  if (Platform.OS !== 'web') {
+    return null;
+  }
 
   return (
     <>
       {/* Floating Pill Trigger */}
       <View style={styles.floatingTriggerContainer} pointerEvents="box-none">
-        <TouchableOpacity
-          style={styles.floatingPill}
-          onPress={() => setIsOpen(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.pulsingDot} />
-          <Ionicons name="apps" size={14} color={COLORS.lavender} />
-          <Text style={styles.floatingPillText}>Test Navigator</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{ALL_SCREENS.length}</Text>
+        {isDismissed ? (
+          <TouchableOpacity
+            style={styles.minimizedPill}
+            onPress={() => setIsDismissed(false)}
+            activeOpacity={0.8}
+            accessibilityLabel="Open Test Navigator"
+          >
+            <Ionicons name="apps" size={14} color="#756345" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.pillRow}>
+            <TouchableOpacity
+              style={styles.floatingPill}
+              onPress={() => setIsOpen(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.pulsingDot} />
+              <Ionicons name="apps" size={14} color={COLORS.lavender} />
+              <Text style={styles.floatingPillText}>Test Navigator</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{ALL_SCREENS.length}</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dismissPillBtn}
+              onPress={() => setIsDismissed(true)}
+              accessibilityLabel="Dismiss Navigator"
+            >
+              <Ionicons name="close" size={12} color="#756345" />
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        )}
       </View>
 
       {/* Navigation Switcher Modal */}
@@ -276,9 +302,39 @@ export default function TestNavigatorModal() {
 const styles = StyleSheet.create({
   floatingTriggerContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'web' ? 88 : 102,
+    bottom: Platform.OS === 'web' ? 84 : 102,
     right: 16,
     zIndex: 999999,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dismissPillBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  minimizedPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   floatingPill: {
     flexDirection: 'row',

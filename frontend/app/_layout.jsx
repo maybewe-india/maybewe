@@ -31,8 +31,13 @@ function AuthRouteGuard({ children }) {
     const firstSegment = segments[0] || '';
     const inAuthGroup = firstSegment === '(auth)';
     const inShowcase = firstSegment === 'showcase';
+    const inMaps = firstSegment === 'maps';
+    const isPublicLegal =
+      firstSegment === 'privacy' ||
+      firstSegment === 'terms' ||
+      firstSegment === 'delete-account';
 
-    if (inShowcase || isPreviewMode) return;
+    if (inShowcase || inMaps || isPreviewMode || isPublicLegal) return;
 
     const currentSubRoute = segments[1] || '';
 
@@ -52,14 +57,12 @@ function AuthRouteGuard({ children }) {
     if (isAuthenticated) {
       // User is logged in
       if (!isVerified) {
-        // Unverified user MUST agree to guidelines then complete selfie verification before entering tabs
-        if (!hasAgreedToGuidelines) {
-          if (currentSubRoute !== 'guidelines') {
+        // Unverified user MUST complete guidelines and verification before accessing main app tabs/features
+        if (!inAuthGroup) {
+          if (!hasAgreedToGuidelines) {
             console.log('[AuthGuard] Unverified user needs guidelines -> Redirecting to /(auth)/guidelines');
             router.replace('/(auth)/guidelines');
-          }
-        } else {
-          if (currentSubRoute !== 'verification') {
+          } else {
             console.log('[AuthGuard] Unverified user with guidelines agreed -> Redirecting to /(auth)/verification');
             router.replace('/(auth)/verification');
           }
@@ -122,6 +125,31 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.title = 'MaybeWe — Solo Travel Matching';
+      if (typeof window !== "undefined") {
+        const origError = console.error;
+        console.error = (...args) => {
+          const msg = args.map(a => (typeof a === "string" ? a : (a?.message || ""))).join(" ");
+          if (msg.includes("cannot add 'postgres_changes'") || msg.includes("cannot add \"postgres_changes\"")) {
+            console.warn("[Realtime Guard suppressed]", ...args);
+            return;
+          }
+          origError(...args);
+        };
+        window.addEventListener("unhandledrejection", (event) => {
+          const msg = event?.reason?.message || String(event?.reason || "");
+          if (msg.includes("cannot add 'postgres_changes'") || msg.includes("cannot add \"postgres_changes\"")) {
+            event.preventDefault();
+            console.warn("[Realtime Guard unhandledrejection suppressed]", msg);
+          }
+        });
+        window.addEventListener("error", (event) => {
+          const msg = event?.message || "";
+          if (msg.includes("cannot add 'postgres_changes'") || msg.includes("cannot add \"postgres_changes\"")) {
+            event.preventDefault();
+            console.warn("[Realtime Guard error suppressed]", msg);
+          }
+        });
+      }
 
       const linkId = 'expo-google-font-manrope';
       if (!document.getElementById(linkId)) {
@@ -143,11 +171,11 @@ export default function RootLayout() {
             margin: 0 !important;
             padding: 0 !important;
             overflow-x: hidden !important;
-            background-color: #F7F5F0 !important;
+            background-color: #FAF8F5 !important;
             -webkit-font-smoothing: antialiased;
           }
           html[data-theme="light"], body[data-theme="light"] {
-            background-color: #F7F5F0 !important;
+            background-color: #FAF8F5 !important;
           }
           * {
             box-sizing: border-box;
@@ -190,7 +218,7 @@ export default function RootLayout() {
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
-              background: radial-gradient(circle at 50% 25%, #FBFAF7 0%, #F1EEE6 45%, #E5D8C8 100%) !important;
+              background: radial-gradient(circle at 50% 25%, #FAF8F5 0%, #F4EFEB 45%, #E5DFD5 100%) !important;
               min-height: 100vh !important;
               overflow: hidden !important;
             }
@@ -202,17 +230,20 @@ export default function RootLayout() {
               position: relative !important;
               box-shadow: 0 20px 60px rgba(23, 24, 23, 0.12), 0 0 0 1px rgba(215, 210, 200, 0.65) !important;
               overflow: hidden !important;
-              background-color: #F7F5F0 !important;
+              background-color: #FAF8F5 !important;
             }
             html[data-theme="light"] #root,
             body[data-theme="light"] #root {
-              background-color: #F7F5F0 !important;
+              background-color: #FAF8F5 !important;
               box-shadow: 0 20px 60px rgba(23, 24, 23, 0.12), 0 0 0 1px rgba(215, 210, 200, 0.65) !important;
             }
-            /* When showcase screen is opened on laptop, allow full desktop width */
+            /* When showcase or dedicated maps screen is opened on laptop, allow full desktop width */
             body.showcase-wide #root,
-            #root:has([data-showcase="true"]) {
+            body.maps-wide #root,
+            #root:has([data-showcase="true"]),
+            #root:has([data-maps-page="true"]) {
               max-width: 100% !important;
+              width: 100% !important;
               height: 100vh !important;
               box-shadow: none !important;
               border-radius: 0 !important;
@@ -274,6 +305,31 @@ export default function RootLayout() {
                     }}
                   />
                   <Stack.Screen
+                    name="maps"
+                    options={{
+                      headerShown: false,
+                      presentation: 'card',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="privacy"
+                    options={{
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="terms"
+                    options={{
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="delete-account"
+                    options={{
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
                     name="showcase"
                     options={{
                       headerShown: false,
@@ -310,11 +366,11 @@ export function ErrorBoundary({ error, retry }) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: '#FAF8F5',
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: '#F7F5F0',
+    backgroundColor: '#FAF8F5',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,

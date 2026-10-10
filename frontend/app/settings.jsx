@@ -8,6 +8,7 @@ import {
   Switch,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,16 +20,32 @@ import { COLORS, GRADIENTS, RADIUS, SPACING, SHADOWS, PALETTE } from '../lib/the
 import { INDIA_PHONE_CODE, INDIA_CURRENCY_SYMBOL, INDIA_LOCALE } from '../lib/indiaData';
 
 import GlassCard from '../components/ui/GlassCard';
+import EmergencyContactsModal from '../components/EmergencyContactsModal';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, profile, logout } = useAuth();
+  const handleBack = () => {
+    try {
+      if (typeof router.canGoBack === "function" && router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/(tabs)/profile");
+      }
+    } catch (err) {
+      router.replace("/(tabs)/profile");
+    }
+  };
+  const { user, profile, logout, deleteAccount } = useAuth();
   const { isDark, colors } = useTheme();
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [emergencyModalVisible, setEmergencyModalVisible] = React.useState(false);
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
-      const confirmed = window.confirm('Are you sure you want to sign out of MaybeWe?');
+      const confirmed = typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm('Are you sure you want to sign out of MaybeWe?')
+        : true;
       if (confirmed) {
         logout().then(() => router.replace('/(auth)/welcome'));
       }
@@ -51,6 +68,49 @@ export default function SettingsScreen() {
     }
   };
 
+  const confirmDeleteAccount = async () => {
+    setIsDeleting(true);
+    const res = await deleteAccount();
+    setIsDeleting(false);
+    if (res?.success) {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert('Account Deleted: Your MaybeWe account and associated travel data have been permanently removed.');
+      }
+      router.replace('/(auth)/welcome');
+    } else {
+      const err = res?.error || 'Failed to delete account. Please try again.';
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(err);
+      } else {
+        Alert.alert('Deletion Error', err);
+      }
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm('⚠️ Delete Account Permanently?\n\nThis will permanently delete your profile, verified trust credentials, travel itineraries, companion matches, messages, and uploaded photos. This action cannot be undone.\n\nDo you wish to proceed?')
+        : true;
+      if (confirmed) {
+        confirmDeleteAccount();
+      }
+    } else {
+      Alert.alert(
+        'Delete Account Permanently?',
+        'This will permanently delete your profile, verified trust credentials, travel itineraries, companion matches, messages, and uploaded photos. This action cannot be undone.\n\nDo you wish to proceed?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete Permanently',
+            style: 'destructive',
+            onPress: confirmDeleteAccount,
+          },
+        ]
+      );
+    }
+  };
+
   const isVerified = profile?.verification_status === 'verified';
 
   return (
@@ -59,7 +119,7 @@ export default function SettingsScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.8}
           accessibilityLabel="Go back"
         >
@@ -91,14 +151,14 @@ export default function SettingsScreen() {
                   {profile?.name || 'Priya Sharma'}
                 </Text>
                 {isVerified && (
-                  <Ionicons name="shield-checkmark" size={16} color="#B99A5E" />
+                  <Ionicons name="shield-checkmark" size={16} color="#C5A880" />
                 )}
               </View>
               <Text style={styles.userEmail}>
                 {profile?.email || 'priya.sharma@example.in'}
               </Text>
               <View style={styles.trustRow}>
-                <Ionicons name="sparkles" size={13} color="#B99A5E" />
+                <Ionicons name="sparkles" size={13} color="#C5A880" />
                 <Text style={styles.trustText}>
                   {Number(profile?.trust_score || 5.0).toFixed(2)} Community Trust
                 </Text>
@@ -119,11 +179,11 @@ export default function SettingsScreen() {
           >
             <View style={styles.settingLeft}>
               <View style={styles.iconWrap}>
-                <Ionicons name="shield-checkmark-outline" size={18} color="#B99A5E" />
+                <Ionicons name="shield-checkmark-outline" size={18} color="#C5A880" />
               </View>
               <View>
                 <Text style={styles.settingLabel}>Selfie ID Verification</Text>
-                <Text style={[styles.settingDesc, { color: isVerified ? '#33463C' : '#B99A5E' }]}>
+                <Text style={[styles.settingDesc, { color: isVerified ? '#33463C' : '#C5A880' }]}>
                   {isVerified ? '✓ Verified Community Member' : 'Action Required: Submit verification'}
                 </Text>
               </View>
@@ -131,8 +191,27 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={18} color="#77766F" />
           </TouchableOpacity>
 
+                    <TouchableOpacity
+            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: 'rgba(197, 168, 128, 0.28)' }]}
+            onPress={() => setEmergencyModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingLeft}>
+              <View style={styles.iconWrap}>
+                <Ionicons name="people-circle-outline" size={18} color="#C5A880" />
+              </View>
+              <View>
+                <Text style={styles.settingLabel}>Emergency Contacts & Safety Circle</Text>
+                <Text style={styles.settingDesc}>
+                  Manage trusted contacts for instant SOS & travel alerts
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#77766F" />
+          </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: '#D7D2C8' }]}
+            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: 'rgba(197, 168, 128, 0.28)' }]}
             onPress={() => router.push('/(auth)/guidelines')}
             activeOpacity={0.7}
           >
@@ -162,20 +241,94 @@ export default function SettingsScreen() {
               <Text style={styles.badgeText}>🇮🇳 India Only (IN)</Text>
             </View>
           </View>
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: '#D7D2C8' }]}>
+          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: 'rgba(197, 168, 128, 0.28)' }]}>
             <Text style={styles.infoLabel}>Currency</Text>
             <Text style={styles.infoValue}>
               {INDIA_CURRENCY_SYMBOL} INR (Indian Rupee)
             </Text>
           </View>
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: '#D7D2C8' }]}>
+          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: 'rgba(197, 168, 128, 0.28)' }]}>
             <Text style={styles.infoLabel}>Phone Code</Text>
             <Text style={styles.infoValue}>{INDIA_PHONE_CODE}</Text>
           </View>
-          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: '#D7D2C8' }]}>
+          <View style={[styles.infoRow, { borderTopWidth: 1, borderTopColor: 'rgba(197, 168, 128, 0.28)' }]}>
             <Text style={styles.infoLabel}>Locale</Text>
             <Text style={styles.infoValue}>{INDIA_LOCALE}</Text>
           </View>
+        </GlassCard>
+
+        {/* Section: Legal & Data Governance */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>LEGAL & DATA GOVERNANCE</Text>
+        </View>
+        <GlassCard material="pearl" style={styles.cardNoPadding}>
+          <TouchableOpacity
+            style={styles.rowButton}
+            onPress={() => router.push("/privacy")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowButtonLeft}>
+              <View style={[styles.iconWrap, { backgroundColor: "#F4EFEB" }]}>
+                <Ionicons name="shield-checkmark-outline" size={16} color="#B99A5E" />
+              </View>
+              <View>
+                <Text style={styles.rowButtonLabel}>Privacy Policy</Text>
+                <Text style={styles.rowButtonSub}>Data governance & location privacy</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#77766F" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: "#EDE5DA" }]}
+            onPress={() => router.push("/terms")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowButtonLeft}>
+              <View style={[styles.iconWrap, { backgroundColor: "#F4EFEB" }]}>
+                <Ionicons name="document-text-outline" size={16} color="#B99A5E" />
+              </View>
+              <View>
+                <Text style={styles.rowButtonLabel}>Terms of Service</Text>
+                <Text style={styles.rowButtonSub}>Community standards & solo traveler rules</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#77766F" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: "#EDE5DA" }]}
+            onPress={() => router.push("/delete-account")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowButtonLeft}>
+              <View style={[styles.iconWrap, { backgroundColor: "#F4EFEB" }]}>
+                <Ionicons name="trash-outline" size={16} color="#A96F5C" />
+              </View>
+              <View>
+                <Text style={styles.rowButtonLabel}>Delete Account Portal</Text>
+                <Text style={styles.rowButtonSub}>Permanent GDPR & store compliant data purge</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#77766F" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: "#EDE5DA" }]}
+            onPress={() => Linking.openURL("mailto:maybewe2026@gmail.com?subject=Support%20Request%20-%20MaybeWe")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowButtonLeft}>
+              <View style={[styles.iconWrap, { backgroundColor: "#F4EFEB" }]}>
+                <Ionicons name="mail-outline" size={16} color="#B99A5E" />
+              </View>
+              <View>
+                <Text style={styles.rowButtonLabel}>Contact Support & Legal</Text>
+                <Text style={styles.rowButtonSub}>maybewe2026@gmail.com</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#77766F" />
+          </TouchableOpacity>
         </GlassCard>
 
         {/* Section: Account Actions */}
@@ -188,8 +341,20 @@ export default function SettingsScreen() {
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={18} color="#A96F5C" />
+            <Ionicons name="log-out-outline" size={18} color="#171817" />
             <Text style={styles.logoutText}>Sign Out of MaybeWe</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.deleteButton, { borderTopWidth: 1, borderTopColor: '#EDE5DA' }]}
+            onPress={handleDeleteAccount}
+            activeOpacity={0.8}
+            disabled={isDeleting}
+          >
+            <Ionicons name="trash-outline" size={18} color="#A96F5C" />
+            <Text style={styles.deleteText}>
+              {isDeleting ? 'Deleting Account...' : 'Delete Account Permanently'}
+            </Text>
           </TouchableOpacity>
         </GlassCard>
 
@@ -202,6 +367,11 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+      <EmergencyContactsModal
+        visible={emergencyModalVisible}
+        onClose={() => setEmergencyModalVisible(false)}
+        userId={user?.id || profile?.id}
+      />
     </View>
   );
 }
@@ -223,7 +393,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     backgroundColor: 'rgba(251, 250, 247, 0.88)',
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -269,7 +439,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     backgroundColor: '#F1EEE6',
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -329,7 +499,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#F1EEE6',
     borderWidth: 1,
-    borderColor: '#D7D2C8',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -384,9 +554,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     padding: SPACING.md,
-    backgroundColor: 'rgba(169, 111, 92, 0.06)',
+    backgroundColor: '#FAF8F3',
   },
   logoutText: {
+    color: '#171817',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(169, 111, 92, 0.08)',
+  },
+  deleteText: {
     color: '#A96F5C',
     fontSize: 14,
     fontWeight: '700',

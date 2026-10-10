@@ -9,15 +9,17 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.maybewe.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow MaybeWe to capture your verification selfie to build community trust.",
         "NSPhotoLibraryUsageDescription": "Allow MaybeWe to select profile and travel history photos.",
         "NSLocationWhenInUseUsageDescription": "Allow MaybeWe to share your meeting spot with confirmed connections."
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FAF8F5",
         "foregroundImage": "./frontend/assets/android-icon-foreground.png",
         "backgroundImage": "./frontend/assets/android-icon-background.png",
         "monochromeImage": "./frontend/assets/android-icon-monochrome.png"
@@ -25,12 +27,11 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACCESS_COARSE_LOCATION"
       ],
-      "package": "com.anonymous.solotraveler"
+      "package": "com.maybewe.app",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./frontend/assets/favicon.png",
@@ -46,13 +47,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow MaybeWe to capture your verification selfie."
+          "cameraPermission": "Allow MaybeWe to capture your verification selfie.",
+          "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow MaybeWe to access photos for your profile and travel history."
+          "photosPermission": "Allow MaybeWe to access photos for your profile and travel history.",
+          "microphonePermission": false
         }
       ],
       [
@@ -63,6 +66,20 @@
       ],
       "expo-font",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "root": "./frontend/app"
+      },
+      "eas": {
+        "projectId": "2f4ff259-267f-477f-b97e-6384c9b1ae55"
+      }
+    },
+    "owner": "maybewe26s-team",
+    "splash": {
+      "image": "./frontend/assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF8F5"
+    }
   }
 }

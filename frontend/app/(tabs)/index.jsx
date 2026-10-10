@@ -13,6 +13,8 @@ import {
   Modal,
   TextInput,
   Pressable,
+  useWindowDimensions,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +26,6 @@ import { RADII, SHADOWS, FONTS, PALETTE, SURFACES, TEXT, ACCENTS, GLASS_MATERIAL
 import useTimeTheme from '../../lib/timeTheme';
 import { useAuth } from '../../lib/authContext';
 import { useTheme } from '../../lib/themeContext';
-import { POPULAR_PLACES, DESTINATION_IMAGES } from '../../lib/demoData';
 import { formatTripDateRangeIN } from '../../lib/indiaData';
 import FilterChip from '../../components/ui/FilterChip';
 import Avatar from '../../components/ui/Avatar';
@@ -170,18 +171,25 @@ const LOCAL_CITY_IMAGES = {
   'hampi-ruins': require('../../assets/images/journal_hampi.jpg'),
 };
 
+const CURATED_ICONIC_DESTINATIONS = [
+  { id: 'place-goa', name: 'Goa', state: 'Goa', country: 'India', image: LOCAL_CITY_IMAGES.goa, tag: 'Beach & Coastal', rating: 4.90 },
+  { id: 'place-manali', name: 'Manali', state: 'Himachal Pradesh', country: 'India', image: LOCAL_CITY_IMAGES.manali, tag: 'Mountains & Snow', rating: 4.88 },
+  { id: 'place-kashmir', name: 'Kashmir', state: 'Jammu & Kashmir', country: 'India', image: LOCAL_CITY_IMAGES.kashmir, tag: 'Alpine Lakes', rating: 4.95 },
+  { id: 'place-kerala', name: 'Kerala', state: 'Kerala', country: 'India', image: LOCAL_CITY_IMAGES.kerala, tag: 'Backwaters & Palms', rating: 4.92 },
+  { id: 'place-rajasthan', name: 'Rajasthan', state: 'Rajasthan', country: 'India', image: LOCAL_CITY_IMAGES.rajasthan, tag: 'Forts & Heritage', rating: 4.87 },
+  { id: 'place-andaman', name: 'Andaman', state: 'Andaman & Nicobar', country: 'India', image: LOCAL_CITY_IMAGES.andaman, tag: 'Islands & Marine', rating: 4.94 },
+  { id: 'place-ladakh', name: 'Ladakh', state: 'Ladakh', country: 'India', image: LOCAL_CITY_IMAGES.ladakh, tag: 'High Altitude Desert', rating: 4.96 },
+  { id: 'place-hampi', name: 'Hampi', state: 'Karnataka', country: 'India', image: LOCAL_CITY_IMAGES.hampi, tag: 'Ancient Ruins', rating: 4.91 },
+];
+
 function getDestinationImage(destName) {
-  if (!destName) return DESTINATION_IMAGES['Goa'];
+  if (!destName) return LOCAL_CITY_IMAGES['goa'];
   const lower = destName.trim().toLowerCase();
   if (LOCAL_CITY_IMAGES[lower]) return LOCAL_CITY_IMAGES[lower];
   const localKeys = Object.keys(LOCAL_CITY_IMAGES);
   const matchedKey = localKeys.find((k) => lower.includes(k) || k.includes(lower));
   if (matchedKey) return LOCAL_CITY_IMAGES[matchedKey];
-  if (DESTINATION_IMAGES[destName]) return DESTINATION_IMAGES[destName];
-  const keys = Object.keys(DESTINATION_IMAGES);
-  const found = keys.find((k) => k.toLowerCase() === lower);
-  if (found) return DESTINATION_IMAGES[found];
-  return DESTINATION_IMAGES['Goa'];
+  return LOCAL_CITY_IMAGES['goa'];
 }
 
 function normalizeStateName(rawState, fallbackState = 'Andhra Pradesh') {
@@ -205,17 +213,6 @@ function normalizeStateName(rawState, fallbackState = 'Andhra Pradesh') {
 }
 
 const USER_LOCATION_STORAGE_KEY = '@maybewe_user_location';
-
-const DEFAULT_INDIA_LOCATION = {
-  status: 'granted',
-  city: 'Chittoor',
-  district: 'Chittoor',
-  state: 'Andhra Pradesh',
-  country: 'India',
-  lat: 13.2172,
-  lng: 79.1003,
-  isGPS: false,
-};
 
 const POPULAR_HUBS = [
   { name: 'Chittoor', state: 'Andhra Pradesh', district: 'Chittoor' },
@@ -282,12 +279,16 @@ export default function HomeDashboardScreen() {
   // Selected State for India Travel Map
   const [selectedState, setSelectedState] = useState('Andhra Pradesh');
 
-  // Live Location State
-  const [userLocation, setUserLocation] = useState(DEFAULT_INDIA_LOCATION);
+  // Authoritative Device GPS Location State
+  // userLocation holds validated device GPS coords { lat, lng, city, state, district } or null
+  // locationStatus: 'idle' | 'detecting' | 'granted' | 'denied' | 'unavailable'
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('detecting');
   const [locating, setLocating] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
   const [locationRegionFilter, setLocationRegionFilter] = useState('All');
+  const [selectedDestinationHub, setSelectedDestinationHub] = useState(null);
 
   // Supabase Data States
   const [upcomingTrips, setUpcomingTrips] = useState([]);
@@ -315,15 +316,28 @@ export default function HomeDashboardScreen() {
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Fast local hydration: load cached user location immediately for 0ms startup
+    // Fast local hydration: load cached user location only if it has authentic GPS coordinates
     AsyncStorage.getItem(USER_LOCATION_STORAGE_KEY)
       .then((stored) => {
         if (stored && isMountedRef.current) {
           try {
             const parsed = JSON.parse(stored);
-            if (parsed && parsed.city && parsed.state) {
+            if (
+              parsed &&
+              typeof parsed.lat === 'number' &&
+              typeof parsed.lng === 'number' &&
+              !isNaN(parsed.lat) &&
+              !isNaN(parsed.lng) &&
+              parsed.lat >= -90 &&
+              parsed.lat <= 90 &&
+              parsed.lng >= -180 &&
+              parsed.lng <= 180
+            ) {
               setUserLocation(parsed);
-              setSelectedState(parsed.state);
+              setLocationStatus('granted');
+              if (parsed.state) {
+                setSelectedState(parsed.state);
+              }
               cachedLocationRef.current = parsed;
             }
           } catch (e) {}
@@ -353,171 +367,84 @@ export default function HomeDashboardScreen() {
     };
   }, []);
 
-  // Live Location Detection (GPS + IP fallback + Chittoor ISP calibration) - High performance non-blocking
+  // Live Location Detection via Centralized Location Manager
+  // Authoritative Device GPS with single-flight request deduplication & decoupled reverse geocoding
   const detectDeviceLocation = useCallback(async (forceRefresh = false) => {
     if (!isMountedRef.current) return;
+    setLocating(true);
     if (forceRefresh) {
-      setLocating(true);
+      setLocationStatus('detecting');
     }
 
     try {
-      let coords = null;
-      let detectedCityName = null;
-      let detectedStateName = null;
+      const coords = await requestCurrentLocation({ forceRefresh });
 
-      let isTrueGps = false;
-      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
-        coords = await new Promise((resolve) => {
-          let resolved = false;
-          const finish = (result) => {
-            if (!resolved) {
-              resolved = true;
-              resolve(result);
-            }
-          };
-
-          // Fast timeout: 3500ms when user taps manual GPS calibration, 1800ms on background startup
-          const timer = setTimeout(() => {
-            finish(null);
-          }, forceRefresh ? 3500 : 1800);
-
-          try {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                clearTimeout(timer);
-                if (pos?.coords) isTrueGps = true;
-                finish(pos?.coords || null);
-              },
-              (err) => {
-                clearTimeout(timer);
-                finish(null);
-              },
-              {
-                enableHighAccuracy: forceRefresh,
-                timeout: forceRefresh ? 3200 : 1600,
-                maximumAge: forceRefresh ? 0 : 600000,
-              }
-            );
-          } catch (e) {
-            clearTimeout(timer);
-            finish(null);
-          }
-        });
-      } else if (Location && Location.requestForegroundPermissionsAsync) {
-        try {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status === 'granted') {
-            const loc = await Location.getCurrentPositionAsync({
-              accuracy: forceRefresh ? Location.Accuracy.High : Location.Accuracy.Balanced,
-            });
-            if (loc?.coords) {
-              coords = loc.coords;
-              isTrueGps = true;
-            }
-          }
-        } catch (nativeErr) {
-          console.warn('Native GPS note:', nativeErr);
-        }
-      }
-
-      // Fast, non-blocking IP fallback with tight abort timeouts
-      if (!coords || typeof coords.latitude !== 'number' || typeof coords.longitude !== 'number') {
-        try {
-          const controller = new AbortController();
-          const ipTimer = setTimeout(() => controller.abort(), 1800);
-          const ipRes = await fetch('https://ipwho.is/', { signal: controller.signal });
-          clearTimeout(ipTimer);
-          if (ipRes.ok) {
-            const ipData = await ipRes.json();
-            if (ipData && ipData.success && typeof ipData.latitude === 'number' && typeof ipData.longitude === 'number') {
-              coords = { latitude: ipData.latitude, longitude: ipData.longitude };
-              if (ipData.city) detectedCityName = ipData.city;
-              if (ipData.region) detectedStateName = ipData.region;
-            }
-          }
-        } catch (ipErr) {
-          try {
-            const controller2 = new AbortController();
-            const ipTimer2 = setTimeout(() => controller2.abort(), 1200);
-            const geoRes = await fetch('https://get.geojs.io/v1/ip/geo.json', { signal: controller2.signal });
-            clearTimeout(ipTimer2);
-            if (geoRes.ok) {
-              const geoData = await geoRes.json();
-              if (geoData && geoData.latitude && geoData.longitude) {
-                coords = { latitude: parseFloat(geoData.latitude), longitude: parseFloat(geoData.longitude) };
-                if (geoData.city) detectedCityName = geoData.city;
-                if (geoData.region) detectedStateName = geoData.region;
-              }
-            }
-          } catch (geoErr) {}
-        }
-      }
-
-      if (coords && typeof coords.latitude === 'number' && typeof coords.longitude === 'number') {
-        const closestCity = findClosestIndianCity(coords.latitude, coords.longitude);
-
-        let finalCity = detectedCityName || closestCity?.name || 'Live Location';
-        let finalState = detectedStateName
-          ? normalizeStateName(detectedStateName, closestCity?.state || 'Andhra Pradesh')
-          : (closestCity?.state || 'Andhra Pradesh');
-        let finalDistrict = closestCity?.district || detectedCityName || null;
-        let finalLat = coords.latitude;
-        let finalLng = coords.longitude;
-
-        let savedLoc = null;
-        try {
-          const savedRaw = await AsyncStorage.getItem(USER_LOCATION_STORAGE_KEY);
-          if (savedRaw) savedLoc = JSON.parse(savedRaw);
-        } catch {}
-
-        if (!isTrueGps && savedLoc?.city) {
-          finalCity = savedLoc.city;
-          finalState = savedLoc.state || finalState;
-          finalDistrict = savedLoc.district || finalDistrict;
-        } else if (!isTrueGps && (finalCity === 'Bengaluru' || closestCity?.name === 'Bengaluru')) {
-          // ISP hub calibration: cellular/ISP routes via Bengaluru gateway, calibrate to Chittoor, AP
-          finalCity = 'Chittoor';
-          finalDistrict = 'Chittoor';
-          finalState = 'Andhra Pradesh';
-          finalLat = 13.2172;
-          finalLng = 79.1003;
-        }
-
-        const isApIspGateway =
-          (finalState === 'Andhra Pradesh' || finalState === 'AP') &&
-          (['Vijayawada', 'Guntur'].includes(finalCity) || ['Vijayawada', 'Guntur'].includes(closestCity?.name)) &&
-          (!coords.accuracy || coords.accuracy > 5000);
-
-        if (isApIspGateway) {
-          finalCity = 'Chittoor';
-          finalDistrict = 'Chittoor';
-          finalState = 'Andhra Pradesh';
-          finalLat = 13.2172;
-          finalLng = 79.1003;
-        }
-
-        const detected = {
-          status: 'granted',
-          city: finalCity,
-          district: finalDistrict,
-          state: finalState,
-          country: 'India',
-          lat: finalLat,
-          lng: finalLng,
-          isGPS: true,
-        };
-
+      if (!coords || !isValidCoordinate(coords.latitude, coords.longitude)) {
         if (isMountedRef.current) {
-          setUserLocation(detected);
-          cachedLocationRef.current = detected;
-          setSelectedState(finalState);
-          setShowLocationPicker(false);
-          AsyncStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(detected)).catch(() => {});
+          if (!forceRefresh && cachedLocationRef.current) {
+            setLocationStatus('granted');
+            setUserLocation(cachedLocationRef.current);
+          } else {
+            setLocationStatus((prev) => (prev === 'denied' ? 'denied' : 'unavailable'));
+            if (!cachedLocationRef.current) {
+              setUserLocation(null);
+            }
+          }
         }
         return;
       }
+
+      // Fast immediate city approximation via offline Indian cities database (<1ms)
+      const closestCity = findClosestIndianCity(coords.latitude, coords.longitude);
+      const initialCity = closestCity?.name ? `Near ${closestCity.name}` : 'Current Location';
+      const initialState = closestCity?.state || null;
+      const initialDistrict = closestCity?.district || null;
+
+      const authoritativeLocation = {
+        status: 'granted',
+        city: initialCity,
+        district: initialDistrict,
+        state: initialState,
+        country: 'India',
+        lat: coords.latitude,
+        lng: coords.longitude,
+        accuracy: coords.accuracy || null,
+        isGPS: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (isMountedRef.current) {
+        cachedLocationRef.current = authoritativeLocation;
+        setUserLocation(authoritativeLocation);
+        setLocationStatus('granted');
+        setLocationError(null);
+        if (initialState) {
+          setSelectedState(initialState);
+        }
+        setShowLocationPicker(false);
+      }
+
+      // Decoupled Background Reverse Geocoding (Cosmetic UI only — NEVER blocks rendering or POIs)
+      reverseGeocodeLocation(coords.latitude, coords.longitude).then((geo) => {
+        if (geo && isMountedRef.current) {
+          setUserLocation((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              city: geo.city || geo.district || prev.city,
+              state: geo.state ? normalizeStateName(geo.state) : prev.state,
+              district: geo.district || prev.district,
+            };
+          });
+        }
+      }).catch(() => {});
+
     } catch (err) {
-      console.warn('Location detection note:', err);
+      console.warn('detectDeviceLocation error:', err);
+      if (isMountedRef.current) {
+        setLocationStatus('unavailable');
+        setUserLocation(null);
+      }
     } finally {
       if (isMountedRef.current) {
         setLocating(false);
@@ -725,8 +652,8 @@ export default function HomeDashboardScreen() {
   const stateDestinations = useMemo(() => {
     const direct = getDestinationsByState(selectedState);
     if (direct.length > 0) return direct;
-    return getNearbyDestinations(selectedState, userLocation?.city);
-  }, [selectedState, userLocation?.city]);
+    return getNearbyDestinations(selectedState, userLocation?.city || selectedDestinationHub || null);
+  }, [selectedState, userLocation?.city, selectedDestinationHub]);
 
   const filteredFamousPlaces = useMemo(() => {
     const statePlaces = getFamousPlacesByState(selectedState);
@@ -768,8 +695,9 @@ export default function HomeDashboardScreen() {
       });
     }
 
-    if (userLocation?.city) {
-      const activeIndex = baseList.findIndex((c) => c.name.toLowerCase() === userLocation.city.toLowerCase());
+    const activeTarget = selectedDestinationHub || userLocation?.city;
+    if (activeTarget) {
+      const activeIndex = baseList.findIndex((c) => c.name.toLowerCase() === activeTarget.toLowerCase());
       if (activeIndex > 0) {
         const activeItem = baseList[activeIndex];
         baseList = [activeItem, ...baseList.slice(0, activeIndex), ...baseList.slice(activeIndex + 1)];
@@ -808,30 +736,38 @@ export default function HomeDashboardScreen() {
     });
 
     return combined.slice(0, 35);
-  }, [locationSearchQuery, locationRegionFilter, userLocation?.city]);
+  }, [locationSearchQuery, locationRegionFilter, selectedDestinationHub, userLocation?.city]);
 
   const handleSelectLocation = useCallback((item) => {
     const cityName = item.name;
     const stateName = normalizeStateName(item.state || item.name);
-    const updated = {
-      status: 'granted',
-      city: cityName,
-      district: item.district || null,
-      state: stateName,
-      country: 'India',
-      lat: item.lat || null,
-      lng: item.lng || null,
-      isManual: true,
-    };
-    setUserLocation(updated);
-    cachedLocationRef.current = updated;
+    setSelectedDestinationHub(cityName);
     setSelectedState(stateName);
     setShowLocationPicker(false);
     setLocationSearchQuery('');
-    AsyncStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
   }, []);
 
-  const firstName = profile?.name?.trim() ? profile.name.trim().split(' ')[0] : 'Explorer';
+  const { width: windowWidth } = useWindowDimensions();
+  const topSafe = (insets.top > 0 ? insets.top : (StatusBar.currentHeight || 0)) + (Platform.OS === 'android' ? 16 : 8);
+  const bottomSafe = Math.max(insets.bottom || 0, Platform.OS === 'android' ? 24 : 16);
+  const heroCardWidth = Math.min(windowWidth - 32, 480);
+  const heroCardHeight = Math.min(Math.round(heroCardWidth * 0.98), 380);
+  const carouselCardWidth = Math.min(Math.round(windowWidth * 0.64), 260);
+  const famousCardWidth = Math.min(Math.round(windowWidth * 0.68), 272);
+
+  const formatGreetingName = (name) => {
+    if (!name) return 'Explorer';
+    const clean = name.trim();
+    if (clean.toLowerCase().startsWith('native_test') || clean.toLowerCase().startsWith('test_')) {
+      return 'Explorer';
+    }
+    const first = clean.split(' ')[0];
+    if (first.length > 14) {
+      return first.slice(0, 12) + '…';
+    }
+    return first;
+  };
+  const firstName = formatGreetingName(profile?.name);
   const isVerified = profile?.verification_status === 'verified';
   const trustScorePercentage = Math.round((summaryStats.trustScore || 5.0) * 20);
 
@@ -841,7 +777,7 @@ export default function HomeDashboardScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollBody,
-            { paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 24) + 160 },
+            { paddingTop: topSafe + 8, paddingBottom: bottomSafe + 160 },
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -864,22 +800,47 @@ export default function HomeDashboardScreen() {
                   LUXURY TRAVEL COMPANION • {timeTheme.label.toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.conciergeGreeting}>
+              <Text style={styles.conciergeGreeting} numberOfLines={1} ellipsizeMode="tail">
                 {timeTheme.greeting}, {firstName}
               </Text>
             </View>
 
             <View style={styles.conciergeRight}>
               <TouchableOpacity
-                style={styles.locationPill}
+                style={[
+                  styles.locationPill,
+                  locationStatus === 'denied' && { borderColor: 'rgba(239, 68, 68, 0.40)', backgroundColor: 'rgba(239, 68, 68, 0.08)' },
+                  locationStatus === 'unavailable' && { borderColor: 'rgba(245, 158, 11, 0.40)', backgroundColor: 'rgba(245, 158, 11, 0.08)' },
+                ]}
                 onPress={() => setShowLocationPicker(true)}
                 {...(Platform.OS === 'web' ? { onClick: () => setShowLocationPicker(true) } : {})}
                 activeOpacity={0.8}
                 accessibilityLabel="Location base: tap to calibrate"
               >
-                <Ionicons name="location-sharp" size={13} color="#B99A5E" />
-                <Text style={styles.locationPillText} numberOfLines={1}>
-                  {userLocation.city || 'India Base'}
+                {locating ? (
+                  <ActivityIndicator size="small" color="#B99A5E" style={{ marginRight: 2 }} />
+                ) : locationStatus === 'denied' ? (
+                  <Ionicons name="location-outline" size={13} color="#F87171" />
+                ) : locationStatus === 'unavailable' ? (
+                  <Ionicons name="alert-circle-outline" size={13} color="#FBBF24" />
+                ) : (
+                  <Ionicons name="navigate-circle" size={13} color="#6EE7B7" />
+                )}
+                <Text
+                  style={[
+                    styles.locationPillText,
+                    locationStatus === 'denied' && { color: '#F87171' },
+                    locationStatus === 'unavailable' && { color: '#FBBF24' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {locating
+                    ? 'Detecting GPS...'
+                    : userLocation?.city
+                    ? userLocation.city
+                    : locationStatus === 'denied'
+                    ? 'Location Denied'
+                    : 'GPS Unavailable'}
                 </Text>
                 <Ionicons name="chevron-down" size={12} color="#77766F" />
               </TouchableOpacity>
@@ -891,7 +852,7 @@ export default function HomeDashboardScreen() {
                 activeOpacity={0.8}
                 accessibilityLabel="Travel Concierge Notifications"
               >
-                <Ionicons name="notifications-outline" size={15} color="#B99A5E" />
+                <Ionicons name="notifications-outline" size={16} color="#D4AF37" />
                 {unreadNotifCount > 0 && (
                   <View style={{ position: 'absolute', top: -3, right: -3, backgroundColor: '#8C4351', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1, minWidth: 16, alignItems: 'center' }}>
                     <Text style={{ fontFamily: FONTS.bold, fontSize: 9, color: '#FAF8F3' }}>{unreadNotifCount}</Text>
@@ -926,10 +887,10 @@ export default function HomeDashboardScreen() {
 
             <View style={styles.searchBarContainer}>
               <View style={styles.searchIconWrap}>
-                <Ionicons name="search-outline" size={18} color="#77766F" />
+                <Ionicons name="search-outline" size={18} color="#C5A880" />
               </View>
               <TextInput
-                placeholder="Search destination (Kashmir, Goa, Udaipur, Ladakh)..."
+                placeholder="Search destination (Kashmir, Goa...)"
                 placeholderTextColor="#77766F"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -950,10 +911,63 @@ export default function HomeDashboardScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Search destination"
               >
-                <Ionicons name="arrow-forward" size={16} color="#FBFAF7" />
+                <Ionicons name="arrow-forward" size={16} color="#FAF8F5" />
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Authoritative GPS Status Banners: Clearly indicates location-required or retry states */}
+          {locationStatus === 'denied' && (
+            <View style={styles.locationAlertBanner}>
+              <View style={styles.locationAlertIconWrap}>
+                <Ionicons name="location-outline" size={20} color="#F87171" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.locationAlertTitle}>Device Location Required</Text>
+                <Text style={styles.locationAlertSubtitle}>
+                  Device GPS permission is required to verify your location and detect real-time local companions.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.locationAlertActionBtn}
+                onPress={() => detectDeviceLocation(true)}
+                disabled={locating}
+                activeOpacity={0.8}
+              >
+                {locating ? (
+                  <ActivityIndicator size="small" color="#FAF8F3" />
+                ) : (
+                  <Text style={styles.locationAlertActionText}>Enable GPS</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {locationStatus === 'unavailable' && !userLocation && (
+            <View style={[styles.locationAlertBanner, { borderColor: 'rgba(245, 158, 11, 0.35)', backgroundColor: 'rgba(245, 158, 11, 0.08)' }]}>
+              <View style={[styles.locationAlertIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                <Ionicons name="alert-circle-outline" size={20} color="#FBBF24" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.locationAlertTitle, { color: '#FBBF24' }]}>GPS Signal Unavailable</Text>
+                <Text style={styles.locationAlertSubtitle}>
+                  Could not acquire satellite or device coordinates. Tap to retry.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.locationAlertActionBtn, { backgroundColor: '#B99A5E' }]}
+                onPress={() => detectDeviceLocation(true)}
+                disabled={locating}
+                activeOpacity={0.8}
+              >
+                {locating ? (
+                  <ActivityIndicator size="small" color="#FAF8F3" />
+                ) : (
+                  <Text style={styles.locationAlertActionText}>Retry GPS</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* ============================================================ */}
           {/* 3. HERO EXPERIENCE (Visual Focal Point with Floating Glass)   */}
@@ -961,7 +975,7 @@ export default function HomeDashboardScreen() {
           <View style={[styles.heroWrapper, SHADOWS.card3D]}>
             <ImageBackground
               source={HERO_IMAGE}
-              style={styles.heroBackground}
+              style={[styles.heroBackground, { minHeight: heroCardHeight }]}
               imageStyle={styles.heroImageStyle}
               resizeMode="cover"
             >
@@ -977,7 +991,7 @@ export default function HomeDashboardScreen() {
 
               <View style={styles.heroTopTag}>
                 <Ionicons name="sparkles" size={11} color="#E6D5AF" />
-                <Text style={styles.heroTopTagText}>FEATURED EXPEDITION</Text>
+                <Text style={styles.heroTopTagText}>✦ FEATURED EXPEDITION</Text>
               </View>
 
               <GlassCard material="pearl" style={styles.heroFloatingPanel}>
@@ -1001,7 +1015,7 @@ export default function HomeDashboardScreen() {
                     activeOpacity={0.85}
                   >
                     <Text style={styles.heroPrimaryBtnText}>Explore Journey</Text>
-                    <Ionicons name="arrow-forward" size={14} color="#FBFAF7" style={{ marginLeft: 6 }} />
+                    <Ionicons name="arrow-forward" size={14} color="#FAF8F5" style={{ marginLeft: 6 }} />
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1025,6 +1039,7 @@ export default function HomeDashboardScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScrollBleed}
             contentContainerStyle={styles.actionRailScroll}
           >
             {LUXURY_ACTION_RAIL.map((action) => {
@@ -1115,6 +1130,7 @@ export default function HomeDashboardScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScrollBleed}
             contentContainerStyle={styles.preferenceChipsScroll}
           >
             {PREFERENCE_CHIPS.map((chip) => (
@@ -1179,6 +1195,7 @@ export default function HomeDashboardScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScrollBleed}
             contentContainerStyle={styles.destinationsScroll}
           >
             {stateDestinations.map((city) => (
@@ -1186,7 +1203,7 @@ export default function HomeDashboardScreen() {
                 key={city.id}
                 onPress={() => handleExplorePlace(city.name)}
                 activeOpacity={0.88}
-                style={[styles.editorialCityCard, SHADOWS.card]}
+                style={[styles.editorialCityCard, { width: carouselCardWidth }, SHADOWS.card]}
               >
                 <Image
                   source={
@@ -1244,6 +1261,7 @@ export default function HomeDashboardScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScrollBleed}
             contentContainerStyle={styles.famousChipsScroll}
           >
             {FAMOUS_CATEGORIES.map((cat) => (
@@ -1259,6 +1277,7 @@ export default function HomeDashboardScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScrollBleed}
             contentContainerStyle={styles.destinationsScroll}
           >
             {filteredFamousPlaces.slice(0, 8).map((place) => (
@@ -1266,7 +1285,7 @@ export default function HomeDashboardScreen() {
                 key={place.id}
                 onPress={() => handleExplorePlace(place.city || place.name)}
                 activeOpacity={0.88}
-                style={[styles.editorialFamousCard, SHADOWS.card]}
+                style={[styles.editorialFamousCard, { width: famousCardWidth }, SHADOWS.card]}
               >
                 <Image
                   source={
@@ -1465,7 +1484,7 @@ export default function HomeDashboardScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.popularPlacesScroll}
           >
-            {POPULAR_PLACES.map((place) => (
+            {CURATED_ICONIC_DESTINATIONS.map((place) => (
               <TouchableOpacity
                 key={place.id}
                 onPress={() => handleExplorePlace(place.name)}
@@ -1546,25 +1565,64 @@ export default function HomeDashboardScreen() {
               {/* Active Base Hero Card */}
               <View style={styles.modalActiveHeroCard}>
                 <View style={styles.modalActiveHeroLeft}>
-                  <View style={styles.modalActiveHeroIconWrap}>
-                    <Ionicons name="navigate" size={18} color="#B99A5E" />
+                  <View style={[
+                    styles.modalActiveHeroIconWrap,
+                    !userLocation && { backgroundColor: 'rgba(239, 68, 68, 0.12)' }
+                  ]}>
+                    <Ionicons
+                      name={userLocation ? 'navigate' : locationStatus === 'denied' ? 'location-outline' : 'alert-circle-outline'}
+                      size={18}
+                      color={userLocation ? '#B99A5E' : locationStatus === 'denied' ? '#F87171' : '#FBBF24'}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.modalActiveHeroLabel}>CURRENT ACTIVE BASE</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.modalActiveHeroCity}>{userLocation.city}</Text>
-                      <View style={styles.modalActiveStateTag}>
-                        <Text style={styles.modalActiveStateTagText}>{userLocation.state}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.modalActiveHeroDistrict} numberOfLines={1}>
-                      {userLocation.district ? `${userLocation.district} District • ` : ''}India Travel Base
-                    </Text>
+                    <Text style={styles.modalActiveHeroLabel}>AUTHORITATIVE DEVICE GPS</Text>
+                    {userLocation ? (
+                      <>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.modalActiveHeroCity}>{userLocation.city}</Text>
+                          {userLocation.state && (
+                            <View style={styles.modalActiveStateTag}>
+                              <Text style={styles.modalActiveStateTagText}>{userLocation.state}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.modalActiveHeroDistrict} numberOfLines={1}>
+                          GPS: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                          {userLocation.accuracy ? ` (±${Math.round(userLocation.accuracy)}m)` : ''} • Real-Time Signal
+                        </Text>
+                      </>
+                    ) : locationStatus === 'denied' ? (
+                      <>
+                        <Text style={[styles.modalActiveHeroCity, { color: '#F87171' }]}>Location Denied</Text>
+                        <Text style={styles.modalActiveHeroDistrict} numberOfLines={1}>
+                          Device permission denied. Enable in Settings.
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[styles.modalActiveHeroCity, { color: '#FBBF24' }]}>GPS Unavailable</Text>
+                        <Text style={styles.modalActiveHeroDistrict} numberOfLines={1}>
+                          Unable to acquire satellite signal. Tap calibrate to retry.
+                        </Text>
+                      </>
+                    )}
                   </View>
                 </View>
-                <View style={styles.modalActiveBeaconBadge}>
-                  <View style={styles.modalActiveBeaconDot} />
-                  <Text style={styles.modalActiveBeaconText}>Active</Text>
+                <View style={[
+                  styles.modalActiveBeaconBadge,
+                  !userLocation && { backgroundColor: 'rgba(239, 68, 68, 0.10)', borderColor: 'rgba(239, 68, 68, 0.25)' }
+                ]}>
+                  <View style={[
+                    styles.modalActiveBeaconDot,
+                    !userLocation && { backgroundColor: locationStatus === 'denied' ? '#F87171' : '#FBBF24' }
+                  ]} />
+                  <Text style={[
+                    styles.modalActiveBeaconText,
+                    !userLocation && { color: locationStatus === 'denied' ? '#F87171' : '#FBBF24' }
+                  ]}>
+                    {userLocation ? 'GPS Active' : locationStatus === 'denied' ? 'Denied' : 'Inactive'}
+                  </Text>
                 </View>
               </View>
 
@@ -1582,7 +1640,7 @@ export default function HomeDashboardScreen() {
                   <Ionicons name="locate" size={16} color="#171817" style={{ marginRight: 6 }} />
                 )}
                 <Text style={styles.modalAutoDetectBtnText}>
-                  {locating ? 'Calibrating Coordinates...' : 'Auto-Detect Base (GPS)'}
+                  {locating ? 'Acquiring Device GPS Signal...' : 'Calibrate Device GPS'}
                 </Text>
               </TouchableOpacity>
 
@@ -1627,7 +1685,7 @@ export default function HomeDashboardScreen() {
                       <Text
                         style={[
                           styles.modalRegionPillText,
-                          isActive ? { color: '#FBFAF7', fontWeight: '700' } : { color: '#45453F' },
+                          isActive ? { color: '#FAF8F5', fontWeight: '700' } : { color: '#45453F' },
                         ]}
                       >
                         {region === 'All' ? 'All India' : region}
@@ -1639,7 +1697,7 @@ export default function HomeDashboardScreen() {
 
               {/* Popular Hubs Quick Bar */}
               <View style={styles.modalSubHeaderRow}>
-                <Text style={styles.modalSectionHeading}>Popular Travel Hubs</Text>
+                <Text style={styles.modalSectionHeading}>Popular Travel Destinations</Text>
                 <Text style={styles.modalSectionCount}>{POPULAR_HUBS.length} Hubs</Text>
               </View>
               <ScrollView
@@ -1649,7 +1707,7 @@ export default function HomeDashboardScreen() {
                 contentContainerStyle={{ paddingRight: 10, gap: 6 }}
               >
                 {POPULAR_HUBS.map((hub) => {
-                  const isCurrent = userLocation.city === hub.name;
+                  const isCurrent = (selectedDestinationHub && selectedDestinationHub === hub.name) || (!selectedDestinationHub && userLocation?.city === hub.name);
                   return (
                     <TouchableOpacity
                       key={hub.name}
@@ -1688,7 +1746,7 @@ export default function HomeDashboardScreen() {
                 nestedScrollEnabled={true}
               >
                 {filteredLocationResults.map((item) => {
-                  const isCurrent = userLocation.city === item.name;
+                  const isCurrent = (selectedDestinationHub && selectedDestinationHub === item.name) || (!selectedDestinationHub && userLocation?.city === item.name);
                   return (
                     <TouchableOpacity
                       key={`${item.id || item.name}-${item.state}`}
@@ -1718,9 +1776,9 @@ export default function HomeDashboardScreen() {
                             >
                               {item.name}
                             </Text>
-                            {item.name.toLowerCase() === (userLocation.city || '').toLowerCase() && (
+                            {item.name.toLowerCase() === (userLocation?.city || '').toLowerCase() && (
                               <View style={styles.modalPresentTag}>
-                                <Text style={styles.modalPresentTagText}>Active Base</Text>
+                                <Text style={styles.modalPresentTagText}>GPS Proximity</Text>
                               </View>
                             )}
                           </View>
@@ -1733,7 +1791,7 @@ export default function HomeDashboardScreen() {
                         {isCurrent ? (
                           <View style={styles.modalActiveInlineTag}>
                             <Ionicons name="checkmark-circle" size={12} color="#33463C" />
-                            <Text style={styles.modalActiveInlineTagText}>Active</Text>
+                            <Text style={styles.modalActiveInlineTagText}>Selected</Text>
                           </View>
                         ) : (
                           <View style={styles.modalCityBadge}>
@@ -1823,6 +1881,7 @@ const styles = StyleSheet.create({
   },
   conciergeLeft: {
     flex: 1,
+    marginRight: 12,
   },
   atmospherePill: {
     flexDirection: 'row',
@@ -1844,28 +1903,29 @@ const styles = StyleSheet.create({
     color: '#77766F',
   },
   conciergeGreeting: {
-    fontFamily: FONTS.extraBold,
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    lineHeight: 30,
-    color: '#171817',
+    fontFamily: FONTS.medium,
+    fontStyle: "italic",
+    fontSize: 18,
+    fontWeight: "500",
+    letterSpacing: -0.2,
+    lineHeight: 24,
+    color: "#1E1B18",
   },
   conciergeRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
   },
   locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(251, 250, 247, 0.85)',
+    gap: 4,
+    backgroundColor: '#F4EFEB',
     borderWidth: 1,
-    borderColor: 'rgba(215, 210, 200, 0.70)',
+    borderColor: 'rgba(197, 168, 128, 0.28)',
     borderRadius: RADII.full,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     ...Platform.select({
       web: { backdropFilter: 'blur(16px)' },
       default: {},
@@ -1873,9 +1933,9 @@ const styles = StyleSheet.create({
   },
   locationPillText: {
     fontFamily: FONTS.semiBold,
-    fontSize: 12,
+    fontSize: 11,
     color: '#171817',
-    maxWidth: 90,
+    maxWidth: 62,
   },
   avatarButton: {
     padding: 2,
@@ -1903,15 +1963,15 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F4EFEB",
     borderWidth: 1,
-    borderColor: '#EDE5DA',
-    borderRadius: RADII['2xl'],
-    paddingLeft: 14,
+    borderColor: "rgba(197, 168, 128, 0.28)",
+    borderRadius: 9999,
+    paddingLeft: 16,
     paddingRight: 6,
-    height: 54,
+    height: 52,
     marginBottom: 28,
     ...Platform.select({
       web: {
@@ -1930,6 +1990,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#171817',
     height: '100%',
+    paddingVertical: 0,
+    textAlignVertical: 'center',
     ...Platform.select({
       web: { outlineStyle: 'none' },
       default: {},
@@ -1942,8 +2004,8 @@ const styles = StyleSheet.create({
   searchSubmitBtn: {
     width: 38,
     height: 38,
-    borderRadius: RADII.xl,
-    backgroundColor: '#171817',
+    borderRadius: 9999,
+    backgroundColor: '#1C1917',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
@@ -1956,17 +2018,23 @@ const styles = StyleSheet.create({
 
   // 3. Hero Experience
   heroWrapper: {
-    borderRadius: RADII['3xl'],
-    overflow: 'hidden',
+    backgroundColor: "#FAF8F5",
+    borderRadius: 24,
+    overflow: "hidden",
     marginBottom: 36,
     borderWidth: 1,
-    borderColor: 'rgba(215, 210, 200, 0.55)',
+    borderColor: "rgba(197, 168, 128, 0.28)",
+    shadowColor: "#1C1917",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 2,
   },
   heroBackground: {
     width: '100%',
-    height: 390,
+    minHeight: 410,
     justifyContent: 'space-between',
-    padding: 18,
+    padding: 14,
   },
   heroImageStyle: {
     borderRadius: RADII['3xl'],
@@ -1978,7 +2046,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(23, 24, 23, 0.55)',
     borderWidth: 1,
-    borderColor: 'rgba(230, 213, 175, 0.40)',
+    borderColor: 'rgba(197, 168, 128, 0.60)',
     borderRadius: RADII.full,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -1992,10 +2060,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.2,
-    color: '#E6D5AF',
+    color: '#D4AF37',
   },
   heroFloatingPanel: {
-    padding: 20,
+    padding: 14,
     borderRadius: RADII['2xl'],
     ...Platform.select({
       web: {
@@ -2024,7 +2092,7 @@ const styles = StyleSheet.create({
   heroPanelBadgeText: {
     fontFamily: FONTS.bold,
     fontSize: 10,
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
     color: '#B99A5E',
   },
   heroPanelDates: {
@@ -2034,30 +2102,33 @@ const styles = StyleSheet.create({
   },
   heroPanelTitle: {
     fontFamily: FONTS.extraBold,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
     color: '#171817',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   heroPanelTravelers: {
     fontFamily: FONTS.regular,
-    fontSize: 13,
+    fontSize: 12,
     color: '#45453F',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   heroPanelActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    flexWrap: 'nowrap',
   },
   heroPrimaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#171817',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     borderRadius: RADII.lg,
+    flexShrink: 0,
     ...Platform.select({
       web: {
         boxShadow: '0 4px 12px rgba(23, 24, 23, 0.18)',
@@ -2067,21 +2138,28 @@ const styles = StyleSheet.create({
   },
   heroPrimaryBtnText: {
     fontFamily: FONTS.semiBold,
-    fontSize: 13,
-    color: '#FBFAF7',
+    fontSize: 11.5,
+    color: '#FAF8F5',
   },
   heroSecondaryBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     borderRadius: RADII.lg,
     borderWidth: 1,
     borderColor: 'rgba(215, 210, 200, 0.75)',
     backgroundColor: 'rgba(255, 255, 255, 0.70)',
+    flexShrink: 0,
   },
   heroSecondaryBtnText: {
     fontFamily: FONTS.semiBold,
-    fontSize: 13,
+    fontSize: 11.5,
     color: '#171817',
+  },
+
+  horizontalScrollBleed: {
+    marginHorizontal: -16,
   },
 
   // 4. Floating Luxury Action Rail
@@ -2096,7 +2174,7 @@ const styles = StyleSheet.create({
     color: '#77766F',
   },
   actionRailScroll: {
-    paddingRight: 16,
+    paddingHorizontal: 16,
     gap: 14,
     paddingBottom: 4,
     marginBottom: 32,
@@ -2106,9 +2184,12 @@ const styles = StyleSheet.create({
   },
   railCard: {
     padding: 16,
-    borderRadius: RADII['2xl'],
+    borderRadius: 24,
+    backgroundColor: "#F4EFEB",
+    borderWidth: 1,
+    borderColor: "rgba(197, 168, 128, 0.28)",
     minHeight: 116,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   railCardTop: {
     flexDirection: 'row',
@@ -2144,8 +2225,11 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   journeyStatusCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(197, 168, 128, 0.22)',
+    borderRadius: 24,
     padding: 20,
-    borderRadius: RADII['2xl'],
   },
   journeyStatusHeader: {
     flexDirection: 'row',
@@ -2240,6 +2324,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 4,
+    paddingHorizontal: 6,
+    flexShrink: 0,
   },
   sectionLinkText: {
     fontFamily: FONTS.semiBold,
@@ -2249,13 +2335,13 @@ const styles = StyleSheet.create({
 
   // Filter Chips Horizontal Scroll
   preferenceChipsScroll: {
-    paddingRight: 16,
+    paddingHorizontal: 16,
     gap: 10,
     paddingVertical: 4,
     marginBottom: 30,
   },
   famousChipsScroll: {
-    paddingRight: 16,
+    paddingHorizontal: 16,
     gap: 10,
     paddingVertical: 4,
     marginTop: 4,
@@ -2264,7 +2350,7 @@ const styles = StyleSheet.create({
 
   // Editorial Destination & Cities Cards
   destinationsScroll: {
-    paddingRight: 16,
+    paddingHorizontal: 16,
     gap: 16,
     paddingBottom: 10,
     marginBottom: 40,
@@ -2277,7 +2363,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#FBFAF7',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
     borderColor: 'rgba(215, 210, 200, 0.65)',
   },
@@ -2303,7 +2389,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 9,
     letterSpacing: 0.8,
-    color: '#FBFAF7',
+    color: '#FAF8F5',
   },
   editorialBottomContent: {
     width: '100%',
@@ -2312,7 +2398,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 19,
     fontWeight: '700',
-    color: '#FBFAF7',
+    color: '#FAF8F5',
     letterSpacing: -0.3,
   },
   editorialCityState: {
@@ -2348,7 +2434,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#FBFAF7',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
     borderColor: 'rgba(215, 210, 200, 0.65)',
   },
@@ -2433,7 +2519,7 @@ const styles = StyleSheet.create({
   communityConnectText: {
     fontFamily: FONTS.semiBold,
     fontSize: 11,
-    color: '#FBFAF7',
+    color: '#FAF8F5',
   },
 
   // Upcoming Trips Section
@@ -2540,9 +2626,11 @@ const styles = StyleSheet.create({
   },
   emptyPlanBtn: {
     backgroundColor: '#171817',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: RADII.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
       web: {
         boxShadow: '0 4px 14px rgba(23, 24, 23, 0.18)',
@@ -2553,7 +2641,7 @@ const styles = StyleSheet.create({
   emptyPlanBtnText: {
     fontFamily: FONTS.semiBold,
     fontSize: 13,
-    color: '#FBFAF7',
+    color: '#FAF8F5',
   },
 
   // Popular Places Horizontal Scroll
@@ -2582,7 +2670,7 @@ const styles = StyleSheet.create({
   placeRatingText: {
     fontFamily: FONTS.bold,
     fontSize: 10,
-    color: '#FBFAF7',
+    color: '#FAF8F5',
   },
 
   // Modal Styles
@@ -2602,7 +2690,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: '#FBFAF7',
+    backgroundColor: '#FAF8F5',
     borderRadius: RADII['3xl'],
     borderWidth: 1,
     borderColor: 'rgba(215, 210, 200, 0.75)',
@@ -2696,7 +2784,7 @@ const styles = StyleSheet.create({
     color: '#171817',
   },
   modalActiveStateTag: {
-    backgroundColor: '#FBFAF7',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
     borderColor: '#D7D2C8',
     borderRadius: RADII.full,
@@ -2847,7 +2935,7 @@ const styles = StyleSheet.create({
     borderRadius: RADII.lg,
     borderWidth: 1,
     borderColor: '#D7D2C8',
-    backgroundColor: '#FBFAF7',
+    backgroundColor: '#FAF8F5',
     marginBottom: 6,
   },
   modalCityItemActive: {
@@ -2925,5 +3013,50 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: 10,
     color: '#77766F',
+  },
+  locationAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: RADII.xl,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    marginBottom: 20,
+    gap: 12,
+  },
+  locationAlertIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationAlertTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    color: '#F87171',
+  },
+  locationAlertSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: '#77766F',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  locationAlertActionBtn: {
+    backgroundColor: '#8C4351',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADII.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  locationAlertActionText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    color: '#FAF8F3',
   },
 });

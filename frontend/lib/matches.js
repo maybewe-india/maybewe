@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
-import { DEMO_MATCHES } from './demoData.js';
 
 const MATCHES_STORAGE_KEY = '@solo_traveler_stored_matches';
 
@@ -26,13 +25,13 @@ export async function getMatches(userId) {
         .order('created_at', { ascending: false });
 
       const timeoutPromise = new Promise((resolve) =>
-        setTimeout(() => resolve({ error: new Error('Matches timeout'), data: null }), 2000)
+        setTimeout(() => resolve({ error: new Error('Matches timeout'), data: null }), 3000)
       );
 
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
-      if (!error && data && data.length > 0) {
-        return data.map(m => {
+      if (!error && Array.isArray(data)) {
+        const formatted = data.map(m => {
           const partner = m.user_a_id === userId ? m.user_b : m.user_a;
           return {
             id: m.id,
@@ -45,13 +44,15 @@ export async function getMatches(userId) {
             unreadCount: 0,
           };
         });
+        AsyncStorage.setItem(MATCHES_STORAGE_KEY, JSON.stringify(formatted)).catch(() => {});
+        return formatted;
       }
     } catch (err) {
-      console.warn('Error fetching Supabase matches, falling back to local demo:', err);
+      console.warn('Error fetching Supabase matches, attempting local cache:', err);
     }
   }
 
-  // Local storage demo fallback
+  // Local storage cached matches
   try {
     const stored = await AsyncStorage.getItem(MATCHES_STORAGE_KEY);
     if (stored) {
@@ -59,9 +60,8 @@ export async function getMatches(userId) {
     }
   } catch {}
 
-  // Initialize with curated demo matches
-  await AsyncStorage.setItem(MATCHES_STORAGE_KEY, JSON.stringify(DEMO_MATCHES));
-  return DEMO_MATCHES;
+  // Pure production empty state
+  return [];
 }
 
 /**

@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -62,6 +62,9 @@ export default function CalendarPickerModal({
   title = 'Select Trip Dates',
 }) {
   const { colors, isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = Math.min(windowWidth - 32, 420);
+  const daySize = Math.floor((cardWidth - 44) / 7);
 
   // Internal selection state
   const [selectedFrom, setSelectedFrom] = useState(initialDateFrom || '');
@@ -220,6 +223,7 @@ export default function CalendarPickerModal({
       visible={visible}
       transparent
       animationType="fade"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.modalBackdrop}>
@@ -227,6 +231,7 @@ export default function CalendarPickerModal({
           style={[
             styles.calendarCard,
             {
+              width: cardWidth,
               backgroundColor: isDark ? colors.modalBg || '#1E1F1E' : '#FFFDFC',
               borderColor: isDark ? colors.border : '#EDE5DA',
             },
@@ -377,7 +382,7 @@ export default function CalendarPickerModal({
               {/* Day of week headers */}
               <View style={styles.weekdaysRow}>
                 {WEEKDAYS.map((wd, i) => (
-                  <Text key={i} style={[styles.weekdayText, { color: isDark ? 'rgba(255, 255, 255, 0.5)' : '#77766F' }]}>
+                  <Text key={i} style={[styles.weekdayText, { width: daySize, color: isDark ? 'rgba(255, 255, 255, 0.5)' : '#77766F' }]}>
                     {wd}
                   </Text>
                 ))}
@@ -387,7 +392,7 @@ export default function CalendarPickerModal({
               <View style={styles.daysGrid}>
                 {/* Empty filler cells before first day of month */}
                 {Array.from({ length: firstDayIndex }).map((_, i) => (
-                  <View key={`empty-${i}`} style={styles.dayCellPlaceholder} />
+                  <View key={`empty-${i}`} style={[styles.dayCellPlaceholder, { width: daySize, height: daySize }]} />
                 ))}
 
                 {/* Actual day cells */}
@@ -412,14 +417,16 @@ export default function CalendarPickerModal({
                       activeOpacity={0.7}
                       style={[
                         styles.dayCell,
+                        { width: daySize, height: daySize },
                         isInRange && styles.dayCellInRange,
-                        isStart && styles.dayCellStart,
-                        isEnd && styles.dayCellEnd,
+                        isStart && [styles.dayCellStart, { borderTopLeftRadius: daySize / 2, borderBottomLeftRadius: daySize / 2 }],
+                        isEnd && [styles.dayCellEnd, { borderTopRightRadius: daySize / 2, borderBottomRightRadius: daySize / 2 }],
                       ]}
                     >
                       <View
                         style={[
                           styles.dayInnerCircle,
+                          { width: daySize - 4, height: daySize - 4, borderRadius: (daySize - 4) / 2 },
                           isToday && !isStart && !isEnd && styles.todayInnerCircle,
                           (isStart || isEnd) && styles.selectedDayCircle,
                         ]}
@@ -496,10 +503,6 @@ export default function CalendarPickerModal({
   );
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = Math.min(SCREEN_WIDTH - 32, 420);
-const DAY_SIZE = Math.floor((CARD_WIDTH - 44) / 7);
-
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
@@ -509,7 +512,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   calendarCard: {
-    width: CARD_WIDTH,
+    maxWidth: 420,
+    width: '100%',
     borderRadius: RADII.xxl,
     borderWidth: 1,
     overflow: 'hidden',
@@ -610,7 +614,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   weekdayText: {
-    width: DAY_SIZE,
     textAlign: 'center',
     fontFamily: FONTS.bold,
     fontSize: 12,
@@ -621,33 +624,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   dayCellPlaceholder: {
-    width: DAY_SIZE,
-    height: DAY_SIZE,
   },
   dayCell: {
-    width: DAY_SIZE,
-    height: DAY_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 2,
   },
   dayCellStart: {
     backgroundColor: '#E7D3B5',
-    borderTopLeftRadius: DAY_SIZE / 2,
-    borderBottomLeftRadius: DAY_SIZE / 2,
   },
   dayCellEnd: {
     backgroundColor: '#E7D3B5',
-    borderTopRightRadius: DAY_SIZE / 2,
-    borderBottomRightRadius: DAY_SIZE / 2,
   },
   dayCellInRange: {
     backgroundColor: 'rgba(231, 211, 181, 0.45)',
   },
   dayInnerCircle: {
-    width: DAY_SIZE - 4,
-    height: DAY_SIZE - 4,
-    borderRadius: (DAY_SIZE - 4) / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -733,9 +725,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'space-between',
   },
   monthGridCell: {
-    width: (CARD_WIDTH - 64) / 3,
+    width: '31%',
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',

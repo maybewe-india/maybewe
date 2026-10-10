@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,13 +19,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, RADII, SHADOWS, FONTS, PALETTE } from '../lib/theme.js';
 import { useTheme } from '../lib/themeContext.jsx';
 import { getDestinationImage } from '../lib/destinationImageResolver.js';
-import { PLACES_DATA } from '../data/placesData.js';
-import { getDemoTravelers } from '../lib/demoData.js';
-import { getDemoHangouts } from '../lib/hangouts.js';
-import { togglePlaceSaved, isPlaceSaved } from '../lib/places.js';
+import { searchPlaces, togglePlaceSaved, isPlaceSaved } from '../lib/places.js';
+import { discoverTravelers } from '../lib/discovery.js';
+import { fetchUserHangouts } from '../lib/hangouts.js';
+import { useAuth } from '../lib/authContext.jsx';
 import Avatar from './ui/Avatar.jsx';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 const DESTINATION_EDITORIALS = {
   Goa: {
@@ -88,8 +88,11 @@ export default function DestinationDetailModal({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState('places'); // 'places' | 'travelers' | 'hangouts' | 'itineraries'
+  const [matchingTravelers, setMatchingTravelers] = useState([]);
+  const [matchingHangouts, setMatchingHangouts] = useState([]);
 
   const destName = destination || 'Goa';
   const editorial = DESTINATION_EDITORIALS[destName] || {
@@ -103,37 +106,62 @@ export default function DestinationDetailModal({
     return getDestinationImage(destName);
   }, [destName]);
 
-  // Filter curated places matching destination
-  const matchingPlaces = useMemo(() => {
-    return PLACES_DATA.filter((p) =>
-      p.destination?.toLowerCase().includes(destName.toLowerCase()) ||
-      destName.toLowerCase().includes(p.destination?.toLowerCase())
-    );
-  }, [destName]);
+  const [matchingPlaces, setMatchingPlaces] = useState([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
 
-  // Filter demo travelers matching destination or active
-  const matchingTravelers = useMemo(() => {
-    const all = getDemoTravelers();
-    return all.filter((t) =>
-      t.trip_destination?.toLowerCase().includes(destName.toLowerCase()) ||
-      t.city?.toLowerCase().includes(destName.toLowerCase())
-    );
-  }, [destName]);
+  // Load real places, travelers and hangouts matching destination
+  useEffect(() => {
+    if (!visible) return;
+    let isCancelled = false;
+    setPlacesLoading(true);
 
-  // Filter demo hangouts matching destination
-  const matchingHangouts = useMemo(() => {
-    const all = getDemoHangouts();
-    return all.filter((h) =>
-      h.destination?.toLowerCase().includes(destName.toLowerCase()) ||
-      destName.toLowerCase().includes(h.destination?.toLowerCase())
-    );
-  }, [destName]);
+    searchPlaces(destName, 'poi')
+      .then((places) => {
+        if (!isCancelled) {
+          setMatchingPlaces(places || []);
+          setPlacesLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setMatchingPlaces([]);
+          setPlacesLoading(false);
+        }
+      });
+
+    discoverTravelers({ userId: user?.id, destination: destName })
+      .then((travelers) => {
+        if (!isCancelled) setMatchingTravelers(travelers || []);
+      })
+      .catch(() => {
+        if (!isCancelled) setMatchingTravelers([]);
+      });
+
+    fetchUserHangouts(user?.id)
+      .then((hangouts) => {
+        if (!isCancelled) {
+          const filtered = (hangouts || []).filter((h) =>
+            h.destination?.toLowerCase().includes(destName.toLowerCase()) ||
+            destName.toLowerCase().includes(h.destination?.toLowerCase())
+          );
+          setMatchingHangouts(filtered);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) setMatchingHangouts([]);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [visible, destName, user?.id]);
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
@@ -151,7 +179,7 @@ export default function DestinationDetailModal({
             />
 
             {/* Top Bar with Close button */}
-            <View style={[styles.heroTopBar, { paddingTop: Math.max(insets.top, 14) }]}>
+            <View style={styles.heroTopBar}>
               <View style={styles.stateBadge}>
                 <Ionicons name="location" size={11} color="#C8B27A" />
                 <Text style={styles.stateBadgeText}>{editorial.state.toUpperCase()}</Text>
@@ -221,43 +249,55 @@ export default function DestinationDetailModal({
             {/* PLACES TAB */}
             {activeTab === 'places' && (
               <View style={styles.tabSection}>
-                <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Curated Landmarks & Stays</Text>
-                {matchingPlaces.length === 0 ? (
+                <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Points of Interest & Spots</Text>
+                {placesLoading ? (
+                  <ActivityIndicator size="small" color="#C8B27A" style={{ marginVertical: 24 }} />
+                ) : matchingPlaces.length === 0 ? (
                   <Text style={[styles.emptySectionText, { color: colors.textSecondary }]}>
-                    No places currently cataloged for {destName}.
+                    No places currently found for {destName}.
                   </Text>
                 ) : (
-                  matchingPlaces.map((place) => (
-                    <TouchableOpacity
-                      key={place.id}
-                      style={[styles.placeCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        onClose && onClose();
-                        onOpenPlace ? onOpenPlace(place.id) : router.push('/(tabs)/discovery');
-                      }}
-                    >
-                      <Image source={{ uri: place.image_url }} style={styles.placeThumb} />
-                      <View style={styles.placeInfo}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={[styles.placeName, { color: colors.textPrimary }]} numberOfLines={1}>
-                            {place.name}
+                  <>
+                    {matchingPlaces.map((place) => (
+                      <TouchableOpacity
+                        key={place.place_id || place.id}
+                        style={[styles.placeCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          onClose && onClose();
+                          onOpenPlace ? onOpenPlace(place.place_id || place.id) : router.push('/(tabs)/discovery');
+                        }}
+                      >
+                        <Image
+                          source={{ uri: place.image_url || getDestinationImage(destName) }}
+                          style={styles.placeThumb}
+                        />
+                        <View style={styles.placeInfo}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={[styles.placeName, { color: colors.textPrimary }]} numberOfLines={1}>
+                              {place.name}
+                            </Text>
+                            {place.rating != null && (
+                              <View style={styles.ratingBadge}>
+                                <Ionicons name="star" size={11} color="#C8B27A" />
+                                <Text style={styles.ratingText}>{place.rating}</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[styles.placeDesc, { color: colors.textSecondary }]} numberOfLines={2}>
+                            {place.address || place.description || 'Points of interest'}
                           </Text>
-                          <View style={styles.ratingBadge}>
-                            <Ionicons name="star" size={11} color="#C8B27A" />
-                            <Text style={styles.ratingText}>{place.rating || 4.8}</Text>
+                          <View style={styles.placeFooter}>
+                            <Text style={styles.categoryChipText}>{place.category || 'Sight'}</Text>
+                            <Text style={[styles.viewDetailsText, { color: '#B99A5E' }]}>Explore spot →</Text>
                           </View>
                         </View>
-                        <Text style={[styles.placeDesc, { color: colors.textSecondary }]} numberOfLines={2}>
-                          {place.description}
-                        </Text>
-                        <View style={styles.placeFooter}>
-                          <Text style={styles.categoryChipText}>{place.category || 'Sight'}</Text>
-                          <Text style={[styles.viewDetailsText, { color: '#B99A5E' }]}>Explore landmark →</Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  ))
+                      </TouchableOpacity>
+                    ))}
+                    <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 12 }}>
+                      Places powered by OpenStreetMap
+                    </Text>
+                  </>
                 )}
               </View>
             )}
@@ -370,11 +410,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   heroWrapper: {
-    height: 220,
+    minHeight: 220,
     width: '100%',
     position: 'relative',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: 16,
   },
   heroImage: {
     ...StyleSheet.absoluteFillObject,
