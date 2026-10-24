@@ -133,8 +133,8 @@ export default function DiscoveryCard({
               )}
             </View>
             <TrustBadge
-              score={traveler.trust_score || 4.9}
-              verificationStatus={traveler.verification_status || 'verified'}
+              score={traveler.trust_score || 0}
+              verificationStatus={traveler.verification_status}
               variant="compact"
             />
           </View>

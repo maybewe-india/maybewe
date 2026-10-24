@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 24.12.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://vdmzchvwrmqnbmpzvgng.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_u7pO7cAzSDoZkbDLfbKbOw_Bmkt1Fsh",
+        "EXPO_PUBLIC_MAP_STYLE_URL": "https://tiles.openfreemap.org/styles/liberty",
+        "EXPO_PUBLIC_MAP_DARK_STYLE_URL": "https://tiles.openfreemap.org/styles/positron"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

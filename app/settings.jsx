@@ -17,6 +17,7 @@ import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
 import { COLORS, GRADIENTS, RADIUS, SPACING, SHADOWS } from '../lib/theme';
 import { INDIA_PHONE_CODE, INDIA_CURRENCY_SYMBOL, INDIA_LOCALE } from '../lib/indiaData';
+import EmergencyContactsModal from '../components/EmergencyContactsModal';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -50,6 +51,7 @@ export default function SettingsScreen() {
   };
 
   const isVerified = profile?.verification_status === 'verified';
+  const [showEmergencyContacts, setShowEmergencyContacts] = React.useState(false);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -216,7 +218,34 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
+
+          {/* Emergency Contacts / Safety Circle */}
+          <TouchableOpacity
+            style={[styles.rowButton, { borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' }]}
+            onPress={() => setShowEmergencyContacts(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingLeft}>
+              <View style={[styles.iconWrap, { backgroundColor: isDark ? 'rgba(121, 217, 176, 0.12)' : 'rgba(5, 150, 105, 0.08)' }]}>
+                <Ionicons name="people-outline" size={18} color={COLORS.success} />
+              </View>
+              <View>
+                <Text style={[styles.settingLabel, { color: isDark ? '#FFFFFF' : '#061522' }]}>Safety Circle</Text>
+                <Text style={[styles.settingDesc, { color: colors.textSecondary }]}>
+                  Manage emergency contacts for travel safety
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
         </View>
+
+        {/* Emergency Contacts Modal */}
+        <EmergencyContactsModal
+          visible={showEmergencyContacts}
+          onClose={() => setShowEmergencyContacts(false)}
+          userId={user?.id}
+        />
 
         {/* Section: India-Only Localization */}
         <View style={styles.sectionHeader}>

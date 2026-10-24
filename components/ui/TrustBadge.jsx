@@ -54,6 +54,17 @@ export default function TrustBadge({ score = 0, verificationStatus, variant = 'c
     );
   }
 
+  // badge-only — single verified shield pill, no score displayed
+  if (variant === 'badge-only') {
+    if (!isVerified) return null;
+    return (
+      <View style={[styles.badgeOnly, style]}>
+        <Ionicons name="shield-checkmark" size={11} color="#FFFFFF" />
+        <Text style={styles.badgeOnlyText}>Verified</Text>
+      </View>
+    );
+  }
+
   // compact
   return (
     <View style={[styles.compactContainer, style]}>
@@ -154,6 +165,21 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extraBold,
     fontSize: 12,
     fontWeight: '800',
+  },
+  badgeOnly: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#059669',
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    borderRadius: 100,
+  },
+  badgeOnlyText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
   compactLabel: {
     fontFamily: FONTS.semiBold,

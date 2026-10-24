@@ -13,17 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADII } from '../lib/theme';
 import PrimaryButton from './ui/PrimaryButton';
 import InputField from './ui/InputField';
-import { blockUser } from '../lib/discovery';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-
-const REPORT_REASONS = [
-  { id: 'harassment', label: 'Harassment or offensive behavior', icon: 'hand-left-outline' },
-  { id: 'fake_profile', label: 'Fake profile or stolen photos', icon: 'person-remove-outline' },
-  { id: 'spam', label: 'Spam, scams or commercial activity', icon: 'megaphone-outline' },
-  { id: 'safety_concern', label: 'Safety or physical concern', icon: 'warning-outline' },
-  { id: 'inappropriate', label: 'Inappropriate language or photos', icon: 'alert-circle-outline' },
-  { id: 'other', label: 'Other community guideline breach', icon: 'help-circle-outline' },
-];
+import { submitSafetyReport, REPORT_REASONS } from '../lib/safetyReports';
 
 export default function SafetyReportModal({
   visible,
@@ -42,22 +32,18 @@ export default function SafetyReportModal({
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      if (isSupabaseConfigured && currentUserId && targetUser.id) {
-        await supabase.from('reports').insert([
-          {
-            reporter_id: currentUserId,
-            reported_id: targetUser.id,
-            reason: `${selectedReason}: ${additionalDetails || 'No details provided'}`,
-            status: 'pending',
-          },
-        ]);
-      }
+      await submitSafetyReport({
+        reporterId: currentUserId,
+        reportedId: targetUser?.id || null,
+        targetType: 'user',
+        targetId: targetUser?.id || 'unknown',
+        reason: selectedReason,
+        details: additionalDetails || null,
+        shouldBlock,
+      });
 
-      if (shouldBlock && targetUser.id) {
-        await blockUser(targetUser.id);
-        if (onUserBlocked) {
-          onUserBlocked(targetUser.id);
-        }
+      if (shouldBlock && targetUser?.id && onUserBlocked) {
+        onUserBlocked(targetUser.id);
       }
 
       Alert.alert(
