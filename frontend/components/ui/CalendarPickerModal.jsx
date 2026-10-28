@@ -65,6 +65,7 @@ export default function CalendarPickerModal({
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = Math.min(windowWidth - 32, 420);
   const daySize = Math.floor((cardWidth - 44) / 7);
+  const circleSize = Math.max(28, Math.min(daySize - 4, 38));
 
   // Internal selection state
   const [selectedFrom, setSelectedFrom] = useState(initialDateFrom || '');
@@ -165,24 +166,27 @@ export default function CalendarPickerModal({
 
     // Range selection state machine
     if (!selectedFrom || (selectedFrom && selectedTo)) {
-      // Start a new selection
+      // First tap sets departure date, clears return date, keeps picker open
       setSelectedFrom(clickedIso);
       setSelectedTo('');
     } else if (selectedFrom && !selectedTo) {
       if (clickedIso < selectedFrom) {
-        // Tapped earlier date: shift departure to this date
+        // Tapped earlier date second: treat as new departure date
         setSelectedFrom(clickedIso);
+        setSelectedTo('');
       } else {
-        // Tapped on or after departure date: complete range
+        // Second tap on or after departure date: sets return date
+        // Note: tapping same date twice sets same-day trip (selectedTo === selectedFrom)
         setSelectedTo(clickedIso);
       }
     }
   };
 
   const handleConfirm = () => {
+    if (!selectedFrom || !selectedTo) return;
     onSelectRange?.({
       dateFrom: selectedFrom,
-      dateTo: selectedTo || selectedFrom,
+      dateTo: selectedTo,
     });
     onClose?.();
   };
@@ -266,9 +270,11 @@ export default function CalendarPickerModal({
 
               <View style={styles.rangeDividerLine}>
                 <Ionicons name="airplane" size={14} color="#E7D3B5" />
-                {nightsCount > 0 && (
-                  <Text style={styles.nightsBadge}>{nightsCount} {nightsCount === 1 ? 'night' : 'nights'}</Text>
-                )}
+                {selectedFrom && selectedTo ? (
+                  <Text style={styles.nightsBadge}>
+                    {nightsCount === 0 ? 'Same day' : `${nightsCount} ${nightsCount === 1 ? 'night' : 'nights'}`}
+                  </Text>
+                ) : null}
               </View>
 
               <View style={styles.dateBlock}>
@@ -295,7 +301,7 @@ export default function CalendarPickerModal({
               onPress={() => setPickerMode((m) => (m === 'calendar' ? 'yearMonthPicker' : 'calendar'))}
               style={[
                 styles.monthYearSelectorBtn,
-                pickerMode === 'yearMonthPicker' && { backgroundColor: '#E7D3B5' },
+                pickerMode === 'yearMonthPicker' && { backgroundColor: '#F3EBDD' },
               ]}
               activeOpacity={0.8}
             >
@@ -395,7 +401,7 @@ export default function CalendarPickerModal({
                   <View key={`empty-${i}`} style={[styles.dayCellPlaceholder, { width: daySize, height: daySize }]} />
                 ))}
 
-                {/* Actual day cells */}
+                {/* Actual day cells with rounded champagne connectors and circles */}
                 {Array.from({ length: daysInMonth }).map((_, i) => {
                   const dayNum = i + 1;
                   const dayIso = toIsoString(viewYear, viewMonth, dayNum);
@@ -403,11 +409,12 @@ export default function CalendarPickerModal({
                   const isToday = dayIso === todayIso;
                   const isStart = dayIso === selectedFrom;
                   const isEnd = dayIso === selectedTo;
-                  const isInRange =
-                    selectedFrom &&
-                    selectedTo &&
-                    dayIso > selectedFrom &&
-                    dayIso < selectedTo;
+                  const hasBothDates = Boolean(selectedFrom && selectedTo);
+                  const isMultiDay = hasBothDates && selectedFrom !== selectedTo;
+                  const isInRange = isMultiDay && dayIso > selectedFrom && dayIso < selectedTo;
+                  const colIndex = (firstDayIndex + i) % 7;
+                  const isWeekStart = colIndex === 0;
+                  const isWeekEnd = colIndex === 6;
 
                   return (
                     <TouchableOpacity
@@ -416,29 +423,67 @@ export default function CalendarPickerModal({
                       disabled={isPast}
                       activeOpacity={0.7}
                       style={[
-                        styles.dayCell,
+                        styles.dayCellContainer,
                         { width: daySize, height: daySize },
-                        isInRange && styles.dayCellInRange,
-                        isStart && [styles.dayCellStart, { borderTopLeftRadius: daySize / 2, borderBottomLeftRadius: daySize / 2 }],
-                        isEnd && [styles.dayCellEnd, { borderTopRightRadius: daySize / 2, borderBottomRightRadius: daySize / 2 }],
                       ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${dayNum} ${MONTH_NAMES[viewMonth]} ${viewYear}`}
                     >
+                      {/* Range Connector Track (Behind circle) */}
+                      {isMultiDay && (
+                        <>
+                          {isStart && (
+                            <View
+                              style={[
+                                styles.rangeTrackHalf,
+                                { left: '50%', right: 0, backgroundColor: isDark ? 'rgba(185, 154, 94, 0.22)' : '#F3EBDD' },
+                                isWeekEnd && { borderTopRightRadius: daySize / 2, borderBottomRightRadius: daySize / 2 },
+                              ]}
+                              pointerEvents="none"
+                            />
+                          )}
+                          {isInRange && (
+                            <View
+                              style={[
+                                styles.rangeTrackFull,
+                                { backgroundColor: isDark ? 'rgba(185, 154, 94, 0.22)' : '#F3EBDD' },
+                                isWeekStart && { borderTopLeftRadius: daySize / 2, borderBottomLeftRadius: daySize / 2 },
+                                isWeekEnd && { borderTopRightRadius: daySize / 2, borderBottomRightRadius: daySize / 2 },
+                              ]}
+                              pointerEvents="none"
+                            />
+                          )}
+                          {isEnd && (
+                            <View
+                              style={[
+                                styles.rangeTrackHalf,
+                                { left: 0, right: '50%', backgroundColor: isDark ? 'rgba(185, 154, 94, 0.22)' : '#F3EBDD' },
+                                isWeekStart && { borderTopLeftRadius: daySize / 2, borderBottomLeftRadius: daySize / 2 },
+                              ]}
+                              pointerEvents="none"
+                            />
+                          )}
+                        </>
+                      )}
+
+                      {/* Date Circle */}
                       <View
                         style={[
-                          styles.dayInnerCircle,
-                          { width: daySize - 4, height: daySize - 4, borderRadius: (daySize - 4) / 2 },
-                          isToday && !isStart && !isEnd && styles.todayInnerCircle,
+                          styles.dayCircle,
+                          { width: circleSize, height: circleSize, borderRadius: circleSize / 2 },
+                          isToday && !isStart && !isEnd && styles.todayDayCircle,
                           (isStart || isEnd) && styles.selectedDayCircle,
                         ]}
+                        pointerEvents="none"
                       >
                         <Text
                           style={[
                             styles.dayText,
-                            { color: isDark ? '#FFFFFF' : '#171817' },
+                            { color: isDark ? '#FAF8F5' : '#1C1917' },
                             isPast && styles.pastDayText,
-                            isToday && !isStart && !isEnd && styles.todayText,
-                            (isStart || isEnd) && styles.selectedDayText,
+                            isToday && !isStart && !isEnd && styles.todayDayText,
                             isInRange && styles.inRangeDayText,
+                            (isStart || isEnd) && styles.selectedDayText,
                           ]}
                         >
                           {dayNum}
@@ -481,19 +526,35 @@ export default function CalendarPickerModal({
 
             <TouchableOpacity
               onPress={handleConfirm}
-              disabled={!selectedFrom}
+              disabled={!selectedFrom || !selectedTo}
               style={[
                 styles.applyBtn,
-                !selectedFrom && styles.applyBtnDisabled,
+                (!selectedFrom || !selectedTo) && styles.applyBtnDisabled,
               ]}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={
+                !selectedFrom
+                  ? 'Select departure date'
+                  : !selectedTo
+                  ? 'Select return date'
+                  : 'Apply selected trip dates'
+              }
             >
               <LinearGradient
-                colors={selectedFrom ? ['#171817', '#2A2B2A'] : ['#A0A09B', '#A0A09B']}
+                colors={selectedFrom && selectedTo ? ['#171817', '#2A2B2A'] : ['#A0A09B', '#A0A09B']}
                 style={styles.applyBtnGradient}
               >
                 <Ionicons name="checkmark-sharp" size={16} color="#FBFAF7" style={{ marginRight: 6 }} />
-                <Text style={styles.applyBtnText}>Apply Dates</Text>
+                <Text style={styles.applyBtnText}>
+                  {!selectedFrom
+                    ? 'Select Dates'
+                    : !selectedTo
+                    ? 'Select Return Date'
+                    : selectedFrom === selectedTo
+                    ? 'Apply Same-Day Trip'
+                    : 'Apply Dates'}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -625,50 +686,71 @@ const styles = StyleSheet.create({
   },
   dayCellPlaceholder: {
   },
-  dayCell: {
+  dayCellContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
     marginVertical: 2,
   },
-  dayCellStart: {
-    backgroundColor: '#E7D3B5',
+  rangeTrackFull: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 3,
+    bottom: 3,
+    backgroundColor: '#F3EBDD',
   },
-  dayCellEnd: {
-    backgroundColor: '#E7D3B5',
+  rangeTrackHalf: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    backgroundColor: '#F3EBDD',
   },
-  dayCellInRange: {
-    backgroundColor: 'rgba(231, 211, 181, 0.45)',
-  },
-  dayInnerCircle: {
+  dayCircle: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  todayInnerCircle: {
+  todayDayCircle: {
     borderWidth: 1.5,
-    borderColor: '#E7D3B5',
+    borderColor: '#B99A5E',
   },
   selectedDayCircle: {
-    backgroundColor: '#171817',
+    backgroundColor: '#B99A5E',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#B99A5E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 0,
+      },
+      default: {},
+    }),
   },
   dayText: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.semiBold,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
+    includeFontPadding: false,
   },
   pastDayText: {
     color: '#B5B3AC',
-    opacity: 0.4,
+    opacity: 0.35,
   },
-  todayText: {
-    color: '#171817',
+  todayDayText: {
+    color: '#B99A5E',
     fontWeight: '700',
   },
   selectedDayText: {
-    color: '#171817',
+    color: '#FAF8F5',
     fontWeight: '800',
   },
   inRangeDayText: {
-    color: '#171817',
+    color: '#1C1917',
     fontWeight: '700',
   },
   quickPresetsRow: {
@@ -710,8 +792,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   activeYearChip: {
-    backgroundColor: '#171817',
-    borderColor: '#171817',
+    backgroundColor: '#B99A5E',
+    borderColor: '#B99A5E',
   },
   yearChipText: {
     fontFamily: FONTS.semiBold,
@@ -736,8 +818,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   activeMonthCell: {
-    backgroundColor: '#171817',
-    borderColor: '#171817',
+    backgroundColor: '#B99A5E',
+    borderColor: '#B99A5E',
   },
   monthCellText: {
     fontFamily: FONTS.bold,

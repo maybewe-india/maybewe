@@ -4,7 +4,7 @@
 // Zero Mapbox / Zero Google Keys. OpenFreeMap & OpenStreetMap cartography.
 // ============================================================================
 
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -43,6 +43,16 @@ export default function MaybeWeMap({
 }) {
   const { colors, isDark } = useTheme();
   const webViewRef = useRef(null);
+  const [webViewError, setWebViewError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const handleRetryMap = useCallback(() => {
+    setWebViewError(null);
+    setReloadKey((prev) => prev + 1);
+    if (onRetryLocation) {
+      onRetryLocation();
+    }
+  }, [onRetryLocation]);
 
   // Dynamic vector style URL from open tile provider abstraction
   const styleUrl = useMemo(() => {
@@ -114,6 +124,7 @@ export default function MaybeWeMap({
             });
           }
         } else if (data?.type === 'MAP_LOADED' || data?.type === 'STYLE_LOADED') {
+          setWebViewError(null);
           if (onMapLoaded) {
             onMapLoaded(data);
           }
@@ -121,6 +132,12 @@ export default function MaybeWeMap({
           if (onRetryLocation) {
             onRetryLocation();
           }
+        } else if (
+          data?.type === 'INIT_ERROR' ||
+          data?.type === 'WEBGL_ERROR' ||
+          data?.type === 'MAP_ERROR'
+        ) {
+          setWebViewError(data?.error || data?.message || 'Map rendering error. Please retry.');
         }
       } catch (err) {
         // Ignore non-json messages
@@ -175,6 +192,38 @@ export default function MaybeWeMap({
     }
   }, [routeGeoJson]);
 
+  // If WebView encountered load, WebGL, or network error
+  if (webViewError) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.emptyContainer,
+          style,
+          { backgroundColor: colors.cardBackground, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.errorIconWrap}>
+          <Ionicons name="alert-circle-outline" size={36} color="#C84C4C" />
+        </View>
+        <Text style={[styles.deniedTitle, { color: colors.textPrimary }]}>
+          Map Viewport Error
+        </Text>
+        <Text style={[styles.deniedSubtext, { color: colors.textSecondary }]}>
+          {webViewError}
+        </Text>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={handleRetryMap}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="refresh" size={16} color="#141514" style={{ marginRight: 6 }} />
+          <Text style={styles.retryBtnText}>Retry Map</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // If GPS is explicitly denied
   if (requireGps && gpsStatus === 'denied' && !userCoords) {
     return (
@@ -226,12 +275,28 @@ export default function MaybeWeMap({
         </TouchableOpacity>
       )}
       <WebView
+        key={`map_wv_${reloadKey}`}
         ref={webViewRef}
         androidHardwareAccelerationDisabled={false}
+        androidLayerType="hardware"
+        mixedContentMode="compatibility"
         originWhitelist={['*']}
         source={{ html: mapHtml }}
         style={styles.webView}
         onMessage={handleWebViewMessage}
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          setWebViewError(nativeEvent?.description || 'Map failed to load. Please retry.');
+        }}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          if (nativeEvent?.statusCode >= 400) {
+            setWebViewError(`Map resource error (${nativeEvent.statusCode}). Please retry.`);
+          }
+        }}
+        onRenderProcessGone={() => {
+          setWebViewError('Map render process crashed. Please retry.');
+        }}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scalesPageToFit={true}
@@ -239,9 +304,11 @@ export default function MaybeWeMap({
         scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
+        startInLoadingState={true}
         renderLoading={() => (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#C8B27A" />
+            <Text style={styles.loadingText}>Loading interactive map...</Text>
           </View>
         )}
       />
@@ -265,12 +332,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#121312',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    zIndex: 99,
+  },
+  loadingText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    color: '#FAF8F5',
+    letterSpacing: 0.3,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
     borderWidth: 1,
+  },
+  errorIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(200, 76, 76, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   deniedIconWrap: {
     width: 64,

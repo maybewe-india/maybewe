@@ -21,8 +21,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import {
+  subscribeLocation,
+  requestCurrentLocation,
+  retryLocation,
+  isValidCoordinate,
+  reverseGeocodeLocation,
+  getCachedLocation,
+  persistSelectedLocalityToStorage,
+  loadCachedSelectedLocality,
+  clearSelectedLocalityFromStorage,
+} from '../../lib/locationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RADII, SHADOWS, FONTS, PALETTE, SURFACES, TEXT, ACCENTS, GLASS_MATERIALS } from '../../lib/theme';
+import { getTabBarClearance, normalizeImageSource } from '../../lib/nativeUiHelpers';
 import useTimeTheme from '../../lib/timeTheme';
 import { useAuth } from '../../lib/authContext';
 import { useTheme } from '../../lib/themeContext';
@@ -212,6 +224,7 @@ function normalizeStateName(rawState, fallbackState = 'Andhra Pradesh') {
   return fallbackState;
 }
 
+const GPS_TELEMETRY_STORAGE_KEY = '@maybewe_gps_telemetry';
 const USER_LOCATION_STORAGE_KEY = '@maybewe_user_location';
 
 const POPULAR_HUBS = [
@@ -284,11 +297,13 @@ export default function HomeDashboardScreen() {
   // locationStatus: 'idle' | 'detecting' | 'granted' | 'denied' | 'unavailable'
   const [userLocation, setUserLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('detecting');
+  const [locationError, setLocationError] = useState(null);
   const [locating, setLocating] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
   const [locationRegionFilter, setLocationRegionFilter] = useState('All');
   const [selectedDestinationHub, setSelectedDestinationHub] = useState(null);
+  const hasManualSelectionRef = useRef(false);
 
   // Supabase Data States
   const [upcomingTrips, setUpcomingTrips] = useState([]);
@@ -301,6 +316,8 @@ export default function HomeDashboardScreen() {
   });
 
   // UI States
+  const [heroImageError, setHeroImageError] = useState(false);
+  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -316,29 +333,58 @@ export default function HomeDashboardScreen() {
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Fast local hydration: load cached user location only if it has authentic GPS coordinates
-    AsyncStorage.getItem(USER_LOCATION_STORAGE_KEY)
-      .then((stored) => {
-        if (stored && isMountedRef.current) {
+    // Fast local hydration: load manually selected destination locality
+    loadCachedSelectedLocality()
+      .then((saved) => {
+        if (!hasManualSelectionRef.current && saved && saved.city && isMountedRef.current) {
+          setSelectedDestinationHub((prev) => prev || saved.city);
+          if (saved.state) {
+            setSelectedState((prev) => hasManualSelectionRef.current ? prev : normalizeStateName(saved.state));
+          }
+        }
+      })
+      .catch(() => {});
+
+    // Fast local hydration: load cached GPS telemetry with shape-discriminating legacy fallback
+    AsyncStorage.getItem(GPS_TELEMETRY_STORAGE_KEY)
+      .then(async (stored) => {
+        let raw = stored;
+        if (!raw) {
+          raw = await AsyncStorage.getItem(USER_LOCATION_STORAGE_KEY);
+        }
+        if (raw && isMountedRef.current) {
           try {
-            const parsed = JSON.parse(stored);
+            const parsed = JSON.parse(raw);
+            const lat = parsed?.latitude ?? parsed?.lat;
+            const lng = parsed?.longitude ?? parsed?.lng;
             if (
-              parsed &&
-              typeof parsed.lat === 'number' &&
-              typeof parsed.lng === 'number' &&
-              !isNaN(parsed.lat) &&
-              !isNaN(parsed.lng) &&
-              parsed.lat >= -90 &&
-              parsed.lat <= 90 &&
-              parsed.lng >= -180 &&
-              parsed.lng <= 180
+              typeof lat === 'number' &&
+              typeof lng === 'number' &&
+              !isNaN(lat) &&
+              !isNaN(lng) &&
+              lat >= -90 &&
+              lat <= 90 &&
+              lng >= -180 &&
+              lng <= 180 &&
+              parsed?.isGPS !== false
             ) {
-              setUserLocation(parsed);
+              const loaded = {
+                status: 'granted',
+                lat,
+                lng,
+                city: parsed.city || 'Current Location',
+                state: parsed.state || null,
+                district: parsed.district || null,
+                accuracy: parsed.accuracy || null,
+                isGPS: true,
+                timestamp: parsed.timestamp || new Date().toISOString(),
+              };
+              setUserLocation(loaded);
               setLocationStatus('granted');
               if (parsed.state) {
                 setSelectedState(parsed.state);
               }
-              cachedLocationRef.current = parsed;
+              cachedLocationRef.current = loaded;
             }
           } catch (e) {}
         }
@@ -369,88 +415,100 @@ export default function HomeDashboardScreen() {
 
   // Live Location Detection via Centralized Location Manager
   // Authoritative Device GPS with single-flight request deduplication & decoupled reverse geocoding
+  useEffect(() => {
+    const unsub = subscribeLocation((state) => {
+      if (!isMountedRef.current) return;
+
+      if (state.location && isValidCoordinate(state.location.latitude, state.location.longitude)) {
+        const coords = state.location;
+        const initialCity = "Current Location";
+        const initialState = null;
+        const initialDistrict = null;
+
+        const authoritativeLocation = {
+          status: "granted",
+          city: initialCity,
+          district: initialDistrict,
+          state: initialState,
+          country: "India",
+          lat: coords.latitude,
+          lng: coords.longitude,
+          accuracy: coords.accuracy || null,
+          isGPS: true,
+          timestamp: new Date(coords.timestamp || Date.now()).toISOString(),
+        };
+
+        cachedLocationRef.current = authoritativeLocation;
+        setUserLocation(authoritativeLocation);
+        setLocationStatus("granted");
+        setLocationError(null);
+        setLocating(false);
+
+        // Decoupled Background Reverse Geocoding (Cosmetic UI only — NEVER blocks rendering or POIs)
+        reverseGeocodeLocation(coords.latitude, coords.longitude)
+          .then((geo) => {
+            if (geo && isMountedRef.current) {
+              setUserLocation((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  city: geo.city || geo.district || prev.city,
+                  state: geo.state ? normalizeStateName(geo.state) : prev.state,
+                  district: geo.district || prev.district,
+                };
+              });
+            }
+          })
+          .catch(() => {});
+      } else if (state.isPermissionDenied) {
+        setLocating(false);
+        setLocationStatus("denied");
+        setLocationError(state.errorMessage || "Device GPS permission is required.");
+      } else if (state.isServicesDisabled || state.isError) {
+        setLocating(false);
+        if (!cachedLocationRef.current) {
+          setLocationStatus("unavailable");
+          setLocationError(state.errorMessage || "Could not acquire GPS coordinates.");
+        }
+      } else if (state.isLocating) {
+        setLocating(true);
+        if (!cachedLocationRef.current) {
+          setLocationStatus("detecting");
+        }
+      }
+    });
+
+    return unsub;
+  }, []);
+
   const detectDeviceLocation = useCallback(async (forceRefresh = false) => {
     if (!isMountedRef.current) return;
     setLocating(true);
-    if (forceRefresh) {
-      setLocationStatus('detecting');
-    }
-
     try {
-      const coords = await requestCurrentLocation({ forceRefresh });
-
-      if (!coords || !isValidCoordinate(coords.latitude, coords.longitude)) {
-        if (isMountedRef.current) {
-          if (!forceRefresh && cachedLocationRef.current) {
-            setLocationStatus('granted');
-            setUserLocation(cachedLocationRef.current);
-          } else {
-            setLocationStatus((prev) => (prev === 'denied' ? 'denied' : 'unavailable'));
-            if (!cachedLocationRef.current) {
-              setUserLocation(null);
-            }
-          }
+      if (forceRefresh) {
+        if (!cachedLocationRef.current) {
+          setLocationStatus("detecting");
         }
-        return;
+        await retryLocation();
+      } else {
+        await requestCurrentLocation({ forceRefresh: false });
       }
-
-      // Fast immediate city approximation via offline Indian cities database (<1ms)
-      const closestCity = findClosestIndianCity(coords.latitude, coords.longitude);
-      const initialCity = closestCity?.name ? `Near ${closestCity.name}` : 'Current Location';
-      const initialState = closestCity?.state || null;
-      const initialDistrict = closestCity?.district || null;
-
-      const authoritativeLocation = {
-        status: 'granted',
-        city: initialCity,
-        district: initialDistrict,
-        state: initialState,
-        country: 'India',
-        lat: coords.latitude,
-        lng: coords.longitude,
-        accuracy: coords.accuracy || null,
-        isGPS: true,
-        timestamp: new Date().toISOString(),
-      };
-
-      if (isMountedRef.current) {
-        cachedLocationRef.current = authoritativeLocation;
-        setUserLocation(authoritativeLocation);
-        setLocationStatus('granted');
-        setLocationError(null);
-        if (initialState) {
-          setSelectedState(initialState);
-        }
-        setShowLocationPicker(false);
-      }
-
-      // Decoupled Background Reverse Geocoding (Cosmetic UI only — NEVER blocks rendering or POIs)
-      reverseGeocodeLocation(coords.latitude, coords.longitude).then((geo) => {
-        if (geo && isMountedRef.current) {
-          setUserLocation((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              city: geo.city || geo.district || prev.city,
-              state: geo.state ? normalizeStateName(geo.state) : prev.state,
-              district: geo.district || prev.district,
-            };
-          });
-        }
-      }).catch(() => {});
-
-    } catch (err) {
-      console.warn('detectDeviceLocation error:', err);
-      if (isMountedRef.current) {
-        setLocationStatus('unavailable');
-        setUserLocation(null);
-      }
+    } catch (e) {
+      console.warn("detectDeviceLocation error:", e);
     } finally {
       if (isMountedRef.current) {
         setLocating(false);
       }
     }
   }, []);
+
+  const handleSwitchToCurrentLocation = useCallback(async () => {
+    hasManualSelectionRef.current = false;
+    setSelectedDestinationHub(null);
+    clearSelectedLocalityFromStorage().catch(() => {});
+    setShowLocationPicker(false);
+    await detectDeviceLocation(true);
+  }, [detectDeviceLocation]);
 
   useEffect(() => {
     if (!hasRequestedLocationRef.current) {
@@ -623,10 +681,20 @@ export default function HomeDashboardScreen() {
     if (trimmed) {
       router.push({
         pathname: '/(tabs)/discovery',
-        params: { destination: trimmed, openZoom: 'true', t: Date.now().toString() },
+        params: {
+          destination: trimmed,
+          mode: 'places',
+          placesMode: 'destination',
+          savedCity: trimmed,
+          selectedCity: trimmed,
+          t: Date.now().toString(),
+        },
       });
     } else {
-      router.push('/(tabs)/discovery');
+      router.push({
+        pathname: '/(tabs)/discovery',
+        params: { mode: 'places' },
+      });
     }
   };
 
@@ -645,14 +713,21 @@ export default function HomeDashboardScreen() {
     const clean = placeName.trim();
     router.push({
       pathname: '/(tabs)/discovery',
-      params: { destination: clean, openZoom: 'true', t: Date.now().toString() },
+      params: {
+        destination: clean,
+        mode: 'places',
+        placesMode: 'destination',
+        savedCity: clean,
+        selectedCity: clean,
+        t: Date.now().toString(),
+      },
     });
   };
 
   const stateDestinations = useMemo(() => {
     const direct = getDestinationsByState(selectedState);
     if (direct.length > 0) return direct;
-    return getNearbyDestinations(selectedState, userLocation?.city || selectedDestinationHub || null);
+    return getNearbyDestinations(selectedState, selectedDestinationHub || userLocation?.city || null);
   }, [selectedState, userLocation?.city, selectedDestinationHub]);
 
   const filteredFamousPlaces = useMemo(() => {
@@ -739,21 +814,30 @@ export default function HomeDashboardScreen() {
   }, [locationSearchQuery, locationRegionFilter, selectedDestinationHub, userLocation?.city]);
 
   const handleSelectLocation = useCallback((item) => {
+    hasManualSelectionRef.current = true;
     const cityName = item.name;
     const stateName = normalizeStateName(item.state || item.name);
     setSelectedDestinationHub(cityName);
     setSelectedState(stateName);
     setShowLocationPicker(false);
     setLocationSearchQuery('');
+    persistSelectedLocalityToStorage({
+      city: cityName,
+      state: stateName,
+      name: cityName,
+      district: item.district || null,
+    }).catch(() => {});
   }, []);
 
   const { width: windowWidth } = useWindowDimensions();
   const topSafe = (insets.top > 0 ? insets.top : (StatusBar.currentHeight || 0)) + (Platform.OS === 'android' ? 16 : 8);
   const bottomSafe = Math.max(insets.bottom || 0, Platform.OS === 'android' ? 24 : 16);
+  const bottomClearance = getTabBarClearance(insets.bottom, Platform.OS === 'web');
   const heroCardWidth = Math.min(windowWidth - 32, 480);
-  const heroCardHeight = Math.min(Math.round(heroCardWidth * 0.98), 380);
-  const carouselCardWidth = Math.min(Math.round(windowWidth * 0.64), 260);
-  const famousCardWidth = Math.min(Math.round(windowWidth * 0.68), 272);
+  const heroCardHeight = Math.min(Math.round(heroCardWidth * 0.94), 370);
+  const carouselCardWidth = Math.min(Math.round(windowWidth * 0.74), 280);
+  const famousCardWidth = Math.min(Math.round(windowWidth * 0.76), 288);
+  const isNarrowScreen = !windowWidth || windowWidth < 600 || Platform.OS !== "web";
 
   const formatGreetingName = (name) => {
     if (!name) return 'Explorer';
@@ -777,7 +861,7 @@ export default function HomeDashboardScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollBody,
-            { paddingTop: topSafe + 8, paddingBottom: bottomSafe + 160 },
+            { paddingTop: topSafe + 8, paddingBottom: bottomClearance },
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -817,11 +901,11 @@ export default function HomeDashboardScreen() {
                 activeOpacity={0.8}
                 accessibilityLabel="Location base: tap to calibrate"
               >
-                {locating ? (
+                {locating && !userLocation ? (
                   <ActivityIndicator size="small" color="#B99A5E" style={{ marginRight: 2 }} />
                 ) : locationStatus === 'denied' ? (
                   <Ionicons name="location-outline" size={13} color="#F87171" />
-                ) : locationStatus === 'unavailable' ? (
+                ) : locationStatus === 'unavailable' && !userLocation ? (
                   <Ionicons name="alert-circle-outline" size={13} color="#FBBF24" />
                 ) : (
                   <Ionicons name="navigate-circle" size={13} color="#6EE7B7" />
@@ -830,14 +914,20 @@ export default function HomeDashboardScreen() {
                   style={[
                     styles.locationPillText,
                     locationStatus === 'denied' && { color: '#F87171' },
-                    locationStatus === 'unavailable' && { color: '#FBBF24' },
+                    locationStatus === 'unavailable' && !userLocation && !selectedDestinationHub && { color: '#FBBF24' },
                   ]}
                   numberOfLines={1}
                 >
-                  {locating
+                  {selectedDestinationHub
+                    ? selectedDestinationHub
+                    : locating && !userLocation
                     ? 'Detecting GPS...'
                     : userLocation?.city
                     ? userLocation.city
+                    : userLocation
+                    ? 'Current Location'
+                    : profile?.city
+                    ? profile.city
                     : locationStatus === 'denied'
                     ? 'Location Denied'
                     : 'GPS Unavailable'}
@@ -925,7 +1015,7 @@ export default function HomeDashboardScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.locationAlertTitle}>Device Location Required</Text>
                 <Text style={styles.locationAlertSubtitle}>
-                  Device GPS permission is required to verify your location and detect real-time local companions.
+                  {locationError || "Device GPS permission is required to verify your location and detect real-time local companions."}
                 </Text>
               </View>
               <TouchableOpacity
@@ -951,7 +1041,7 @@ export default function HomeDashboardScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.locationAlertTitle, { color: '#FBBF24' }]}>GPS Signal Unavailable</Text>
                 <Text style={styles.locationAlertSubtitle}>
-                  Could not acquire satellite or device coordinates. Tap to retry.
+                  {locationError || "Could not acquire satellite or device coordinates. Tap to retry."}
                 </Text>
               </View>
               <TouchableOpacity
@@ -972,40 +1062,54 @@ export default function HomeDashboardScreen() {
           {/* ============================================================ */}
           {/* 3. HERO EXPERIENCE (Visual Focal Point with Floating Glass)   */}
           {/* ============================================================ */}
-          <View style={[styles.heroWrapper, SHADOWS.card3D]}>
-            <ImageBackground
-              source={HERO_IMAGE}
-              style={[styles.heroBackground, { minHeight: heroCardHeight }]}
-              imageStyle={styles.heroImageStyle}
+          <View style={[styles.heroWrapper, { height: heroCardHeight }]}>
+            <Image
+              source={normalizeImageSource(HERO_IMAGE)}
+              style={styles.heroCoverImage}
               resizeMode="cover"
-            >
+              onLoad={() => setHeroImageLoaded(true)}
+              onError={(e) => {
+                if (__DEV__) {
+                  console.warn('Hero expedition image failed to load, activating atmospheric fallback', e?.nativeEvent?.error);
+                }
+                setHeroImageError(true);
+              }}
+            />
+            {heroImageError && (
               <LinearGradient
-                colors={[
-                  'rgba(23, 24, 23, 0.05)',
-                  'rgba(23, 24, 23, 0.35)',
-                  'rgba(23, 24, 23, 0.75)',
-                ]}
-                locations={[0, 0.45, 1]}
+                colors={['#171817', '#2A241E', '#171817']}
+                locations={[0, 0.5, 1]}
                 style={StyleSheet.absoluteFillObject}
               />
+            )}
+            <LinearGradient
+              colors={[
+                'rgba(23, 24, 23, 0.05)',
+                'rgba(23, 24, 23, 0.25)',
+                'rgba(23, 24, 23, 0.82)',
+              ]}
+              locations={[0, 0.40, 1]}
+              style={StyleSheet.absoluteFillObject}
+            />
 
+            <View style={styles.heroBackground}>
               <View style={styles.heroTopTag}>
                 <Ionicons name="sparkles" size={11} color="#E6D5AF" />
                 <Text style={styles.heroTopTagText}>✦ FEATURED EXPEDITION</Text>
               </View>
 
-              <GlassCard material="pearl" style={styles.heroFloatingPanel}>
+              <View style={styles.heroFloatingPanel}>
                 <View style={styles.heroPanelHeader}>
                   <View style={styles.heroPanelBadge}>
                     <View style={styles.heroPanelDot} />
-                    <Text style={styles.heroPanelBadgeText}>AUTUMN EXPEDITION</Text>
+                    <Text style={styles.heroPanelBadgeText}>JAMMU & KASHMIR</Text>
                   </View>
-                  <Text style={styles.heroPanelDates}>Oct 14 – 24</Text>
+                  <Text style={styles.heroPanelDates}>Alpine Trail</Text>
                 </View>
 
                 <Text style={styles.heroPanelTitle}>Kashmir & The Great Lakes</Text>
                 <Text style={styles.heroPanelTravelers}>
-                  4 Verified Solo Travelers planning departures this month
+                  Glacial tarns, alpine meadows & high-altitude passes across Jammu & Kashmir
                 </Text>
 
                 <View style={styles.heroPanelActionsRow}>
@@ -1026,8 +1130,8 @@ export default function HomeDashboardScreen() {
                     <Text style={styles.heroSecondaryBtnText}>Plan a Trip</Text>
                   </TouchableOpacity>
                 </View>
-              </GlassCard>
-            </ImageBackground>
+              </View>
+            </View>
           </View>
 
           {/* ============================================================ */}
@@ -1080,11 +1184,11 @@ export default function HomeDashboardScreen() {
             activeOpacity={0.88}
             style={styles.journeyStatusWrapper}
           >
-            <GlassCard material="light" style={styles.journeyStatusCard}>
+            <View style={styles.journeyStatusCard}>
               <View style={styles.journeyStatusHeader}>
                 <View style={styles.journeyStatusHeaderLeft}>
                   <Ionicons name="navigate-outline" size={13} color="#B99A5E" />
-                  <Text style={styles.journeyStatusEyebrow}>YOUR JOURNEYS & PASSPORT</Text>
+                  <Text style={styles.journeyStatusEyebrow} numberOfLines={1} ellipsizeMode="tail">YOUR JOURNEYS & PASSPORT</Text>
                 </View>
                 <View style={styles.journeyStatusBadge}>
                   <View style={[styles.journeyStatusDot, { backgroundColor: isVerified ? '#33463C' : '#B99A5E' }]} />
@@ -1094,28 +1198,58 @@ export default function HomeDashboardScreen() {
                 </View>
               </View>
 
-              <View style={styles.journeyStatusMetricsRow}>
-                <View style={styles.journeyMetricItem}>
-                  <Text style={styles.journeyMetricNumber}>{summaryStats.upcomingCount}</Text>
-                  <Text style={styles.journeyMetricLabel}>Active Trips</Text>
+              {isNarrowScreen ? (
+                <View style={styles.journeyGridContainer}>
+                  <View style={styles.journeyGridRow}>
+                    <View style={styles.journeyMetricItem}>
+                      <Text style={styles.journeyMetricNumber}>{summaryStats.upcomingCount}</Text>
+                      <Text style={styles.journeyMetricLabel} numberOfLines={1}>Active Trips</Text>
+                    </View>
+                    <View style={styles.journeyMetricDivider} />
+                    <View style={styles.journeyMetricItem}>
+                      <Text style={styles.journeyMetricNumber}>{summaryStats.traveledCount}</Text>
+                      <Text style={styles.journeyMetricLabel} numberOfLines={1}>Places Explored</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.journeyGridHorizontalDivider} />
+
+                  <View style={styles.journeyGridRow}>
+                    <View style={styles.journeyMetricItem}>
+                      <Text style={styles.journeyMetricNumber}>{summaryStats.connectionsCount}</Text>
+                      <Text style={styles.journeyMetricLabel} numberOfLines={1}>Matches</Text>
+                    </View>
+                    <View style={styles.journeyMetricDivider} />
+                    <View style={styles.journeyMetricItem}>
+                      <Text style={styles.journeyMetricNumber}>{trustScorePercentage}%</Text>
+                      <Text style={styles.journeyMetricLabel} numberOfLines={1}>Trust Rating</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.journeyMetricDivider} />
-                <View style={styles.journeyMetricItem}>
-                  <Text style={styles.journeyMetricNumber}>{summaryStats.traveledCount}</Text>
-                  <Text style={styles.journeyMetricLabel}>Places Explored</Text>
+              ) : (
+                <View style={styles.journeyStatusMetricsRow}>
+                  <View style={styles.journeyMetricItem}>
+                    <Text style={styles.journeyMetricNumber}>{summaryStats.upcomingCount}</Text>
+                    <Text style={styles.journeyMetricLabel} numberOfLines={1}>Active Trips</Text>
+                  </View>
+                  <View style={styles.journeyMetricDivider} />
+                  <View style={styles.journeyMetricItem}>
+                    <Text style={styles.journeyMetricNumber}>{summaryStats.traveledCount}</Text>
+                    <Text style={styles.journeyMetricLabel} numberOfLines={1}>Places Explored</Text>
+                  </View>
+                  <View style={styles.journeyMetricDivider} />
+                  <View style={styles.journeyMetricItem}>
+                    <Text style={styles.journeyMetricNumber}>{summaryStats.connectionsCount}</Text>
+                    <Text style={styles.journeyMetricLabel} numberOfLines={1}>Matches</Text>
+                  </View>
+                  <View style={styles.journeyMetricDivider} />
+                  <View style={styles.journeyMetricItem}>
+                    <Text style={styles.journeyMetricNumber}>{trustScorePercentage}%</Text>
+                    <Text style={styles.journeyMetricLabel} numberOfLines={1}>Trust Rating</Text>
+                  </View>
                 </View>
-                <View style={styles.journeyMetricDivider} />
-                <View style={styles.journeyMetricItem}>
-                  <Text style={styles.journeyMetricNumber}>{summaryStats.connectionsCount}</Text>
-                  <Text style={styles.journeyMetricLabel}>Matches</Text>
-                </View>
-                <View style={styles.journeyMetricDivider} />
-                <View style={styles.journeyMetricItem}>
-                  <Text style={styles.journeyMetricNumber}>{trustScorePercentage}%</Text>
-                  <Text style={styles.journeyMetricLabel}>Trust Rating</Text>
-                </View>
-              </View>
-            </GlassCard>
+              )}
+            </View>
           </TouchableOpacity>
 
           {/* ============================================================ */}
@@ -1207,9 +1341,12 @@ export default function HomeDashboardScreen() {
               >
                 <Image
                   source={
-                    LOCAL_CITY_IMAGES[city.id] ||
-                    LOCAL_CITY_IMAGES[city.name.toLowerCase()] ||
-                    { uri: city.image }
+                    normalizeImageSource(
+                      LOCAL_CITY_IMAGES[city.id] ||
+                      LOCAL_CITY_IMAGES[city.name.toLowerCase()] ||
+                      city.image,
+                      HERO_IMAGE
+                    )
                   }
                   style={styles.editorialCityImage}
                   resizeMode="cover"
@@ -1224,13 +1361,13 @@ export default function HomeDashboardScreen() {
                 </View>
 
                 <View style={styles.editorialBottomContent}>
-                  <Text style={styles.editorialCityName}>{city.name}</Text>
-                  <Text style={styles.editorialCityState}>{city.state}</Text>
+                  <Text style={styles.editorialCityName} numberOfLines={1} ellipsizeMode="tail">{city.name}</Text>
+                  <Text style={styles.editorialCityState} numberOfLines={1} ellipsizeMode="tail">{city.state}</Text>
                   <Text style={styles.editorialCityDesc} numberOfLines={2}>
                     {city.description}
                   </Text>
                   <View style={styles.editorialActionRow}>
-                    <Text style={styles.editorialActionText}>Discover companions</Text>
+                    <Text style={styles.editorialActionText} numberOfLines={1} ellipsizeMode="tail">Discover companions</Text>
                     <Ionicons name="arrow-forward" size={12} color="#E6D5AF" />
                   </View>
                 </View>
@@ -1289,14 +1426,17 @@ export default function HomeDashboardScreen() {
               >
                 <Image
                   source={
-                    LOCAL_CITY_IMAGES[place.id] ||
-                    LOCAL_CITY_IMAGES[place.name?.toLowerCase()] ||
-                    LOCAL_CITY_IMAGES[place.city?.toLowerCase()] ||
-                    (place.id === 'hampi-ruins'
-                      ? require('../../assets/images/journal_hampi.jpg')
-                      : place.id === 'dal-lake'
-                      ? require('../../assets/images/dest_kashmir.jpg')
-                      : { uri: place.image })
+                    normalizeImageSource(
+                      LOCAL_CITY_IMAGES[place.id] ||
+                      LOCAL_CITY_IMAGES[place.name?.toLowerCase()] ||
+                      LOCAL_CITY_IMAGES[place.city?.toLowerCase()] ||
+                      (place.id === 'hampi-ruins'
+                        ? require('../../assets/images/journal_hampi.jpg')
+                        : place.id === 'dal-lake'
+                        ? require('../../assets/images/dest_kashmir.jpg')
+                        : place.image),
+                      HERO_IMAGE
+                    )
                   }
                   style={styles.editorialFamousImage}
                   resizeMode="cover"
@@ -1311,10 +1451,10 @@ export default function HomeDashboardScreen() {
                 </View>
 
                 <View style={styles.editorialBottomContent}>
-                  <Text style={styles.editorialCityName}>{place.name}</Text>
+                  <Text style={styles.editorialCityName} numberOfLines={1} ellipsizeMode="tail">{place.name}</Text>
                   <View style={styles.famousLocationRow}>
                     <Ionicons name="location-sharp" size={11} color="#E6D5AF" />
-                    <Text style={styles.famousLocationText}>
+                    <Text style={styles.famousLocationText} numberOfLines={1} ellipsizeMode="tail">
                       {place.city}, {place.state}
                     </Text>
                   </View>
@@ -1462,7 +1602,7 @@ export default function HomeDashboardScreen() {
           {/* ============================================================ */}
           {/* 12. POPULAR PLACES ACROSS THE SUBCONTINENT                   */}
           {/* ============================================================ */}
-          <View style={[styles.sectionHeaderRow, { marginTop: 42 }]}>
+          <View style={[styles.sectionHeaderRow, { marginTop: 28 }]}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={styles.sectionTitle}>Popular Across India</Text>
               <Text style={styles.sectionSubtitle}>
@@ -1482,6 +1622,7 @@ export default function HomeDashboardScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.horizontalScrollBleed}
             contentContainerStyle={styles.popularPlacesScroll}
           >
             {CURATED_ICONIC_DESTINATIONS.map((place) => (
@@ -1489,9 +1630,9 @@ export default function HomeDashboardScreen() {
                 key={place.id}
                 onPress={() => handleExplorePlace(place.name)}
                 activeOpacity={0.88}
-                style={[styles.editorialCityCard, SHADOWS.card]}
+                style={[styles.editorialCityCard, { width: carouselCardWidth }, SHADOWS.card]}
               >
-                <Image source={place.image} style={styles.editorialCityImage} resizeMode="cover" />
+                <Image source={normalizeImageSource(place.image, HERO_IMAGE)} style={styles.editorialCityImage} resizeMode="cover" />
                 <LinearGradient
                   colors={['transparent', 'rgba(23, 24, 23, 0.40)', 'rgba(23, 24, 23, 0.92)']}
                   style={StyleSheet.absoluteFillObject}
@@ -1508,9 +1649,9 @@ export default function HomeDashboardScreen() {
                     {place.state ? `${place.state}, India` : place.country}
                   </Text>
                   <View style={styles.editorialActionRow}>
-                    <Ionicons name="people-outline" size={12} color="#E6D5AF" />
-                    <Text style={styles.editorialActionText}>
-                      {place.travelersCount} travelers on MaybeWe
+                    <Ionicons name="compass-outline" size={12} color="#E6D5AF" />
+                    <Text style={styles.editorialActionText} numberOfLines={1} ellipsizeMode="tail">
+                      {place.tag || 'Explore Journey'}
                     </Text>
                   </View>
                 </View>
@@ -1589,7 +1730,7 @@ export default function HomeDashboardScreen() {
                         </View>
                         <Text style={styles.modalActiveHeroDistrict} numberOfLines={1}>
                           GPS: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
-                          {userLocation.accuracy ? ` (±${Math.round(userLocation.accuracy)}m)` : ''} • Real-Time Signal
+                          {userLocation.accuracy ? ` (±${Math.round(userLocation.accuracy)}m)` : ''} • {locating ? 'Refreshing Live Fix...' : 'Real-Time Signal'}
                         </Text>
                       </>
                     ) : locationStatus === 'denied' ? (
@@ -1621,14 +1762,43 @@ export default function HomeDashboardScreen() {
                     styles.modalActiveBeaconText,
                     !userLocation && { color: locationStatus === 'denied' ? '#F87171' : '#FBBF24' }
                   ]}>
-                    {userLocation ? 'GPS Active' : locationStatus === 'denied' ? 'Denied' : 'Inactive'}
+                    {userLocation ? (locating ? 'Refreshing' : 'GPS Active') : locationStatus === 'denied' ? 'Denied' : locating ? 'Locating' : 'Inactive'}
                   </Text>
                 </View>
               </View>
 
+              {/* Explicit Switch to Current Location Button when destination hub is selected */}
+              {selectedDestinationHub && (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(185, 154, 94, 0.12)',
+                    borderColor: 'rgba(185, 154, 94, 0.35)',
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    marginBottom: 12,
+                  }}
+                  onPress={handleSwitchToCurrentLocation}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="navigate-circle" size={16} color="#B99A5E" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#B99A5E', fontFamily: FONTS.medium }}>
+                    Switch to My Current Location ({userLocation?.city || 'Live GPS'})
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Auto-Detect (GPS) Button */}
               <TouchableOpacity
-                style={styles.modalAutoDetectBtn}
+                style={[
+                  styles.modalAutoDetectBtn,
+                  userLocation && !locating && { backgroundColor: '#F0EBE1', borderColor: 'rgba(185, 154, 94, 0.4)' },
+                  locationStatus === 'denied' && !locating && { backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.25)' },
+                ]}
                 onPress={() => detectDeviceLocation(true)}
                 {...(Platform.OS === 'web' ? { onClick: () => detectDeviceLocation(true) } : {})}
                 disabled={locating}
@@ -1636,11 +1806,24 @@ export default function HomeDashboardScreen() {
               >
                 {locating ? (
                   <ActivityIndicator size="small" color="#171817" style={{ marginRight: 6 }} />
+                ) : userLocation ? (
+                  <Ionicons name="checkmark-circle" size={16} color="#2E7D32" style={{ marginRight: 6 }} />
+                ) : locationStatus === 'denied' ? (
+                  <Ionicons name="alert-circle-outline" size={16} color="#DC2626" style={{ marginRight: 6 }} />
                 ) : (
                   <Ionicons name="locate" size={16} color="#171817" style={{ marginRight: 6 }} />
                 )}
-                <Text style={styles.modalAutoDetectBtnText}>
-                  {locating ? 'Acquiring Device GPS Signal...' : 'Calibrate Device GPS'}
+                <Text style={[
+                  styles.modalAutoDetectBtnText,
+                  locationStatus === 'denied' && !userLocation && { color: '#DC2626' }
+                ]}>
+                  {locating
+                    ? (userLocation ? 'Calibrating Device GPS...' : 'Acquiring Device GPS Signal...')
+                    : userLocation
+                    ? 'Location Acquired • Tap to Calibrate'
+                    : locationStatus === 'denied'
+                    ? 'Permission Denied • Retry'
+                    : 'Calibrate Device GPS'}
                 </Text>
               </TouchableOpacity>
 
@@ -1935,7 +2118,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semiBold,
     fontSize: 11,
     color: '#171817',
-    maxWidth: 62,
+    maxWidth: 120,
   },
   avatarButton: {
     padding: 2,
@@ -2018,33 +2201,55 @@ const styles = StyleSheet.create({
 
   // 3. Hero Experience
   heroWrapper: {
-    backgroundColor: "#FAF8F5",
+    width: '100%',
+    backgroundColor: '#171817',
     borderRadius: 24,
-    overflow: "hidden",
+    overflow: 'hidden',
     marginBottom: 36,
     borderWidth: 1,
-    borderColor: "rgba(197, 168, 128, 0.28)",
-    shadowColor: "#1C1917",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 20,
-    elevation: 2,
+    borderColor: 'rgba(197, 168, 128, 0.35)',
+    position: 'relative',
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0 12px 28px -4px rgba(28, 25, 23, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.10)',
+      },
+      default: {
+        shadowColor: '#1C1917',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
+      },
+    }),
+  },
+  heroCoverImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
   },
   heroBackground: {
-    width: '100%',
-    minHeight: 410,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
     padding: 14,
+    zIndex: 5,
   },
   heroImageStyle: {
-    borderRadius: RADII['3xl'],
+    borderRadius: 24,
+    width: '100%',
+    height: '100%',
   },
   heroTopTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(23, 24, 23, 0.55)',
+    backgroundColor: Platform.select({
+      android: 'rgba(23, 24, 23, 0.82)',
+      default: 'rgba(23, 24, 23, 0.55)',
+    }),
     borderWidth: 1,
     borderColor: 'rgba(197, 168, 128, 0.60)',
     borderRadius: RADII.full,
@@ -2063,20 +2268,36 @@ const styles = StyleSheet.create({
     color: '#D4AF37',
   },
   heroFloatingPanel: {
-    padding: 14,
-    borderRadius: RADII['2xl'],
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: Platform.select({
+      android: '#FAF8F5',
+      default: 'rgba(250, 248, 245, 0.94)',
+    }),
+    borderWidth: 1,
+    borderColor: 'rgba(197, 168, 128, 0.35)',
     ...Platform.select({
       web: {
         boxShadow: '0 12px 32px -4px rgba(23, 24, 23, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(16px)',
       },
-      default: {},
+      android: {
+        elevation: 2,
+      },
+      default: {
+        shadowColor: '#171817',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 18,
+      },
     }),
   },
   heroPanelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 3,
   },
   heroPanelBadge: {
     flexDirection: 'row',
@@ -2102,17 +2323,18 @@ const styles = StyleSheet.create({
   },
   heroPanelTitle: {
     fontFamily: FONTS.extraBold,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
     color: '#171817',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   heroPanelTravelers: {
     fontFamily: FONTS.regular,
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 15,
     color: '#45453F',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   heroPanelActionsRow: {
     flexDirection: 'row',
@@ -2225,39 +2447,59 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   journeyStatusCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
-    borderColor: 'rgba(197, 168, 128, 0.22)',
+    borderColor: 'rgba(197, 168, 128, 0.30)',
     borderRadius: 24,
-    padding: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    ...Platform.select({
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0 8px 24px -4px rgba(23, 24, 23, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+      },
+      default: {
+        shadowColor: '#171817',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+    }),
   },
   journeyStatusHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+    gap: 8,
   },
   journeyStatusHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+    minWidth: 0,
   },
   journeyStatusEyebrow: {
     fontFamily: FONTS.bold,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1.4,
-    color: '#77766F',
+    letterSpacing: 0.8,
+    color: '#8C734B',
+    flexShrink: 1,
   },
   journeyStatusBadge: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: '#FAF8F5',
     borderWidth: 1,
-    borderColor: 'rgba(215, 210, 200, 0.65)',
+    borderColor: 'rgba(185, 154, 94, 0.40)',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: RADII.full,
   },
   journeyStatusDot: {
@@ -2275,32 +2517,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  journeyGridContainer: {
+    width: '100%',
+  },
+  journeyGridRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  journeyGridHorizontalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(215, 210, 200, 0.45)',
+    marginVertical: 10,
+    width: '100%',
+  },
   journeyMetricItem: {
     alignItems: 'center',
+    justifyContent: 'center',
     flex: 1,
+    paddingHorizontal: 4,
   },
   journeyMetricNumber: {
     fontFamily: FONTS.extraBold,
     fontSize: 20,
     fontWeight: '800',
     color: '#171817',
+    textAlign: 'center',
   },
   journeyMetricLabel: {
     fontFamily: FONTS.medium,
     fontSize: 11,
     color: '#77766F',
-    marginTop: 2,
+    marginTop: 3,
+    textAlign: 'center',
+    letterSpacing: 0.1,
   },
   journeyMetricDivider: {
     width: 1,
-    height: 24,
+    height: 26,
     backgroundColor: 'rgba(215, 210, 200, 0.70)',
   },
 
   // 6. Section Headers & Links
   sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 18,
     paddingHorizontal: 4,
@@ -2353,24 +2615,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 16,
     paddingBottom: 10,
-    marginBottom: 40,
+    marginBottom: 20,
   },
   editorialCityCard: {
-    width: 232,
-    height: 295,
+    width: 260,
+    height: 300,
     borderRadius: RADII['2xl'],
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#FAF8F5',
+    padding: 14,
+    backgroundColor: '#1E1F22',
     borderWidth: 1,
-    borderColor: 'rgba(215, 210, 200, 0.65)',
+    borderColor: 'rgba(215, 210, 200, 0.45)',
   },
   editorialCityImage: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+    borderRadius: RADII['2xl'],
   },
   editorialTypePill: {
     alignSelf: 'flex-start',
@@ -2427,21 +2690,22 @@ const styles = StyleSheet.create({
 
   // Famous Places Cards
   editorialFamousCard: {
-    width: 252,
-    height: 305,
+    width: 270,
+    height: 300,
     borderRadius: RADII['2xl'],
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#FAF8F5',
+    padding: 14,
+    backgroundColor: '#1E1F22',
     borderWidth: 1,
-    borderColor: 'rgba(215, 210, 200, 0.65)',
+    borderColor: 'rgba(215, 210, 200, 0.45)',
   },
   editorialFamousImage: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+    borderRadius: RADII['2xl'],
   },
   famousBadgePill: {
     alignSelf: 'flex-start',
@@ -2646,22 +2910,23 @@ const styles = StyleSheet.create({
 
   // Popular Places Horizontal Scroll
   popularPlacesScroll: {
-    paddingRight: 16,
+    paddingHorizontal: 16,
     gap: 16,
-    paddingBottom: 16,
-    marginBottom: 44,
+    paddingBottom: 20,
+    marginBottom: 16,
   },
   placeRatingBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(23, 24, 23, 0.65)',
+    gap: 4,
+    backgroundColor: 'rgba(23, 24, 23, 0.75)',
     borderRadius: RADII.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    minHeight: 24,
     borderWidth: 1,
-    borderColor: 'rgba(185, 154, 94, 0.35)',
+    borderColor: 'rgba(185, 154, 94, 0.45)',
     ...Platform.select({
       web: { backdropFilter: 'blur(8px)' },
       default: {},
@@ -2669,7 +2934,8 @@ const styles = StyleSheet.create({
   },
   placeRatingText: {
     fontFamily: FONTS.bold,
-    fontSize: 10,
+    fontSize: 11.5,
+    includeFontPadding: false,
     color: '#FAF8F5',
   },
 

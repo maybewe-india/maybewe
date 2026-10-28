@@ -20,6 +20,7 @@ import {
   Linking,
   Dimensions,
   Animated,
+  BackHandler,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,32 +42,21 @@ import {
   INDIA_OVERVIEW,
   getCachedLocation,
   requestCurrentLocation,
+  retryLocation,
   subscribeLocation,
   isValidCoordinate,
   LocationBenchmark,
+  loadCachedSelectedLocality,
 } from '../lib/locationService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_DESKTOP = Platform.OS === 'web' && SCREEN_WIDTH > 768;
 
 // Neutral India overview fallback — NEVER hardcode a city like Vijayawada/Hyderabad
-const DEFAULT_COORDS = { latitude: 16.5062, longitude: 80.6480, zoom: 14 };
+const DEFAULT_COORDS = { latitude: INDIA_OVERVIEW.latitude, longitude: INDIA_OVERVIEW.longitude, zoom: INDIA_OVERVIEW.zoom || 5 };
 
 export default function MapsScreen() {
   const router = useRouter();
-  // Safe back navigation handler (Prevents GO_BACK unhandled navigator errors when opened directly)
-  const handleBack = useCallback(() => {
-    try {
-      if (typeof router.canGoBack === "function" && router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace("/(tabs)/discovery");
-      }
-    } catch (err) {
-      router.replace("/(tabs)/discovery");
-    }
-  }, [router]);
-
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const searchParams = useLocalSearchParams();
@@ -112,6 +102,48 @@ export default function MapsScreen() {
   const [placesError, setPlacesError] = useState(null);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [listCollapsed, setListCollapsed] = useState(false);
+
+  // Safe back navigation handler (Prevents GO_BACK unhandled navigator errors when opened directly)
+  const handleBack = useCallback(() => {
+    try {
+      if (selectedPlace) {
+        setSelectedPlace(null);
+        return;
+      }
+      if (searchDropdownOpen) {
+        setSearchDropdownOpen(false);
+        return;
+      }
+      if (typeof router.canGoBack === "function" && router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/(tabs)/discovery");
+      }
+    } catch (err) {
+      router.replace("/(tabs)/discovery");
+    }
+  }, [router, selectedPlace, searchDropdownOpen]);
+
+  // Intercept Android hardware Back button
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedPlace) {
+        setSelectedPlace(null);
+        return true;
+      }
+      if (searchDropdownOpen) {
+        setSearchDropdownOpen(false);
+        return true;
+      }
+      if (typeof router.canGoBack === "function" && router.canGoBack()) {
+        router.back();
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => sub.remove();
+  }, [selectedPlace, searchDropdownOpen, router]);
 
   // Diagnostics banner state
   // Generation Counters & AbortControllers (Section 3: Race Condition Elimination)
@@ -175,11 +207,12 @@ export default function MapsScreen() {
 
       setPlaces(results || []);
       if ((results || []).length > 0) {
-        // If a place was previously selected, keep it if present
-        if (selectedPlace) {
-          const match = results.find((p) => p.place_id === selectedPlace.place_id);
-          if (match) setSelectedPlace(match);
-        }
+        // If a place was previously selected, keep it if present (functional update avoids outer dependency)
+        setSelectedPlace((prev) => {
+          if (!prev) return null;
+          const match = results.find((p) => p.place_id === prev.place_id);
+          return match || prev;
+        });
       }
     } catch (err) {
       if (err?.name === 'AbortError' || currentGeneration !== placesQueryGenerationRef.current) {
@@ -192,7 +225,7 @@ export default function MapsScreen() {
         setIsLoadingPlaces(false);
       }
     }
-  }, [selectedPlace]);
+  }, []);
 
   // Two-tier authoritative device GPS (Fast Fix < 500ms + Progressive Accurate Update < 2s)
   // Map rendering and UI state are NEVER blocked waiting for high-accuracy GPS fixes
@@ -216,24 +249,48 @@ export default function MapsScreen() {
 
       // Tier 2 Fresh GPS with timeout & Promise.race deduplication
       // timeoutPromise & Promise.race encapsulated within locationService
-      const freshCoords = await requestCurrentLocation({
-        forceRefresh,
-        highAccuracyTimeout: 3500,
-      });
+      const freshCoords = forceRefresh
+        ? await retryLocation()
+        : await requestCurrentLocation({
+            forceRefresh: false,
+            highAccuracyTimeout: 12000,
+          });
 
       if (freshCoords && isValidCoordinate(freshCoords.latitude, freshCoords.longitude)) {
         setUserCoords(freshCoords);
         setGpsStatus("granted");
 
+        const isCoarseFix = freshCoords.isCoarse ||
+          freshCoords.confidence === "COARSE" ||
+          freshCoords.isProvisional ||
+          (typeof freshCoords.accuracy === "number" && (freshCoords.accuracy > 150 || freshCoords.accuracy <= 0 || !Number.isFinite(freshCoords.accuracy)));
+        if (isCoarseFix) {
+          const approxAcc = (typeof freshCoords.accuracy === "number" && freshCoords.accuracy > 0 && Number.isFinite(freshCoords.accuracy))
+            ? Math.round(freshCoords.accuracy)
+            : 1000;
+          setGpsErrorMessage(`Approximate GPS fix (±${approxAcc}m). Move outdoors for high accuracy.`);
+        } else {
+          setGpsErrorMessage(null);
+        }
+
         if (andPan) {
-          setTargetCoords({
-            latitude: freshCoords.latitude,
-            longitude: freshCoords.longitude,
-            zoom: 15,
-          });
-          setMapCenter(freshCoords);
-          LocationBenchmark.record('T3_NEARBY_POI_QUERY_DISPATCHED');
-          loadPlacesAround(freshCoords.latitude, freshCoords.longitude, selectedCategory);
+          if (!isCoarseFix) {
+            setTargetCoords({
+              latitude: freshCoords.latitude,
+              longitude: freshCoords.longitude,
+              zoom: 15,
+            });
+            setMapCenter(freshCoords);
+            LocationBenchmark.record('T3_NEARBY_POI_QUERY_DISPATCHED');
+            loadPlacesAround(freshCoords.latitude, freshCoords.longitude, selectedCategory);
+          } else {
+            setTargetCoords({
+              latitude: freshCoords.latitude,
+              longitude: freshCoords.longitude,
+              zoom: 11,
+            });
+            setMapCenter(freshCoords);
+          }
         }
         return freshCoords;
       }
@@ -251,13 +308,25 @@ export default function MapsScreen() {
   useEffect(() => {
     // If query was passed via route params, execute search immediately
     if (searchParams?.q) {
-      executeTextSearch(searchParams.q);
+      if (searchParams?.category && searchParams.category !== selectedCategory) {
+        setSelectedCategory(searchParams.category);
+      }
+      executeTextSearch(searchParams.q, searchParams?.category);
     } else {
       // Fast authoritative GPS with auto-pan to real device position
       requestDeviceGps(true).then((coords) => {
         if (!coords && !initialCachedGps) {
-          // If GPS is unavailable/denied, fallback to neutral India overview
-          loadPlacesAround(DEFAULT_COORDS.latitude, DEFAULT_COORDS.longitude, selectedCategory);
+          loadCachedSelectedLocality()
+            .then((selectedLoc) => {
+              if (selectedLoc && selectedLoc.city) {
+                executeTextSearch(selectedLoc.city);
+              } else {
+                loadPlacesAround(DEFAULT_COORDS.latitude, DEFAULT_COORDS.longitude, selectedCategory);
+              }
+            })
+            .catch(() => {
+              loadPlacesAround(DEFAULT_COORDS.latitude, DEFAULT_COORDS.longitude, selectedCategory);
+            });
         }
       });
     }
@@ -269,34 +338,67 @@ export default function MapsScreen() {
   useEffect(() => {
     const unsubscribe = subscribeLocation((state) => {
       if (state.location && isValidCoordinate(state.location.latitude, state.location.longitude)) {
+        const isCoarseFix = state.isCoarse ||
+          state.location.isCoarse ||
+          state.location.isProvisional ||
+          state.location.confidence === "COARSE" ||
+          (typeof state.location.accuracy === "number" && (state.location.accuracy > 150 || state.location.accuracy <= 0 || !Number.isFinite(state.location.accuracy)));
+
         setUserCoords((prev) => {
-          // Cold start first lock: pan camera to real GPS and stream nearby spots
+          // Cold start first lock: pan camera to real GPS and stream nearby spots only if accurate
           if (!prev) {
-            setTargetCoords({
-              latitude: state.location.latitude,
-              longitude: state.location.longitude,
-              zoom: 15,
-            });
-            setMapCenter(state.location);
-            LocationBenchmark.record('T3_NEARBY_POI_QUERY_DISPATCHED');
-            loadPlacesAround(state.location.latitude, state.location.longitude, selectedCategory);
+            if (!isCoarseFix) {
+              setTargetCoords({
+                latitude: state.location.latitude,
+                longitude: state.location.longitude,
+                zoom: 15,
+              });
+              setMapCenter(state.location);
+              LocationBenchmark.record('T3_NEARBY_POI_QUERY_DISPATCHED');
+              loadPlacesAround(state.location.latitude, state.location.longitude, selectedCategory);
+            } else {
+              setTargetCoords({
+                latitude: state.location.latitude,
+                longitude: state.location.longitude,
+                zoom: 11,
+              });
+              setMapCenter(state.location);
+            }
           } else if (state.deltaTriggered) {
             // GPS Refinement Drift: High-accuracy fix arrived with delta > 50m
             // Invalidate previous POI query generation and trigger fresh query anchored to new coordinate
-            setTargetCoords({
-              latitude: state.location.latitude,
-              longitude: state.location.longitude,
-              zoom: 15,
-            });
-            setMapCenter(state.location);
-            loadPlacesAround(state.location.latitude, state.location.longitude, selectedCategory);
+            if (!isCoarseFix) {
+              setTargetCoords({
+                latitude: state.location.latitude,
+                longitude: state.location.longitude,
+                zoom: 15,
+              });
+              setMapCenter(state.location);
+              loadPlacesAround(state.location.latitude, state.location.longitude, selectedCategory);
+            }
           }
           return state.location;
         });
         setGpsStatus('granted');
-      } else if (state.status === 'denied') {
-        setGpsStatus('denied');
-        setGpsErrorMessage("Location permission was denied. Enable GPS in browser/settings.");
+        if (isCoarseFix) {
+          const approxAcc = (typeof state.location.accuracy === "number" && state.location.accuracy > 0 && Number.isFinite(state.location.accuracy))
+            ? Math.round(state.location.accuracy)
+            : 1000;
+          setGpsErrorMessage(`Approximate GPS fix (±${approxAcc}m). Move outdoors for high accuracy.`);
+        } else {
+          setGpsErrorMessage(null);
+        }
+      } else if (state.isPermissionDenied || state.status === "denied" || state.status === "permission_denied") {
+        setGpsStatus("denied");
+        setGpsErrorMessage(state.errorMessage || "Location permission was denied. Enable GPS in browser/settings.");
+      } else if (state.isServicesDisabled || state.status === "services_disabled") {
+        setGpsStatus("unavailable");
+        setGpsErrorMessage(state.errorMessage || "Device location services are disabled. Turn on GPS.");
+      } else if (state.isError || state.status === "error") {
+        setGpsStatus("error");
+        setGpsErrorMessage(state.errorMessage || "Unable to acquire GPS fix.");
+      } else if (state.isLocating) {
+        setGpsStatus((prev) => (prev === "granted" ? "granted" : "locating"));
       }
     });
 
@@ -312,9 +414,11 @@ export default function MapsScreen() {
   }, [userCoords, mapCenter, loadPlacesAround]);
 
   // Execute text search (e.g. "Mumbai", "Taj Mahal", "Cafes in Delhi")
-  const executeTextSearch = useCallback(async (queryText) => {
+  const executeTextSearch = useCallback(async (queryText, categoryOverride) => {
     const q = (queryText || searchQuery).trim();
     if (!q) return;
+
+    const activeCat = categoryOverride !== undefined ? categoryOverride : selectedCategory;
 
     setIsSearching(true);
     setSearchDropdownOpen(false);
@@ -326,6 +430,7 @@ export default function MapsScreen() {
         query: q,
         latitude: mapCenter?.latitude,
         longitude: mapCenter?.longitude,
+        category: activeCat !== 'all' ? activeCat : undefined,
         limit: 25,
       });
 
@@ -354,7 +459,7 @@ export default function MapsScreen() {
     } finally {
       setIsSearching(false);
     }
-  }, [searchQuery, mapCenter]);
+  }, [searchQuery, mapCenter, selectedCategory]);
 
   // Debounced search suggestions dropdown (Strict minimum 400ms debounce, >= 3 characters threshold)
   useEffect(() => {
@@ -454,7 +559,7 @@ export default function MapsScreen() {
     Linking.openURL(url).catch((err) => {
       console.warn('Failed to open native navigation:', err);
       // Web fallback
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`).catch(() => {});
     });
   }, []);
 

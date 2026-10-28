@@ -226,6 +226,18 @@ export const GLASS_MATERIALS = {
   },
 };
 
+// Native Android Card Surface & Border Tokens
+// High-opacity surfaces prevent Android hardware elevation shadow bleed-through.
+// Defined with explicit contrast against Alabaster background (#FAF8F5).
+export const ANDROID_CARD_SURFACES = {
+  pearl: "#FFFFFF", // High-reflectance ivory; prevents shadow bleed-through
+  light: "#FFFFFF",
+  champagne: "#FAF6F0",
+  sage: "#F5F2EC",
+  surfaceBorder: "rgba(197, 168, 128, 0.40)", // 1.32:1 contrast against Alabaster (#FAF8F5)
+  surfaceBorderElevated: "rgba(197, 168, 128, 0.52)",
+};
+
 export const PALETTE = {
   pearl: "#FAF8F5",
   warmIvory: "#FAF8F5",

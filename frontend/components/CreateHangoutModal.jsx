@@ -106,6 +106,10 @@ export default function CreateHangoutModal({
       setErrorMsg("Please give your hangout a title (at least 3 characters).");
       return;
     }
+    if (!destination.trim() || destination.trim().length < 2) {
+      setErrorMsg("Please enter or select a valid destination (at least 2 characters).");
+      return;
+    }
     if (!currentUser?.id) {
       setErrorMsg("You must be logged in to create a meetup.");
       return;
@@ -201,9 +205,44 @@ export default function CreateHangoutModal({
             {/* Destination Selection */}
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>DESTINATION / REGION *</Text>
+
+              {/* Text Input for Custom or Typed Destination */}
+              <View
+                style={[
+                  styles.destinationInputContainer,
+                  {
+                    backgroundColor: colors.cardBackground,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons name="location-outline" size={18} color="#B99A5E" style={styles.destinationInputIcon} />
+                <TextInput
+                  style={[styles.destinationTextInput, { color: colors.textPrimary }]}
+                  placeholder="Enter destination, city, or region..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={destination}
+                  onChangeText={handleDestinationChange}
+                  autoCapitalize="words"
+                  accessibilityLabel="Destination or region"
+                />
+                {destination.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => handleDestinationChange("")}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.destinationClearBtn}
+                    accessibilityLabel="Clear destination"
+                  >
+                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Predefined Suggestion Chips */}
+              <Text style={[styles.chipsSubLabel, { color: colors.textSecondary }]}>POPULAR DESTINATIONS</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
                 {DESTINATION_NAMES.map((d) => {
-                  const isSelected = destination.toLowerCase() === d.toLowerCase();
+                  const isSelected = destination.trim().toLowerCase() === d.toLowerCase();
                   return (
                     <TouchableOpacity
                       key={d}
@@ -214,6 +253,8 @@ export default function CreateHangoutModal({
                         isSelected && styles.destChipActive,
                       ]}
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${d}`}
                     >
                       <Text style={[styles.destChipText, { color: colors.textPrimary }, isSelected && styles.destChipTextActive]}>
                         {d}
@@ -416,6 +457,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: FONTS.regular,
     textAlignVertical: "top",
+  },
+  destinationInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  destinationInputIcon: {
+    marginRight: 8,
+  },
+  destinationTextInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    paddingVertical: 0,
+  },
+  destinationClearBtn: {
+    padding: 4,
+  },
+  chipsSubLabel: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   chipRow: {
     gap: 8,

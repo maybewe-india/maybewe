@@ -15,7 +15,8 @@
         "NSPhotoLibraryUsageDescription": "Allow MaybeWe to select profile and travel history photos.",
         "NSLocationWhenInUseUsageDescription": "Allow MaybeWe to share your meeting spot with confirmed connections."
       },
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -31,7 +32,47 @@
         "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "package": "com.maybewe.app",
-      "versionCode": 1
+      "versionCode": 1,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "solo-traveler"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "solo-traveler",
+              "host": "auth"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "solo-traveler",
+              "host": "reset-password"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./frontend/assets/favicon.png",
@@ -61,11 +102,13 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow MaybeWe to share your meeting location with trusted connections."
+          "locationWhenInUsePermission": "Allow MaybeWe to share your meeting location with trusted connections.",
+          "isAndroidBackgroundLocationEnabled": false
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "extra": {
       "router": {

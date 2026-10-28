@@ -14,9 +14,9 @@ export function buildMapLibreHtml({
   styleUrl = "https://tiles.openfreemap.org/styles/liberty",
   routeGeoJson = null,
 }) {
-  // Use authoritative user coords if available, otherwise default to Vijayawada center (rich PostGIS places)
-  const initialLat = typeof userCoords?.latitude === "number" ? userCoords.latitude : 16.5062;
-  const initialLng = typeof userCoords?.longitude === "number" ? userCoords.longitude : 80.6480;
+  // Use authoritative user coords if available, otherwise default to neutral India overview center
+  const initialLat = typeof userCoords?.latitude === "number" ? userCoords.latitude : 20.5937;
+  const initialLng = typeof userCoords?.longitude === "number" ? userCoords.longitude : 78.9629;
   const hasUserLocation = Boolean(
     userCoords &&
     typeof userCoords.latitude === "number" &&
@@ -744,8 +744,27 @@ export function buildMapLibreHtml({
       if (map) map.zoomOut();
     });
 
-    // Parent communication listener
-    window.addEventListener('message', (event) => {
+    // Parent communication listener (dispatched on both window and document on Android WebViews)
+    let lastProcessedEvent = null;
+    let lastProcessedRaw = null;
+    let lastProcessedTime = 0;
+
+    function handleIncomingMessage(event) {
+      if (!event || event === lastProcessedEvent) return;
+      lastProcessedEvent = event;
+      if (event.stopImmediatePropagation) {
+        try { event.stopImmediatePropagation(); } catch (e) {}
+      }
+
+      const raw = event.data;
+      const now = Date.now();
+      // Deduplicate identical message strings delivered via dual dispatch within 50ms
+      if (typeof raw === 'string' && raw === lastProcessedRaw && (now - lastProcessedTime) < 50) {
+        return;
+      }
+      lastProcessedRaw = typeof raw === 'string' ? raw : null;
+      lastProcessedTime = now;
+
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (!data || !data.type) return;
@@ -794,7 +813,9 @@ export function buildMapLibreHtml({
       } catch (err) {
         // ignore non-json messages
       }
-    });
+    }
+    window.addEventListener('message', handleIncomingMessage);
+    document.addEventListener('message', handleIncomingMessage);
 
     // Wait for CDN script to finish loading before starting MapLibre
     function startMapWhenReady() {

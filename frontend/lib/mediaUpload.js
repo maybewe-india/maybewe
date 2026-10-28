@@ -361,3 +361,104 @@ export async function deleteHangoutMedia(mediaUrls = []) {
     console.warn("Hangout storage cleanup error:", err);
   }
 }
+
+/**
+ * Cross-Platform Binary Upload for User Profile Avatars
+ * Uploads to Supabase Storage Bucket ('avatars' with fallback to 'travel-photos')
+ * Path: {userId}/{timestamp}_{random}.{ext}
+ * Returns public CDN URL
+ */
+
+export async function uploadAvatarMedia({
+  uri,
+  userId,
+  fileSize = null,
+  base64Data = null,
+}) {
+  if (!uri) throw new Error("Avatar URI is required for upload.");
+  if (!userId) throw new Error("Authenticated user ID required for avatar upload.");
+
+  // If already a remote CDN URL, return directly
+  if (typeof uri === "string" && (uri.startsWith("http://") || uri.startsWith("https://"))) {
+    return uri;
+  }
+
+  const { mime, ext } = getMimeAndExtension(uri);
+  validateMediaFile({ sizeBytes: fileSize, mimeType: mime });
+
+  if (!isSupabaseConfigured) {
+    return uri;
+  }
+
+  const fileName = "avatar_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8) + "." + ext;
+  const storagePath = userId + "/" + fileName;
+
+  try {
+    let uploadBody = null;
+
+    if (Platform.OS === "web") {
+      if (typeof uri === "string" && uri.startsWith("data:")) {
+        const byteString = atob(uri.split(",")[1]);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        uploadBody = new Blob([ab], { type: mime });
+      } else {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        uploadBody = blob;
+      }
+      validateMediaFile({ sizeBytes: uploadBody.size, mimeType: uploadBody.type || mime });
+    } else {
+      if (base64Data) {
+        uploadBody = toByteArray(base64Data);
+      } else {
+        try {
+          const FileSystem = await import("expo-file-system");
+          const b64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType ? FileSystem.EncodingType.Base64 : "base64",
+          });
+          uploadBody = toByteArray(b64);
+        } catch {
+          const response = await fetch(uri);
+          uploadBody = await response.blob();
+        }
+      }
+    }
+
+    // Try avatars first, fallback to travel-photos
+    let targetBucket = "avatars";
+    let uploadRes = await supabase.storage
+      .from(targetBucket)
+      .upload(storagePath, uploadBody, {
+        contentType: mime,
+        upsert: true,
+      });
+
+    if (uploadRes.error) {
+      targetBucket = "travel-photos";
+      uploadRes = await supabase.storage
+        .from(targetBucket)
+        .upload(storagePath, uploadBody, {
+          contentType: mime,
+          upsert: true,
+        });
+    }
+
+    if (uploadRes.error) {
+      console.warn("Supabase avatar upload error:", uploadRes.error);
+      throw new Error(uploadRes.error.message || "Failed to upload avatar to storage.");
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(targetBucket)
+      .getPublicUrl(uploadRes.data.path);
+
+    return urlData.publicUrl;
+  } catch (err) {
+    console.error("uploadAvatarMedia failure:", err);
+    throw err;
+  }
+}

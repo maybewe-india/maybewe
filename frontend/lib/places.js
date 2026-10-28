@@ -162,6 +162,109 @@ export function getCategoryDisplayName(categoryId) {
   return found ? found.name : categoryId.charAt(0).toUpperCase() + categoryId.slice(1);
 }
 
+export function getCategoryEmptyTitle(categoryId) {
+  if (!categoryId || categoryId === 'all') return 'No places found nearby';
+  const lower = String(categoryId).toLowerCase();
+  if (lower === 'restaurants') return 'No restaurants found nearby';
+  if (lower === 'cafes') return 'No cafés found nearby';
+  const found = PLACE_CATEGORIES.find((c) => c.id === lower);
+  const name = found ? found.name.toLowerCase() : lower;
+  return `No ${name} found nearby`;
+}
+
+export function getCategorySearchTerm(categoryId) {
+  if (!categoryId || categoryId === 'all') return 'places to visit';
+  if (categoryId === 'Hotels / Stays' || categoryId === 'Hotels') return 'Hotels';
+  if (categoryId === 'Cafes') return 'Cafes';
+  if (categoryId === 'Restaurants') return 'Restaurants';
+  if (categoryId === 'Temples') return 'Temples';
+  const id = String(categoryId).toLowerCase();
+  if (id === 'cafes' || id === 'cafe') return 'cafes';
+  if (id === 'restaurants' || id === 'restaurant') return 'restaurants';
+  if (id === 'stays' || id === 'hotels' || id === 'hotel' || id === 'hotels / stays') return 'hotels';
+  if (id === 'attractions' || id === 'attraction') return 'attractions';
+  if (id === 'tourist_places') return 'tourist places';
+  if (id === 'fuel' || id === 'petrol') return 'petrol pumps';
+  if (id === 'temples') return 'temples';
+  if (id === 'beaches') return 'beaches';
+  if (id === 'museums') return 'museums';
+  const found = PLACE_CATEGORIES.find((c) => c.id === id);
+  if (found) {
+    return found.name.toLowerCase().replace(/ \/ /g, ' ');
+  }
+  return id;
+}
+
+/**
+ * Universal Pan-India External Google Maps Category Search URL Builder
+ * Priority 1: Manual City Search Active (mode === 'destination' or non-empty searchDestination)
+ * Priority 2: Nearby / Live Location Mode Active (valid latitude & longitude)
+ * Priority 3: Fallback / Zero State (category alone)
+ */
+export function buildGoogleMapsCategorySearchUrl({
+  category = "all",
+  mode = null,
+  searchDestination = "",
+  coords = null,
+  radiusKm = null,
+} = {}) {
+  const categoryTerm = getCategorySearchTerm(category);
+  const cleanDestination = typeof searchDestination === "string" ? searchDestination.trim() : "";
+  const hasValidCoords = coords &&
+    typeof coords.latitude === "number" &&
+    typeof coords.longitude === "number" &&
+    !isNaN(coords.latitude) &&
+    !isNaN(coords.longitude) &&
+    coords.latitude >= -90 && coords.latitude <= 90 &&
+    coords.longitude >= -180 && coords.longitude <= 180 &&
+    !(coords.latitude === 0 && coords.longitude === 0);
+
+  const parsedRadius = (typeof radiusKm === "number" && radiusKm > 0)
+    ? radiusKm
+    : (typeof radiusKm === "string" && Number(radiusKm) > 0 ? Number(radiusKm) : null);
+
+  const formatGpsQuery = () => {
+    if (parsedRadius) {
+      return `${categoryTerm} within ${parsedRadius}km of ${coords.latitude},${coords.longitude}`;
+    }
+    return `${categoryTerm} near ${coords.latitude},${coords.longitude}`;
+  };
+
+  let rawQuery = "";
+
+  // 1. Explicit Nearby Mode: ALWAYS prioritize live GPS coordinates; NEVER leak stale destination
+  if (mode === "nearby") {
+    if (hasValidCoords) {
+      rawQuery = formatGpsQuery();
+    } else {
+      // In Nearby mode without coordinates, gracefully fall back to category alone without leaking old city
+      rawQuery = categoryTerm;
+    }
+  }
+  // 2. Explicit Destination / City Search Mode: Use manually selected city
+  else if (mode === "destination") {
+    if (cleanDestination.length > 0) {
+      rawQuery = `${categoryTerm} in ${cleanDestination}`;
+    } else if (hasValidCoords) {
+      rawQuery = formatGpsQuery();
+    } else {
+      rawQuery = categoryTerm;
+    }
+  }
+  // 3. Unspecified Mode: Priority given to city if present, then coordinates, then category
+  else {
+    if (cleanDestination.length > 0) {
+      rawQuery = `${categoryTerm} in ${cleanDestination}`;
+    } else if (hasValidCoords) {
+      rawQuery = formatGpsQuery();
+    } else {
+      rawQuery = categoryTerm;
+    }
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawQuery)}`;
+}
+
 export function formatDistanceMeters(meters) {
   if (typeof meters !== 'number' || isNaN(meters)) return null;
   if (meters < 1000) {
@@ -242,6 +345,7 @@ export const AUP_HEADERS = {
 };
 
 const OVERPASS_MIRRORS = [
+  "https://lz4.overpass-api.de/api/interpreter",
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
@@ -486,8 +590,31 @@ export async function fetchNearbyPlaces({
 
     let stagePlaces = [];
 
-    // 1. Direct PostGIS ST_DWithin query via search_nearby_places RPC
+    // 0. High-speed Edge Function proxy (if configured on live Supabase)
     if (isSupabaseConfigured) {
+      try {
+        const { data: proxyData, error: proxyError } = await supabase.functions.invoke("places-proxy", {
+          body: {
+            action: "nearby",
+            latitude,
+            longitude,
+            radiusMeters: stageRadius,
+            category: category === "all" ? undefined : category,
+            limit,
+            session_token: getOrCreateSessionToken(),
+          },
+        });
+
+        if (!proxyError && proxyData?.success && Array.isArray(proxyData.places) && proxyData.places.length > 0) {
+          stagePlaces = proxyData.places;
+        }
+      } catch (proxyErr) {
+        console.warn("places-proxy nearby invocation warning, falling back to direct RPC:", proxyErr);
+      }
+    }
+
+    // 1. Direct PostGIS ST_DWithin query via search_nearby_places RPC
+    if (stagePlaces.length === 0 && isSupabaseConfigured) {
       try {
         const { data: rpcData, error: rpcError } = await supabase.rpc("search_nearby_places", {
           p_lat: latitude,
@@ -749,10 +876,38 @@ export const getHiddenGems = (dest = '') => getPlaces({ destination: dest, limit
 // BOOKMARKED / SAVED PLACES (Stores Normalized Place Objects)
 // ============================================================================
 
+// In-memory cache for saved place IDs (synchronous <1ms lookup)
+let savedPlaceIdsCache = null;
+
+async function hydrateSavedPlacesCache() {
+  if (savedPlaceIdsCache !== null) return savedPlaceIdsCache;
+  try {
+    const raw = await AsyncStorage.getItem(SAVED_PLACES_STORAGE_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    savedPlaceIdsCache = new Set();
+    list.forEach((p) => {
+      if (p.place_id) savedPlaceIdsCache.add(String(p.place_id));
+      if (p.id) savedPlaceIdsCache.add(String(p.id));
+    });
+    return savedPlaceIdsCache;
+  } catch {
+    savedPlaceIdsCache = new Set();
+    return savedPlaceIdsCache;
+  }
+}
+
 export async function getSavedPlaces() {
   try {
     const raw = await AsyncStorage.getItem(SAVED_PLACES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const list = raw ? JSON.parse(raw) : [];
+    if (!savedPlaceIdsCache) {
+      savedPlaceIdsCache = new Set();
+      list.forEach((p) => {
+        if (p.place_id) savedPlaceIdsCache.add(String(p.place_id));
+        if (p.id) savedPlaceIdsCache.add(String(p.id));
+      });
+    }
+    return list;
   } catch {
     return [];
   }
@@ -760,24 +915,43 @@ export async function getSavedPlaces() {
 
 export async function isPlaceSaved(placeId) {
   if (!placeId) return false;
-  const places = await getSavedPlaces();
-  return places.some((p) => p.place_id === placeId || p.id === placeId);
+  const strId = String(placeId);
+  // Fast path: Synchronous in-memory lookup if already hydrated
+  if (savedPlaceIdsCache !== null) {
+    return savedPlaceIdsCache.has(strId);
+  }
+  // Initial cold read: hydrate in-memory cache and check
+  const cache = await hydrateSavedPlacesCache();
+  return cache.has(strId);
 }
 
 export async function toggleSavePlace(place) {
   if (!place) return false;
   const id = place.place_id || place.id;
+  if (!id) return false;
+  const strId = String(id);
+
   try {
     const places = await getSavedPlaces();
-    const exists = places.some((p) => (p.place_id || p.id) === id);
+    const exists = places.some((p) => String(p.place_id || p.id) === strId);
     let updated;
     let isNowSaved;
 
+    if (!savedPlaceIdsCache) {
+      savedPlaceIdsCache = new Set();
+      places.forEach((p) => {
+        if (p.place_id) savedPlaceIdsCache.add(String(p.place_id));
+        if (p.id) savedPlaceIdsCache.add(String(p.id));
+      });
+    }
+
     if (exists) {
-      updated = places.filter((p) => (p.place_id || p.id) !== id);
+      updated = places.filter((p) => String(p.place_id || p.id) !== strId);
+      savedPlaceIdsCache.delete(strId);
       isNowSaved = false;
     } else {
       updated = [place, ...places].slice(0, 50);
+      savedPlaceIdsCache.add(strId);
       isNowSaved = true;
     }
 

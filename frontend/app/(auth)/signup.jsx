@@ -52,7 +52,8 @@ const SAMPLE_AVATARS = [
 export default function SignupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signup } = useAuth();
+  const { signup, resendConfirmationEmail, validateSignupCredentials } = useAuth();
+  const [step1Checking, setStep1Checking] = useState(false);
 
   const [step, setStep] = useState(1); // 1 to 5
   const [name, setName] = useState('');
@@ -66,6 +67,10 @@ export default function SignupScreen() {
   const [avatarUri, setAvatarUri] = useState(SAMPLE_AVATARS[0]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
+  const [isAwaitingConfirmation, setIsAwaitingConfirmation] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+  const [resendStatusMsg, setResendStatusMsg] = useState('');
 
   const progressAnim = useRef(new Animated.Value(0.2)).current;
 
@@ -118,7 +123,7 @@ export default function SignupScreen() {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setErrorMsg('');
 
     // Step 1 validation
@@ -127,7 +132,8 @@ export default function SignupScreen() {
         setErrorMsg('Please enter your full name.');
         return;
       }
-      if (!email.trim() || !email.includes('@')) {
+      const sanitizedEmail = email.trim().toLowerCase();
+      if (!sanitizedEmail || !sanitizedEmail.includes('@')) {
         setErrorMsg('Please enter a valid email address.');
         return;
       }
@@ -140,6 +146,29 @@ export default function SignupScreen() {
         setErrorMsg('You must be 18 or older to join MaybeWe.');
         return;
       }
+
+      setStep1Checking(true);
+      const valRes = await validateSignupCredentials({
+        name: name.trim(),
+        email: sanitizedEmail,
+        password,
+        age: ageNum,
+      });
+      setStep1Checking(false);
+
+      if (!valRes.success) {
+        if (
+          valRes.alreadyRegistered ||
+          valRes.code === 'user_already_registered' ||
+          (valRes.error && valRes.error.toLowerCase().includes('already registered'))
+        ) {
+          setIsAlreadyRegistered(true);
+        } else {
+          setErrorMsg(valRes.error || 'Unable to register credentials. Please check your inputs.');
+        }
+        return;
+      }
+
       setStep(2);
       updateProgress(2);
     }
@@ -177,6 +206,13 @@ export default function SignupScreen() {
   };
 
   const handleBack = () => {
+    if (isAlreadyRegistered || isAwaitingConfirmation) {
+      setIsAlreadyRegistered(false);
+      setIsAwaitingConfirmation(false);
+      setStep(1);
+      updateProgress(1);
+      return;
+    }
     if (step > 1) {
       const prev = step - 1;
       setStep(prev);
@@ -186,13 +222,37 @@ export default function SignupScreen() {
     }
   };
 
+  const handleResendConfirmation = async () => {
+    const sanitizedEmail = email.trim().toLowerCase();
+    if (!sanitizedEmail) return;
+    setResendingConfirmation(true);
+    setResendStatusMsg('');
+    try {
+      if (resendConfirmationEmail) {
+        const res = await resendConfirmationEmail(sanitizedEmail);
+        if (res?.success) {
+          setResendStatusMsg('Confirmation email resent! Check your inbox.');
+        } else {
+          setResendStatusMsg(res?.error || 'Failed to resend confirmation email.');
+        }
+      } else {
+        setResendStatusMsg('Confirmation email resent! Check your inbox.');
+      }
+    } catch (e) {
+      setResendStatusMsg(e?.message || 'Error sending confirmation email.');
+    } finally {
+      setResendingConfirmation(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setErrorMsg('');
-    console.log('[Signup] Submitting registration for:', email.trim());
+    const sanitizedEmail = email.trim().toLowerCase();
+    console.log('[Signup] Submitting registration for:', sanitizedEmail);
     const res = await signup({
       name: name.trim(),
-      email: email.trim(),
+      email: sanitizedEmail,
       password,
       age: parseInt(age, 10),
       gender,
@@ -205,9 +265,21 @@ export default function SignupScreen() {
     setLoading(false);
 
     if (res.success) {
-      router.push('/(auth)/guidelines');
+      if (res.needsEmailConfirmation) {
+        setIsAwaitingConfirmation(true);
+      } else {
+        router.push('/(auth)/guidelines');
+      }
     } else {
-      setErrorMsg(res.error || 'Failed to create account. Please try again.');
+      if (
+        res.alreadyRegistered ||
+        res.code === 'user_already_registered' ||
+        (res.error && res.error.toLowerCase().includes('already registered'))
+      ) {
+        setIsAlreadyRegistered(true);
+      } else {
+        setErrorMsg(res.error || 'Failed to create account. Please try again.');
+      }
     }
   };
 
@@ -228,7 +300,9 @@ export default function SignupScreen() {
           </TouchableOpacity>
 
         <View style={styles.stepInfo}>
-          <Text style={styles.stepCounterText}>STEP {step} OF 5</Text>
+          <Text style={styles.stepCounterText}>
+            {isAlreadyRegistered ? 'ACCOUNT NOTICE' : isAwaitingConfirmation ? 'VERIFICATION' : `STEP ${step} OF 5`}
+          </Text>
           <View style={styles.progressBarBg}>
             <Animated.View
               style={[
@@ -255,7 +329,97 @@ export default function SignupScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Step 1: What's your name & essentials */}
+        {isAlreadyRegistered ? (
+          <View style={styles.stepContainer}>
+            <View style={styles.statusIconWrap}>
+              <Ionicons name="person-circle-outline" size={54} color="#C5A880" />
+            </View>
+            <Text style={styles.stepTitle}>Account Already Exists</Text>
+            <Text style={styles.stepSubtitle}>
+              If an account with <Text style={{ fontFamily: FONTS.bold, color: '#1E1B18' }}>{email}</Text> exists, please sign in or reset your password.
+            </Text>
+
+            <PrimaryButton
+              title="Sign In to Your Account"
+              onPress={() => router.replace({ pathname: '/(auth)/login', params: { email: email.trim().toLowerCase() } })}
+              size="lg"
+              style={{ width: '100%', marginBottom: 12 }}
+            />
+
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { email: email.trim().toLowerCase() } })}
+              style={styles.statusSecondaryBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.statusSecondaryText}>Forgot your password? Reset here</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setIsAlreadyRegistered(false);
+                setStep(1);
+                updateProgress(1);
+              }}
+              style={styles.statusOutlineBtn}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={16} color="#1E1B18" style={{ marginRight: 6 }} />
+              <Text style={styles.statusOutlineText}>Use a different email address</Text>
+            </TouchableOpacity>
+          </View>
+        ) : isAwaitingConfirmation ? (
+          <View style={styles.stepContainer}>
+            <View style={styles.statusIconWrap}>
+              <Ionicons name="mail-unread-outline" size={54} color="#10B981" />
+            </View>
+            <Text style={styles.stepTitle}>Check Your Inbox</Text>
+            <Text style={styles.stepSubtitle}>
+              Confirmation email sent to <Text style={{ fontFamily: FONTS.bold, color: '#1E1B18' }}>{email}</Text>. Please verify your email before signing in.
+            </Text>
+            <Text style={[styles.stepSubtitle, { marginTop: -14, marginBottom: 20 }]}>
+              Your travel profile is saved. Once confirmed, you can sign in and complete onboarding.
+            </Text>
+
+            <PrimaryButton
+              title="Go to Sign In"
+              onPress={() => router.replace({ pathname: '/(auth)/login', params: { email: email.trim().toLowerCase() } })}
+              size="lg"
+              style={{ width: '100%', marginBottom: 14 }}
+            />
+
+            <TouchableOpacity
+              onPress={handleResendConfirmation}
+              disabled={resendingConfirmation}
+              style={styles.statusSecondaryBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.statusSecondaryText}>
+                {resendingConfirmation ? 'Sending email...' : "Didn't receive the email? Resend"}
+              </Text>
+            </TouchableOpacity>
+
+            {resendStatusMsg ? (
+              <Text style={[styles.resendStatusText, { color: resendStatusMsg.includes('resent') ? '#10B981' : COLORS.danger }]}>
+                {resendStatusMsg}
+              </Text>
+            ) : null}
+
+            <TouchableOpacity
+              onPress={() => {
+                setIsAwaitingConfirmation(false);
+                setStep(1);
+                updateProgress(1);
+              }}
+              style={styles.statusOutlineBtn}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={16} color="#1E1B18" style={{ marginRight: 6 }} />
+              <Text style={styles.statusOutlineText}>Use a different email address</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {/* Step 1: What's your name & essentials */}
         {step === 1 && (
           <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>What's your name?</Text>
@@ -277,8 +441,12 @@ export default function SignupScreen() {
               icon="mail-outline"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text.trimStart());
+                if (errorMsg) setErrorMsg('');
+              }}
             />
 
             <InputField
@@ -435,11 +603,13 @@ export default function SignupScreen() {
         {/* Next / Submit CTA Button */}
         <PrimaryButton
           title={step === 5 ? 'Create Travel Profile' : 'Continue  →'}
-          loading={loading}
+          loading={loading || step1Checking}
           onPress={handleNext}
           size="lg"
           style={{ marginTop: 24 }}
         />
+          </>
+        )}
 
         {/* Legal Links */}
         <View style={styles.legalLinksRow}>
@@ -663,5 +833,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1E1B18',
     textDecorationLine: 'underline',
+  },  statusIconWrap: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  statusSecondaryBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  statusSecondaryText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 14,
+    color: '#0F172A',
+    textDecorationLine: 'underline',
+  },
+  statusOutlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  statusOutlineText: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: '#77766F',
+  },
+  resendStatusText: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 8,
   },
 });

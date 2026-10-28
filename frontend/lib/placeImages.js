@@ -245,18 +245,18 @@ const CATEGORY_ALIASES = {
 };
 
 export function getCategoryPlaceholderSvg(categoryId = 'default', placeName = '') {
-  let key = (categoryId || 'default').toLowerCase().trim();
-  if (CATEGORY_ALIASES[key]) key = CATEGORY_ALIASES[key];
-  if (!CATEGORY_STYLES[key]) {
+  let catKey = (categoryId || 'default').toLowerCase().trim();
+  if (CATEGORY_ALIASES[catKey]) catKey = CATEGORY_ALIASES[catKey];
+  if (!CATEGORY_STYLES[catKey]) {
     const lowerName = (placeName || '').toLowerCase();
-    if (lowerName.includes('cafe') || lowerName.includes('coffee') || lowerName.includes('roast')) key = 'cafes';
-    else if (lowerName.includes('restaurant') || lowerName.includes('bhavan') || lowerName.includes('dining')) key = 'restaurants';
-    else if (lowerName.includes('hotel') || lowerName.includes('stay') || lowerName.includes('resort')) key = 'stays';
-    else if (lowerName.includes('temple') || lowerName.includes('mandir')) key = 'temples';
-    else if (lowerName.includes('hospital') || lowerName.includes('clinic')) key = 'hospitals';
-    else if (lowerName.includes('park') || lowerName.includes('garden')) key = 'parks';
+    if (lowerName.includes('cafe') || lowerName.includes('coffee') || lowerName.includes('roast')) catKey = 'cafes';
+    else if (lowerName.includes('restaurant') || lowerName.includes('bhavan') || lowerName.includes('dining')) catKey = 'restaurants';
+    else if (lowerName.includes('hotel') || lowerName.includes('stay') || lowerName.includes('resort')) catKey = 'stays';
+    else if (lowerName.includes('temple') || lowerName.includes('mandir')) catKey = 'temples';
+    else if (lowerName.includes('hospital') || lowerName.includes('clinic')) catKey = 'hospitals';
+    else if (lowerName.includes('park') || lowerName.includes('garden')) catKey = 'parks';
   }
-  const theme = CATEGORY_STYLES[key] || CATEGORY_STYLES.default;
+  const theme = CATEGORY_STYLES[catKey] || CATEGORY_STYLES.default;
   const cleanName = escapeXml((placeName || '').trim());
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
@@ -313,8 +313,8 @@ async function hydrateImageCache() {
   } catch (e) {}
 }
 
-async function persistImageCache(key, url) {
-  inMemoryImageCache.set(key, url);
+async function persistImageCache(cacheKey, url) {
+  inMemoryImageCache.set(cacheKey, url);
   try {
     const entries = Array.from(inMemoryImageCache.entries()).slice(-200);
     const obj = Object.fromEntries(entries);

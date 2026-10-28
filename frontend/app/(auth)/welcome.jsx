@@ -6,6 +6,7 @@ import {
   Animated,
   Platform,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -54,92 +55,112 @@ export default function WelcomeScreen() {
       </View>
 
       {/* Main Content Area */}
-      <Animated.View
-        style={[
-          styles.container,
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContainer,
           {
-            paddingTop: Math.max(insets.top, 24) + 30,
-            paddingBottom: Math.max(insets.bottom, 20) + 50,
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
+            paddingTop: Math.max(insets.top, 24) + (Platform.OS === "android" ? 16 : 30),
+            paddingBottom: Math.max(insets.bottom, 16) + (Platform.OS === "android" ? 20 : 50),
           },
         ]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Editorial Brand Hero */}
-        <View style={styles.brandHero}>
-          {/* Frosted Glass Medallion with Dual-Ring Border */}
-          <View style={styles.medallionOuterRing}>
-            <View style={styles.medallionInnerRing}>
-              <View style={styles.goldMedallionBadge}>
-                <Text style={styles.medallionTrackedText}>
-                  • TRAVEL CONCIERGE & NETWORK •
-                </Text>
+        <Animated.View
+          style={[
+            styles.container,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Editorial Brand Hero */}
+          <View style={styles.brandHero}>
+            {/* Frosted Glass Medallion with Dual-Ring Border */}
+            <View style={styles.medallionOuterRing}>
+              <View style={styles.medallionInnerRing}>
+                <View style={styles.goldMedallionBadge}>
+                  <Text style={styles.medallionTrackedText}>
+                    • TRAVEL CONCIERGE & NETWORK •
+                  </Text>
+                </View>
               </View>
             </View>
+
+            <Text style={styles.wordmark}>MaybeWe</Text>
+            <Text style={styles.tagline}>Meet someone. Go somewhere.</Text>
           </View>
 
-          <Text style={styles.wordmark}>MaybeWe</Text>
-          <Text style={styles.tagline}>Meet someone. Go somewhere.</Text>
-        </View>
+          {/* Floating Action Surface with Tactile Luxury Buttons */}
+          <View style={styles.controlsSurface}>
+            {/* Primary Sign Up: Warm Espresso Capsule (#1C1917) with inner gold rim */}
+            <PrimaryButton
+              title="Sign Up"
+              variant="primary"
+              size="lg"
+              onPress={() => router.push("/(auth)/signup")}
+              style={styles.actionButton}
+            />
 
-        {/* Floating Action Surface with Tactile Luxury Buttons */}
-        <View style={styles.controlsSurface}>
-          {/* Primary Sign Up: Warm Espresso Capsule (#1C1917) with inner gold rim */}
-          <PrimaryButton
-            title="Sign Up"
-            variant="primary"
-            size="lg"
-            onPress={() => router.push("/(auth)/signup")}
-            style={styles.actionButton}
-          />
+            {/* Secondary Sign In: Frosted Silk Glass with Sand Micro-Border */}
+            <PrimaryButton
+              title="Sign In"
+              variant="secondary"
+              size="lg"
+              onPress={() => router.push("/(auth)/login")}
+              style={styles.actionButton}
+            />
 
-          {/* Secondary Sign In: Frosted Silk Glass with Sand Micro-Border */}
-          <PrimaryButton
-            title="Sign In"
-            variant="secondary"
-            size="lg"
-            onPress={() => router.push("/(auth)/login")}
-            style={styles.actionButton}
-          />
-
-          {/* Forgot Password Link */}
-          <TouchableOpacity
-            onPress={handleForgotPassword}
-            style={styles.forgotBtn}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Forgot Password?"
-          >
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          {/* Legal Links */}
-          <View style={styles.legalLinksRow}>
+            {/* Forgot Password Link - Generous Android touch target & hitSlop */}
             <TouchableOpacity
-              onPress={() => router.push("/terms")}
+              onPress={handleForgotPassword}
+              style={styles.forgotBtn}
               activeOpacity={0.7}
-              accessibilityRole="link"
-              accessibilityLabel="Terms of Service"
+              hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+              accessibilityRole="button"
+              accessibilityLabel="Forgot password?"
             >
-              <Text style={styles.legalLinkText}>Terms of Service</Text>
+              <Text
+                style={styles.forgotText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                maxFontSizeMultiplier={1.3}
+              >
+                Forgot password?
+              </Text>
             </TouchableOpacity>
-            <Text style={styles.legalDivider}>•</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/privacy")}
-              activeOpacity={0.7}
-              accessibilityRole="link"
-              accessibilityLabel="Privacy Policy"
-            >
-              <Text style={styles.legalLinkText}>Privacy Policy</Text>
-            </TouchableOpacity>
-          </View>
 
-          {/* Editorial Footer Tag */}
-          <View style={styles.footerPillar}>
-            <Text style={styles.footerPillarText}>QUIET LUXURY • CURATED EXPLORATION</Text>
+            {/* Legal Links */}
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity
+                onPress={() => router.push("/terms")}
+                activeOpacity={0.7}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Service"
+              >
+                <Text style={styles.legalLinkText}>Terms of Service</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalDivider}>•</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/privacy")}
+                activeOpacity={0.7}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+              >
+                <Text style={styles.legalLinkText}>Privacy Policy</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Editorial Footer Tag */}
+            <View style={styles.footerPillar}>
+              <Text style={styles.footerPillarText}>QUIET LUXURY • CURATED EXPLORATION</Text>
+            </View>
           </View>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </ScrollView>
     </View>
   );
 }
@@ -182,11 +203,22 @@ const styles = StyleSheet.create({
     borderColor: "rgba(197, 168, 128, 0.20)",
     backgroundColor: "rgba(244, 239, 235, 0.35)",
   },
-  container: {
+  scrollView: {
     flex: 1,
+    width: "100%",
+    zIndex: 10,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    width: "100%",
+  },
+  container: {
+    flexGrow: 1,
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 28,
     width: "100%",
     maxWidth: 480,
     alignSelf: "center",
@@ -261,18 +293,26 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   forgotBtn: {
-    paddingVertical: 8,
+    alignSelf: "stretch",
+    minHeight: 44,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
+    flexShrink: 0,
+    zIndex: 10,
   },
   forgotText: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.semiBold,
     fontSize: 13,
-    fontWeight: "500",
-    color: "#7D756D",
-    letterSpacing: 0.1,
+    fontWeight: "600",
+    color: "#5C554E",
+    letterSpacing: 0.2,
+    textDecorationLine: "underline",
+    includeFontPadding: false,
+    textAlign: "center",
+    flexShrink: 1,
   },
   legalLinksRow: {
     flexDirection: "row",

@@ -60,6 +60,31 @@ export function healPost(post) {
  * Fetch Feed Posts with Keyset (Cursor) Pagination and Bi-Directional Block Filtering
  * Cursor uses (created_at, id) for monotonic pagination without shift defects.
  */
+
+/**
+ * Detects whether a post is a demo, automated test, or audit artifact.
+ * Prevents test automation remnants (e.g. #Audit_, #LiveTest_, 'Authentic post by User A')
+ * from polluting the production user-facing Feed.
+ */
+export function isAuditOrTestPost(post) {
+  if (!post) return true;
+  const c = String(post.content || post.caption || '');
+  const u = String(post.user_name || post.user?.name || '');
+  const lowerC = c.toLowerCase();
+  const lowerU = u.toLowerCase();
+
+  if (
+    c.includes('#Audit_') ||
+    c.includes('#LiveTest_') ||
+    lowerC.startsWith('authentic post by user') ||
+    lowerU.includes('audit user') ||
+    lowerU.startsWith('test user')
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export async function fetchFeedPosts({
   cursor = null,
   cursorCreatedAt = null,
@@ -103,7 +128,7 @@ export async function fetchFeedPosts({
           }
         }
 
-        posts = rpcData.map((p) =>
+        posts = rpcData.filter((p) => !isAuditOrTestPost(p)).map((p) =>
           normalizePost({
             ...p,
             media: mediaMap[p.id] || [],
@@ -170,7 +195,7 @@ export async function fetchFeedPosts({
       const { data, error } = await query;
       if (!error && Array.isArray(data)) {
         posts = data
-          .filter((p) => !blockedUserIds.has(p.user_id))
+          .filter((p) => !blockedUserIds.has(p.user_id) && !isAuditOrTestPost(p))
           .map(normalizePost);
 
         const nextCursor = posts.length >= clampedLimit ? {
@@ -192,7 +217,7 @@ export async function fetchFeedPosts({
     const raw = await AsyncStorage.getItem(POSTS_STORAGE_KEY);
     if (raw) {
       const cached = JSON.parse(raw);
-      posts = Array.isArray(cached) ? cached.map(normalizePost) : [];
+      posts = Array.isArray(cached) ? cached.filter((p) => !isAuditOrTestPost(p)).map(normalizePost) : [];
     }
   } catch {
     posts = [];

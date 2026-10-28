@@ -1,3 +1,4 @@
+import { evaluateAuthGuard } from '../frontend/lib/authGuard.js';
 // ============================================================================
 // DEDICATED MAPS PAGE & GOOGLE-MAPS UX TEST SUITE
 // Tests MapLibre modes, diagnostics, full-screen route, categories & controls
@@ -28,7 +29,8 @@ test("1. Dedicated /maps route exists and is registered in _layout.jsx", () => {
   const layoutContent = fs.readFileSync(layoutFile, "utf8");
   assert.ok(layoutContent.includes('<Stack.Screen'), "Stack.Screen exists");
   assert.ok(layoutContent.includes('name="maps"'), "maps screen is registered");
-  assert.ok(layoutContent.includes('inMaps'), "AuthRouteGuard permits inMaps");
+  assert.ok(layoutContent.includes('evaluateAuthGuard') || layoutContent.includes('inMaps'), "AuthRouteGuard permits inMaps");
+  assert.equal(evaluateAuthGuard({ hasSession: false, segments: ['maps'], isDevelopment: false }), 'allow', "AuthRouteGuard permits dedicated inMaps route without session");
   assert.ok(layoutContent.includes('body.maps-wide #root'), "Desktop full browser width CSS enabled");
 });
 
@@ -86,13 +88,13 @@ test("4. Full 31-Category discovery system is intact and wired", () => {
   });
 });
 
-test("5. Places & Experiences page has Open Maps entrypoint", () => {
+test("5. Dedicated full-map button removed from Discover UI per Android stability requirement", () => {
   const placesViewFile = path.join(ROOT, "frontend/components/PlaceDiscoveryView.jsx");
   const viewContent = fs.readFileSync(placesViewFile, "utf8");
 
-  assert.ok(viewContent.includes("router.push('/maps')"), "Contains navigation to /maps");
-  assert.ok(viewContent.includes("openMapsHeroCard"), "Renders openMapsHeroCard");
-  assert.ok(viewContent.includes("Open Dedicated Maps"), "Displays hero text");
+  assert.ok(!viewContent.includes("router.push('/maps')"), "Must NOT contain dead /maps navigation in Discover UI");
+  assert.ok(!viewContent.includes("Open Dedicated Maps"), "Displays zero dead hero text in Discover UI");
+  assert.ok(viewContent.includes("Google Maps ↗"), "Provides direct Google Maps external integration");
 });
 
 test("6. Google-Maps-like features present on MapsScreen", () => {
@@ -117,4 +119,30 @@ test("6. Google-Maps-like features present on MapsScreen", () => {
   assert.ok(mapsContent.includes("placeCardContainer"), "Includes place card container");
   assert.ok(mapsContent.includes("bottomSheetContainer"), "Includes bottom sheet container");
   assert.ok(mapsContent.includes("handleOpenDirections"), "Implements native directions handoff");
+});
+
+test("7. MapLibre message listener deduplication guard on window and document", () => {
+  const builderFile = path.join(ROOT, "frontend/components/maps/mapHtmlBuilder.js");
+  const builderContent = fs.readFileSync(builderFile, "utf8");
+
+  assert.ok(builderContent.includes("window.addEventListener('message', handleIncomingMessage)"), "Attaches listener to window");
+  assert.ok(builderContent.includes("document.addEventListener('message', handleIncomingMessage)"), "Attaches listener to document");
+  assert.ok(builderContent.includes("lastProcessedEvent"), "Maintains lastProcessedEvent reference guard");
+  assert.ok(builderContent.includes("lastProcessedRaw"), "Maintains lastProcessedRaw string payload guard");
+  assert.ok(builderContent.includes("lastProcessedTime"), "Maintains lastProcessedTime throttle guard");
+});
+
+test("8. Discover-to-Maps destination/category parameter handoff and native WebView hardware configuration", () => {
+  const discoveryFile = path.join(ROOT, "frontend/components/PlaceDiscoveryView.jsx");
+  const discoveryContent = fs.readFileSync(discoveryFile, "utf8");
+  assert.ok(discoveryContent.includes("buildGoogleMapsCategorySearchUrl"), "PlaceDiscoveryView generates Google Maps search URLs");
+
+  const mapsFile = path.join(ROOT, "frontend/app/maps.jsx");
+  const mapsContent = fs.readFileSync(mapsFile, "utf8");
+  assert.ok(mapsContent.includes("executeTextSearch(searchParams.q, searchParams?.category)"), "MapsScreen executes search with route query and category override");
+
+  const maybeWeMapFile = path.join(ROOT, "frontend/components/maps/MaybeWeMap.jsx");
+  const maybeWeMapContent = fs.readFileSync(maybeWeMapFile, "utf8");
+  assert.ok(maybeWeMapContent.includes('androidLayerType="hardware"'), "Configures hardware acceleration on Android WebView");
+  assert.ok(maybeWeMapContent.includes('mixedContentMode="compatibility"'), "Configures compatibility mixed content mode on Android WebView");
 });

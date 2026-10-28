@@ -43,7 +43,9 @@ import PlaceDiscoveryView from '../../components/PlaceDiscoveryView';
 import {
   getCachedLocation,
   requestCurrentLocation,
+  retryLocation,
   subscribeLocation,
+  loadCachedSelectedLocality,
 } from '../../lib/locationService';
 import PlaceDetailModal from '../../components/PlaceDetailModal';
 import AddToTripModal from '../../components/AddToTripModal';
@@ -94,13 +96,35 @@ export default function DiscoveryScreen() {
     const unsub = subscribeLocation((state) => {
       if (state.location && isValidCoordinate(state.location.latitude, state.location.longitude)) {
         setDeviceCoords(state.location);
-        setGpsStatus('granted');
-      } else if (state.status === 'denied') {
-        setGpsStatus('denied');
+        setGpsStatus("granted");
+      } else if (state.isPermissionDenied) {
+        setGpsStatus("denied");
+      } else if (state.isServicesDisabled || state.isError) {
+        setGpsStatus((prev) => (prev === "granted" ? "granted" : "unavailable"));
+      } else if (state.isLocating) {
+        setGpsStatus((prev) => (prev === "granted" ? "granted" : "detecting"));
       }
     });
     return unsub;
   }, []);
+  const [syncedLocalityCity, setSyncedLocalityCity] = useState(
+    params?.savedCity || params?.selectedCity || null
+  );
+
+  useEffect(() => {
+    if (params?.savedCity || params?.selectedCity) {
+      setSyncedLocalityCity(params.savedCity || params.selectedCity);
+    } else {
+      loadCachedSelectedLocality().then((loc) => {
+        if (loc?.city) {
+          setSyncedLocalityCity(loc.city);
+        } else if (profile?.city) {
+          setSyncedLocalityCity(profile.city);
+        }
+      }).catch(() => {});
+    }
+  }, [params?.savedCity, params?.selectedCity, profile?.city]);
+
   const [cinematicZoomVisible, setCinematicZoomVisible] = useState(false);
   const [searchModalVisible, setSearchModalVisible] = useState(false);
   const [activeCinematicDestination, setActiveCinematicDestination] = useState(params?.destination || 'Goa');
@@ -119,22 +143,28 @@ export default function DiscoveryScreen() {
     }, 3500);
   };
 
-  // Fast local hydration: load cached user location on mount
+  // Fast local hydration: load cached GPS telemetry on mount (Phase 3 isolated telemetry key)
   useEffect(() => {
-    AsyncStorage.getItem('@maybewe_user_location')
-      .then((raw) => {
-        if (raw) {
+    AsyncStorage.getItem('@maybewe_gps_telemetry')
+      .then(async (raw) => {
+        let telemetryRaw = raw;
+        if (!telemetryRaw) {
+          telemetryRaw = await AsyncStorage.getItem('@maybewe_user_location');
+        }
+        if (telemetryRaw) {
           try {
-            const parsed = JSON.parse(raw);
+            const parsed = JSON.parse(telemetryRaw);
+            const lat = parsed?.latitude ?? parsed?.lat;
+            const lng = parsed?.longitude ?? parsed?.lng;
             if (
-              parsed &&
-              typeof parsed.lat === 'number' &&
-              typeof parsed.lng === 'number' &&
-              isValidCoordinate(parsed.lat, parsed.lng)
+              typeof lat === 'number' &&
+              typeof lng === 'number' &&
+              isValidCoordinate(lat, lng) &&
+              parsed?.isGPS !== false
             ) {
               const loadedCoords = {
-                latitude: parsed.lat,
-                longitude: parsed.lng,
+                latitude: lat,
+                longitude: lng,
                 accuracy: parsed.accuracy || null,
               };
               setDeviceCoords(loadedCoords);
@@ -164,40 +194,53 @@ export default function DiscoveryScreen() {
       if (dest) {
         setSearchDestination(dest);
         setActiveCinematicDestination(dest);
-        setDiscoveryMode('travelers');
+
+        // Direct routing to Places & Experiences in Search City mode
+        if (params?.mode === 'places' || params?.placesMode === 'destination' || !params?.mode) {
+          setDiscoveryMode('places');
+          setCinematicZoomVisible(false);
+        } else {
+          setDiscoveryMode(params.mode);
+        }
 
         const transitionKey = `${dest}_${params?.t || 'direct'}`;
-        if (params?.openZoom === 'true' && lastHandledZoomTransitionRef.current !== transitionKey) {
+        if (params?.openZoom === 'true' && params?.mode !== 'places' && lastHandledZoomTransitionRef.current !== transitionKey) {
           lastHandledZoomTransitionRef.current = transitionKey;
           setCinematicZoomVisible(true);
         }
       }
+    } else if (params?.mode) {
+      setDiscoveryMode(params.mode);
     }
     if (params?.style && params.style !== 'All') {
       setSelectedStyle(String(params.style));
     }
-  }, [params?.destination, params?.style, params?.t, params?.openZoom]);
+  }, [params?.destination, params?.mode, params?.placesMode, params?.style, params?.t, params?.openZoom]);
 
   // --- AUTHORITATIVE DEVICE GPS DETECTION ---
   // Delegated to centralized Location Manager with single-flight request deduplication
   const detectDeviceLocation = useCallback(async (forceRefresh = false) => {
-    setGpsStatus('detecting');
+    setGpsStatus("detecting");
     try {
-      const coords = await requestCurrentLocation({ forceRefresh });
+      const coords = forceRefresh
+        ? await retryLocation()
+        : await requestCurrentLocation({ forceRefresh: false });
       if (coords && isValidCoordinate(coords.latitude, coords.longitude)) {
         setDeviceCoords(coords);
-        setGpsStatus('granted');
+        setGpsStatus("granted");
         return coords;
       }
       if (deviceCoords) {
-        setGpsStatus('granted');
+        setGpsStatus("granted");
         return deviceCoords;
       }
-      setGpsStatus((prev) => (prev === 'denied' ? 'denied' : 'unavailable'));
+      setGpsStatus((prev) => (prev === "denied" ? "denied" : "unavailable"));
       return null;
     } catch (err) {
-      console.warn('detectDeviceLocation notice:', err);
-      setGpsStatus('unavailable');
+      console.warn("detectDeviceLocation notice:", err);
+      if (!deviceCoords) {
+        setGpsStatus("unavailable");
+      }
       return null;
     }
   }, [deviceCoords]);
@@ -622,7 +665,7 @@ export default function DiscoveryScreen() {
               </View>
 
               {/* GPS Diagnostic Alerts (Strict No-Fake-Location enforcement) */}
-              {gpsStatus === 'denied' && (
+              {gpsStatus === 'denied' && !deviceCoords && (
                 <View style={[styles.gpsAlertCard, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2', borderColor: '#FCA5A5' }]}>
                   <Ionicons name="location-outline" size={24} color="#EF4444" style={{ marginTop: 2 }} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
@@ -641,7 +684,7 @@ export default function DiscoveryScreen() {
                 </View>
               )}
 
-              {gpsStatus === 'unavailable' && (
+              {gpsStatus === 'unavailable' && !deviceCoords && (
                 <View style={[styles.gpsAlertCard, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FFFBEB', borderColor: '#FCD34D' }]}>
                   <Ionicons name="refresh-circle-outline" size={24} color="#D97706" style={{ marginTop: 2 }} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
@@ -860,6 +903,10 @@ export default function DiscoveryScreen() {
               gpsStatus={gpsStatus}
               onRetryLocation={() => detectDeviceLocation(true)}
               searchDestination={searchDestination}
+              initialPlacesMode={params?.placesMode}
+              initialSavedCity={params?.savedCity || params?.selectedCity || syncedLocalityCity}
+              selectedRadiusKm={selectedRadiusKm}
+              onSelectRadius={setSelectedRadiusKm}
               onSelectPlace={(p) => setActivePlaceDetail(p)}
               onAddToTrip={(p) => setAddToTripTargetPlace(p)}
             />

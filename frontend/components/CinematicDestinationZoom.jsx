@@ -12,6 +12,8 @@ import {
   Easing,
   Modal,
   StatusBar,
+  ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,9 +46,18 @@ export default function CinematicDestinationZoom({
   const destination = useMemo(() => resolveDestination(destinationName), [destinationName]);
 
   const [imageError, setImageError] = useState(false);
+  const [isPhotoLoading, setIsPhotoLoading] = useState(true);
 
   useEffect(() => {
     setImageError(false);
+    setIsPhotoLoading(true);
+
+    // Defensive fallback timeout: prevents indefinite loading spinner if network hangs
+    const timeoutId = setTimeout(() => {
+      setIsPhotoLoading(false);
+    }, 2500);
+
+    return () => clearTimeout(timeoutId);
   }, [destination.id, destination.name]);
 
   // Robust photo source with synchronous resolution and local bundled fallback
@@ -80,6 +91,17 @@ export default function CinematicDestinationZoom({
 
   const [currentBreadcrumbIndex, setCurrentBreadcrumbIndex] = useState(0);
   const [panelVisible, setPanelVisible] = useState(false);
+
+  // Intercept Android hardware back button so it does not skip back to root screen
+  useEffect(() => {
+    if (!visible) return;
+    const onBackPress = () => {
+      onClose?.(destination.name);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [visible, destination.name, onClose]);
 
   // Radar loop
   useEffect(() => {
@@ -174,10 +196,10 @@ export default function CinematicDestinationZoom({
     outputRange: [0.85, 0.95, 1],
   });
 
-  // Smooth satellite layer: dissolves gracefully
+  // Smooth satellite layer: preserves celestial backdrop and avoids empty black void
   const satelliteOpacity = animProgress.interpolate({
     inputRange: [0, 0.5, 1],
-    outputRange: [0.8, 0.3, 0],
+    outputRange: [0.85, 0.55, 0.40],
   });
 
   // Destination Marker scale - counter-scaled against cameraScale (1.0 -> 9.5) so pin preserves an elegant physical ratio
@@ -315,8 +337,20 @@ export default function CinematicDestinationZoom({
           source={photoSource}
           style={styles.scenicFullBleedImage}
           resizeMode="cover"
-          onError={() => setImageError(true)}
+          onLoadStart={() => setIsPhotoLoading(true)}
+          onLoad={() => setIsPhotoLoading(false)}
+          onLoadEnd={() => setIsPhotoLoading(false)}
+          onError={() => {
+            setImageError(true);
+            setIsPhotoLoading(false);
+          }}
         />
+        {isPhotoLoading && !imageError && (
+          <View style={styles.photoLoadingOverlay} pointerEvents="none">
+            <ActivityIndicator size="small" color="#D4AF37" />
+            <Text style={styles.photoLoadingText}>Loading {destination.name} landscape...</Text>
+          </View>
+        )}
         {/* Soft luxury cinematic vignette overlay */}
         <LinearGradient
           colors={['rgba(7, 11, 16, 0.45)', 'rgba(7, 11, 16, 0.15)', 'rgba(7, 11, 16, 0.75)']}
@@ -472,10 +506,31 @@ export default function CinematicDestinationZoom({
 
 const styles = StyleSheet.create({
   fullscreenOverlay: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
     ...StyleSheet.absoluteFillObject,
     zIndex: 999,
     backgroundColor: '#070B10',
     overflow: 'hidden',
+  },
+  photoLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(7, 11, 16, 0.65)',
+    zIndex: 10,
+    elevation: 6,
+    paddingHorizontal: 24,
+  },
+  photoLoadingText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FBFAF7',
+    marginTop: 12,
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   deepSpaceCanvas: {
     ...StyleSheet.absoluteFillObject,

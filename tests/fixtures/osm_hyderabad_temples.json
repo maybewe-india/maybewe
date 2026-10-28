@@ -1,0 +1,186 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-11T06:22:02Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 344619886,
+      "lat": 17.4475911,
+      "lon": 78.4490768,
+      "tags": {
+        "amenity": "place_of_worship",
+        "junction": "yes",
+        "name": "Yellamma Temple Balkampet;Balkampet Yellamma Temple Jn",
+        "religion": "hindu",
+        "wikidata": "Q4851060",
+        "wikipedia": "en:Balkampet Yellamma Temple"
+      }
+    },
+    {
+      "type": "node",
+      "id": 349257452,
+      "lat": 17.4399609,
+      "lon": 78.3958845,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Anjaneya Swami Temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 534091115,
+      "lat": 17.4387374,
+      "lon": 78.4481862,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Durga Devi temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 727183028,
+      "lat": 17.4129315,
+      "lon": 78.4782789,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Katta Maisamma Temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1050803657,
+      "lat": 17.4639733,
+      "lon": 78.4750757,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "nallapochamma temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1242130290,
+      "lat": 17.4415991,
+      "lon": 78.4318023,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Saibaba Temple",
+        "name:en": "Sai Baba Temple",
+        "name:hi": "साईं बाबा मंदिर",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1242158840,
+      "lat": 17.4627059,
+      "lon": 78.475642,
+      "tags": {
+        "addr:city": "New bowenpally",
+        "addr:postcode": "500011",
+        "addr:street": "Seven temples road",
+        "amenity": "place_of_worship",
+        "name": "Seven temples",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1242162789,
+      "lat": 17.445385,
+      "lon": 78.4493677,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1334686113,
+      "lat": 17.4403672,
+      "lon": 78.4473368,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Vinayaka Temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2062731144,
+      "lat": 17.4304737,
+      "lon": 78.4280774,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2583626151,
+      "lat": 17.4362124,
+      "lon": 78.4153298,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2607453374,
+      "lat": 17.4189398,
+      "lon": 78.4568149,
+      "tags": {
+        "addr:city": "Hyderabad",
+        "addr:housename": "Erramanjil",
+        "addr:postcode": "500082",
+        "amenity": "place_of_worship",
+        "name": "Sivalayam",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2607577074,
+      "lat": 17.4448519,
+      "lon": 78.4276526,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "GTS Colony temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2835226196,
+      "lat": 17.4508945,
+      "lon": 78.4206236,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Sai Baba temple",
+        "religion": "hindu"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2835660311,
+      "lat": 17.4500773,
+      "lon": 78.4276509,
+      "tags": {
+        "amenity": "place_of_worship",
+        "name": "Shri Rama Temple",
+        "religion": "hindu"
+      }
+    }
+  ]
+}

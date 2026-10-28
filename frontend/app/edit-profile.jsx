@@ -3,41 +3,54 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Image,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
   Alert,
+  Keyboard,
+  TouchableWithoutFeedback,
+  ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { FONTS, RADII } from "../lib/theme";
-import { useTheme } from "../lib/themeContext";
-import { useAuth } from "../lib/authContext";
+import { FONTS } from "../lib/theme";
 import InputField from "../components/ui/InputField";
-import PrimaryButton from "../components/ui/PrimaryButton";
+import { useAuth } from "../lib/authContext";
+import { requestCurrentLocation, reverseGeocodeLocation } from "../lib/locationService";
+import { uploadAvatarMedia } from "../lib/mediaUpload";
+
+function sanitizeProfileLocation(p) {
+  if (p?.location && typeof p.location === "string" && p.location.trim().length > 0) {
+    return p.location.trim();
+  }
+  if (p?.city && typeof p.city === "string" && p.city.trim().length > 0) {
+    return p.state ? `${p.city.trim()}, ${p.state.trim()}` : p.city.trim();
+  }
+  return "";
+}
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile, updateProfile } = useAuth();
-  const { colors } = useTheme();
 
   const [name, setName] = useState(profile?.name || "");
   const [age, setAge] = useState(profile?.age ? String(profile.age) : "");
-  const [location, setLocation] = useState(profile?.location || "Chittoor, Andhra Pradesh");
+  const [location, setLocation] = useState(sanitizeProfileLocation(profile));
   const [bio, setBio] = useState(profile?.bio || "");
   const [avatar, setAvatar] = useState(profile?.avatar_url || "");
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     if (profile) {
       setName(profile.name || "");
       setAge(profile.age ? String(profile.age) : "");
-      setLocation(profile.location || "Chittoor, Andhra Pradesh");
+      setLocation(sanitizeProfileLocation(profile));
       setBio(profile.bio || "");
       setAvatar(profile.avatar_url || "");
     }
@@ -74,16 +87,85 @@ export default function EditProfileScreen() {
     }
   };
 
+  const handleUseCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const loc = await requestCurrentLocation({ forceRefresh: true });
+      if (loc && typeof loc.latitude === "number") {
+        const applyLocation = async () => {
+          const geo = await reverseGeocodeLocation(loc.latitude, loc.longitude);
+          if (geo && (geo.city || geo.state)) {
+            const label = [geo.city, geo.state].filter(Boolean).join(", ");
+            setLocation(label);
+          } else {
+            setLocation(`${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`);
+          }
+        };
+
+        const isCoarse = loc.isCoarse || loc.isProvisional || loc.confidence === "COARSE" || (typeof loc.accuracy === "number" && loc.accuracy > 150);
+        if (isCoarse) {
+          const approxRadius = Math.round(loc.accuracy || loc.accuracyRadiusMeters || 1000);
+          Alert.alert(
+            "Approximate Location Warning",
+            `GPS fix is approximate (±${approxRadius}m). You can use this approximate location, wait for better satellite reception, or enter your city manually.`,
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Use Approximate", onPress: applyLocation },
+            ]
+          );
+        } else {
+          await applyLocation();
+        }
+      } else {
+        Alert.alert("GPS Notice", "Could not acquire fresh GPS fix. Please ensure location services are enabled.");
+      }
+    } catch (e) {
+      Alert.alert("GPS Notice", "Could not determine current location.");
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      let city = "";
+      let state = "";
+      const cleanLoc = location.trim();
+      if (cleanLoc.length > 0) {
+        const parts = cleanLoc.split(",").map((s) => s.trim());
+        city = parts[0] || "";
+        state = parts[1] || "";
+      }
+
+      let finalAvatarUrl = avatar;
+      if (
+        avatar &&
+        typeof avatar === 'string' &&
+        (avatar.startsWith('file://') ||
+          avatar.startsWith('content://') ||
+          avatar.startsWith('blob:') ||
+          avatar.startsWith('data:'))
+      ) {
+        try {
+          finalAvatarUrl = await uploadAvatarMedia({
+            uri: avatar,
+            userId: profile?.id || 'anonymous',
+          });
+        } catch (uploadErr) {
+          console.warn('[EditProfile] Avatar upload to Supabase storage failed:', uploadErr);
+        }
+      }
+
       if (updateProfile) {
         await updateProfile({
           name: name.trim(),
           age: parseInt(age, 10) || null,
-          location: location.trim(),
+          location: cleanLoc,
+          city,
+          state,
           bio: bio.trim(),
-          avatar_url: avatar,
+          avatar_url: finalAvatarUrl,
         });
       }
       if (router.canGoBack()) {
@@ -100,110 +182,140 @@ export default function EditProfileScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "android" ? "height" : "padding"}
+      keyboardVerticalOffset={Platform.OS === "android" ? 24 : 0}
       style={styles.root}
     >
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
-        <TouchableOpacity
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/profile"))}
-          style={styles.backBtn}
-        >
-          <Ionicons name="chevron-back" size={20} color="#1E1B18" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
+            <TouchableOpacity
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/profile"))}
+              style={styles.backBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Profile"
+            >
+              <Ionicons name="chevron-back" size={20} color="#1E1B18" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Profile</Text>
+            <View style={{ width: 40 }} />
+          </View>
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollBody,
-          { paddingBottom: Math.max(insets.bottom, 24) + 40 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Photo Uploader with Clean Pill Actions */}
-        <View style={styles.photoContainer}>
-          <View style={styles.photoWrap}>
-            {avatar ? (
-              <Image source={{ uri: avatar }} style={styles.photoImg} />
-            ) : (
-              <View style={styles.photoEmpty}>
-                <Ionicons name="person" size={40} color="#C5A880" />
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollBody,
+              { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Photo Uploader with Clean Pill Actions */}
+            <View style={styles.photoContainer}>
+              <View style={styles.photoWrap}>
+                {avatar ? (
+                  <Image source={{ uri: avatar }} style={styles.photoImg} />
+                ) : (
+                  <View style={styles.photoEmpty}>
+                    <Ionicons name="person" size={40} color="#C5A880" />
+                  </View>
+                )}
               </View>
-            )}
-          </View>
 
-          <View style={styles.photoBtnRow}>
+              <View style={styles.photoBtnRow}>
+                <TouchableOpacity
+                  style={styles.actionPill}
+                  onPress={handlePickFromGallery}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="images-outline" size={15} color="#1E1B18" style={{ marginRight: 6 }} />
+                  <Text style={styles.actionPillText}>Choose from Gallery</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionPill}
+                  onPress={handleTakePhoto}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera-outline" size={15} color="#1E1B18" style={{ marginRight: 6 }} />
+                  <Text style={styles.actionPillText}>Take Photo</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Crisp Ivory Floating Fields with Warm Micro-Labels */}
+            <View style={styles.floatingCard}>
+              <InputField
+                label="FULL NAME"
+                value={name}
+                onChangeText={setName}
+                placeholder="Your full name"
+                icon="person-outline"
+              />
+
+              <InputField
+                label="AGE"
+                value={age}
+                onChangeText={setAge}
+                placeholder="24"
+                keyboardType="numeric"
+                icon="calendar-outline"
+              />
+
+              <View style={styles.fieldSection}>
+                <View style={styles.locationHeaderRow}>
+                  <Text style={styles.fieldSubLabel}>LOCATION</Text>
+                  <TouchableOpacity
+                    onPress={handleUseCurrentLocation}
+                    disabled={locating}
+                    style={styles.useGpsPill}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Use current GPS location"
+                  >
+                    {locating ? (
+                      <ActivityIndicator size="small" color="#A1824A" style={{ marginRight: 4 }} />
+                    ) : (
+                      <Ionicons name="navigate-outline" size={13} color="#A1824A" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={styles.useGpsText}>
+                      {locating ? "Acquiring GPS..." : "Use Current Location"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <InputField
+                  value={location}
+                  onChangeText={setLocation}
+                  placeholder="e.g. Chennai, Tamil Nadu"
+                  icon="location-outline"
+                />
+              </View>
+
+              <InputField
+                label="TRAVEL PHILOSOPHY & BIO"
+                value={bio}
+                onChangeText={setBio}
+                placeholder="Share your travel philosophy..."
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            {/* Save Button: Warm Espresso Capsule with subtle gold highlight */}
             <TouchableOpacity
-              style={styles.actionPill}
-              onPress={handlePickFromGallery}
-              activeOpacity={0.8}
+              onPress={handleSave}
+              disabled={saving}
+              style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Save Profile Changes"
             >
-              <Ionicons name="images-outline" size={15} color="#1E1B18" style={{ marginRight: 6 }} />
-              <Text style={styles.actionPillText}>Choose from Gallery</Text>
+              <Text style={styles.saveBtnText}>
+                {saving ? "Saving Changes..." : "Save Profile Changes"}
+              </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionPill}
-              onPress={handleTakePhoto}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="camera-outline" size={15} color="#1E1B18" style={{ marginRight: 6 }} />
-              <Text style={styles.actionPillText}>Take Photo</Text>
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
-
-        {/* Crisp Ivory Floating Fields with Warm Micro-Labels */}
-        <View style={styles.floatingCard}>
-          <InputField
-            label="FULL NAME"
-            value={name}
-            onChangeText={setName}
-            placeholder="Your full name"
-            icon="person-outline"
-          />
-
-          <InputField
-            label="AGE"
-            value={age}
-            onChangeText={setAge}
-            placeholder="24"
-            keyboardType="numeric"
-            icon="calendar-outline"
-          />
-
-          <InputField
-            label="LOCATION"
-            value={location}
-            onChangeText={setLocation}
-            placeholder="Chittoor, Andhra Pradesh"
-            icon="location-outline"
-          />
-
-          <InputField
-            label="TRAVEL PHILOSOPHY & BIO"
-            value={bio}
-            onChangeText={setBio}
-            placeholder="Share your travel philosophy..."
-            multiline
-            numberOfLines={4}
-          />
-        </View>
-
-        {/* Save Button: Warm Espresso Capsule with subtle gold highlight */}
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={saving}
-          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.saveBtnText}>
-            {saving ? "Saving Changes..." : "Save Profile Changes"}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
@@ -211,7 +323,7 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#FAF8F5", // Alabaster French Linen
+    backgroundColor: "#FAF8F5",
   },
   header: {
     flexDirection: "row",
@@ -240,6 +352,7 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     padding: 20,
+    flexGrow: 1,
   },
   photoContainer: {
     alignItems: "center",
@@ -300,6 +413,34 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 2,
     marginBottom: 24,
+  },
+  fieldSection: {
+    marginBottom: 12,
+  },
+  locationHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  fieldSubLabel: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    color: "#7D756D",
+    letterSpacing: 1.2,
+  },
+  useGpsPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    backgroundColor: "rgba(197, 168, 128, 0.12)",
+  },
+  useGpsText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 11,
+    color: "#A1824A",
   },
   saveBtn: {
     width: "100%",

@@ -24,16 +24,22 @@ export default function LoginScreen() {
   const params = useLocalSearchParams();
   const redirectTarget = params?.redirect ? decodeURIComponent(params.redirect) : null;
   const insets = useSafeAreaInsets();
-  const { login, signInWithGoogle, loginWithGoogle } = useAuth();
+  const { login, signInWithGoogle, loginWithGoogle, signInWithApple, loginWithApple } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(params?.email || params?.prefillEmail || '');
+  React.useEffect(() => {
+    if (params?.email || params?.prefillEmail) {
+      setEmail(params.email || params.prefillEmail);
+    }
+  }, [params?.email, params?.prefillEmail]);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleSignIn = async () => {
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password) {
       setErrorMessage('Please enter both your email and password.');
       return;
@@ -57,7 +63,17 @@ export default function LoginScreen() {
       if (redirectTarget) {
         router.replace(redirectTarget);
       } else {
-        router.replace('/(tabs)');
+        const isVerified = res?.profile?.verification_status === 'verified';
+        if (isVerified) {
+          router.replace('/(tabs)');
+        } else {
+          const hasAgreed = res?.hasAgreedToGuidelines;
+          if (hasAgreed) {
+            router.replace('/(auth)/verification');
+          } else {
+            router.replace('/(auth)/guidelines');
+          }
+        }
       }
     } catch (err) {
       console.warn('[Login] Unexpected error in handleSignIn:', err);
@@ -82,7 +98,17 @@ export default function LoginScreen() {
           if (redirectTarget) {
             router.replace(redirectTarget);
           } else {
-            router.replace('/(tabs)');
+        const isVerified = res?.profile?.verification_status === 'verified';
+        if (isVerified) {
+          router.replace('/(tabs)');
+        } else {
+          const hasAgreed = res?.hasAgreedToGuidelines;
+          if (hasAgreed) {
+            router.replace('/(auth)/verification');
+          } else {
+            router.replace('/(auth)/guidelines');
+          }
+        }
           }
         }
       }
@@ -93,8 +119,72 @@ export default function LoginScreen() {
     }
   };
 
+  const isNavigatingForgotRef = React.useRef(false);
+
   const handleForgotPassword = () => {
+    if (isNavigatingForgotRef.current) return;
+    isNavigatingForgotRef.current = true;
     router.push('/(auth)/forgot-password');
+    setTimeout(() => {
+      isNavigatingForgotRef.current = false;
+    }, 1000);
+  };
+
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    setErrorMessage('');
+    try {
+      const appleAuth = signInWithApple || loginWithApple;
+      if (typeof appleAuth !== 'function') {
+        throw new Error('Apple sign-in service is currently initializing. Please try again.');
+      }
+      const res = await appleAuth();
+      if (res?.cancelled) {
+        setAppleLoading(false);
+        return;
+      }
+      if (res?.error) {
+        setErrorMessage(
+          typeof res.error === 'string'
+            ? res.error
+            : res.error.message || 'Apple sign-in could not be completed.'
+        );
+        setAppleLoading(false);
+        return;
+      }
+      if (res?.redirecting) {
+        return;
+      }
+      setAppleLoading(false);
+      if (redirectTarget) {
+        router.replace(redirectTarget);
+      } else {
+        const isVerified = res?.profile?.verification_status === 'verified';
+        if (isVerified) {
+          router.replace('/(tabs)');
+        } else {
+          const hasAgreed = res?.hasAgreedToGuidelines;
+          if (hasAgreed) {
+            router.replace('/(auth)/verification');
+          } else {
+            router.replace('/(auth)/guidelines');
+          }
+        }
+      }
+    } catch (err) {
+      if (
+        err?.code === 'ERR_REQUEST_CANCELED' ||
+        err?.code === 'ERR_CANCELED' ||
+        err?.code === '1001' ||
+        String(err?.message || '').toLowerCase().includes('cancel')
+      ) {
+        setAppleLoading(false);
+        return;
+      }
+      console.warn('[Login] Unexpected error in handleAppleSignIn:', err);
+      setAppleLoading(false);
+      setErrorMessage(err.message || 'An unexpected error occurred during Apple sign-in.');
+    }
   };
 
   const handleSocialNotice = (provider) => {
@@ -193,10 +283,18 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={handleForgotPassword}
               style={styles.forgotRow}
+              hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+              activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Forgot password"
+              accessibilityLabel="Forgot password?"
             >
-              <Text style={styles.forgotText}>Forgot password?</Text>
+              <Text
+                style={styles.forgotText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Forgot password?
+              </Text>
             </TouchableOpacity>
 
             {errorMessage ? (
@@ -227,7 +325,7 @@ export default function LoginScreen() {
               <TouchableOpacity
                 style={styles.socialBtn}
                 onPress={handleGoogleSignIn}
-                disabled={loading || googleLoading}
+                disabled={loading || googleLoading || appleLoading}
                 accessibilityRole="button"
                 accessibilityLabel="Sign in with Google"
               >
@@ -240,12 +338,16 @@ export default function LoginScreen() {
 
               <TouchableOpacity
                 style={styles.socialBtn}
-                onPress={() => handleSocialNotice('Apple')}
-                disabled={loading || googleLoading}
+                onPress={handleAppleSignIn}
+                disabled={loading || googleLoading || appleLoading}
                 accessibilityRole="button"
                 accessibilityLabel="Sign in with Apple"
               >
-                <Ionicons name="logo-apple" size={20} color="#171716" />
+                {appleLoading ? (
+                  <ActivityIndicator size="small" color="#171716" />
+                ) : (
+                  <Ionicons name="logo-apple" size={20} color="#171716" />
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -365,16 +467,22 @@ const styles = StyleSheet.create({
   },
   forgotRow: {
     alignSelf: 'flex-end',
-    minHeight: 40,
+    minHeight: 44,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     justifyContent: 'center',
     marginBottom: 12,
-    marginTop: -4,
+    marginTop: -2,
+    flexShrink: 0,
+    zIndex: 10,
   },
   forgotText: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.semiBold,
     fontSize: 13,
-    color: '#8A8984',
-    fontWeight: '500',
+    color: '#5C554E',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+    includeFontPadding: false,
   },
   errorBox: {
     flexDirection: 'row',

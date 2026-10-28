@@ -1,3 +1,4 @@
+import { evaluateAuthGuard } from '../frontend/lib/authGuard.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -56,9 +57,16 @@ test("3. Unauthenticated Public Access & Stack Route Registration", () => {
   assert.ok(layout.includes('name="delete-account"'), "_layout.jsx Stack must register delete-account screen");
 
   assert.ok(
-    layout.includes("isPublicLegal"),
+    layout.includes("evaluateAuthGuard") || layout.includes("isPublicLegal"),
     "AuthRouteGuard must allow public unauthenticated access to /privacy, /terms, and /delete-account"
   );
+  for (const legalRoute of ['privacy', 'terms', 'delete-account']) {
+    assert.equal(
+      evaluateAuthGuard({ hasSession: false, segments: [legalRoute], isDevelopment: false }),
+      'allow',
+      `AuthRouteGuard must allow public unauthenticated access to /${legalRoute}`
+    );
+  }
 });
 
 test("4. Integration Links Across Auth & In-App Navigation", () => {

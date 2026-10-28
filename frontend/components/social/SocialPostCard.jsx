@@ -23,11 +23,20 @@ export default function SocialPostCard({
   post,
   currentUserId = null,
   onOpenComments = null,
+  onCommentPress = null,
   onPostDeleted = null,
+  onDeletePost = null,
   onAuthorBlocked = null,
+  onBlockAuthor = null,
   onOpenReport = null,
+  onReportPost = null,
   onOpenDestination = null,
+  onLikeChange = null,
 }) {
+  const handleOpenComments = onOpenComments || onCommentPress;
+  const handlePostDeleted = onPostDeleted || onDeletePost;
+  const handleAuthorBlocked = onAuthorBlocked || onBlockAuthor;
+  const handleOpenReport = onOpenReport || onReportPost;
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = Math.min(windowWidth - 28, 480);
   const isOwner = String(post.user_id) === String(currentUserId);
@@ -73,17 +82,22 @@ export default function SocialPostCard({
     const nextState = !isLiked;
     setIsLiked(nextState);
     if (nextState) triggerLikeBounce();
-    setLikesCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
+    const nextCount = nextState ? likesCount + 1 : Math.max(0, likesCount - 1);
+    setLikesCount(nextCount);
+    onLikeChange?.(post.id, nextState, nextCount);
 
     try {
       const res = await togglePostReaction(post.id, currentUserId, "like", post.user_id);
       setIsLiked(res.isLiked);
       setLikesCount(res.likesCount);
+      onLikeChange?.(post.id, res.isLiked, res.likesCount);
     } catch (err) {
       console.warn("handleLikeToggle error:", err);
       // Revert
       setIsLiked(!nextState);
-      setLikesCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
+      const revertedCount = !nextState ? likesCount + 1 : Math.max(0, likesCount - 1);
+      setLikesCount(revertedCount);
+      onLikeChange?.(post.id, !nextState, revertedCount);
     } finally {
       setLikeBusy(false);
     }
@@ -132,7 +146,7 @@ export default function SocialPostCard({
           onPress: async () => {
             try {
               await deletePost(post.id, currentUserId);
-              if (onPostDeleted) onPostDeleted(post.id);
+              if (handlePostDeleted) handlePostDeleted(post.id);
             } catch (err) {
               Alert.alert("Error", err?.message || "Could not delete story.");
             }
@@ -155,7 +169,7 @@ export default function SocialPostCard({
           onPress: async () => {
             try {
               await blockUser(currentUserId, post.user_id);
-              if (onAuthorBlocked) onAuthorBlocked(post.user_id);
+              if (handleAuthorBlocked) handleAuthorBlocked(post.user_id);
             } catch (err) {
               Alert.alert("Error", err?.message || "Could not block user.");
             }
@@ -224,7 +238,7 @@ export default function SocialPostCard({
                 style={styles.menuItem}
                 onPress={() => {
                   setMenuOpen(false);
-                  if (onOpenReport) onOpenReport({ type: "post", id: post.id, authorId: post.user_id });
+                  if (handleOpenReport) handleOpenReport({ type: "post", id: post.id, authorId: post.user_id });
                 }}
               >
                 <Ionicons name="flag-outline" size={16} color="#C62828" />
@@ -325,7 +339,7 @@ export default function SocialPostCard({
 
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => onOpenComments && onOpenComments(post)}
+            onPress={() => handleOpenComments && handleOpenComments(post)}
             activeOpacity={0.7}
           >
             <Ionicons name="chatbubble-outline" size={21} color="#1E1B18" />

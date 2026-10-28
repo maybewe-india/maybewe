@@ -1,0 +1,255 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-11T06:22:02Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 344033815,
+      "lat": 17.4380252,
+      "lon": 78.3996269,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "name": "Indian Oil",
+        "operator": "IBP"
+      }
+    },
+    {
+      "type": "node",
+      "id": 813570842,
+      "lat": 17.4263594,
+      "lon": 78.451396,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "name": "Indian Oil"
+      }
+    },
+    {
+      "type": "node",
+      "id": 814748141,
+      "lat": 17.4273769,
+      "lon": 78.4395446,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "name": "Indian Oil"
+      }
+    },
+    {
+      "type": "node",
+      "id": 817353703,
+      "lat": 17.4449593,
+      "lon": 78.4671058,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "name": "Indian Oil",
+        "operator": "Indian Oil"
+      }
+    },
+    {
+      "type": "node",
+      "id": 817354434,
+      "lat": 17.4445955,
+      "lon": 78.4616641,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "name": "Indian Oil"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1050856274,
+      "lat": 17.4634786,
+      "lon": 78.4736466,
+      "tags": {
+        "amenity": "fuel",
+        "diesel": "yes",
+        "fuel:octane_100": "yes",
+        "name": "HP fuel station",
+        "operator": "Hindustan Petroleum",
+        "source": "self"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1259088726,
+      "lat": 17.4115781,
+      "lon": 78.4610668,
+      "tags": {
+        "amenity": "fuel"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1666010778,
+      "lat": 17.4232572,
+      "lon": 78.4589653,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Shell",
+        "brand:wikidata": "Q110716465",
+        "fuel:diesel": "yes",
+        "fuel:octane_91": "yes",
+        "name": "Shell Petrol Bunk",
+        "operator": "Shell"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1779029058,
+      "lat": 17.4040544,
+      "lon": 78.4638899,
+      "tags": {
+        "amenity": "fuel"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1883501408,
+      "lat": 17.4298122,
+      "lon": 78.4321238,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "IBP"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2052621892,
+      "lat": 17.4031013,
+      "lon": 78.4624993,
+      "tags": {
+        "amenity": "fuel"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2177960405,
+      "lat": 17.4362628,
+      "lon": 78.4291105,
+      "tags": {
+        "amenity": "fuel"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2217968817,
+      "lat": 17.3955353,
+      "lon": 78.4308307,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "check_date": "2024-03-29"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2352099065,
+      "lat": 17.4211261,
+      "lon": 78.4559994,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "fuel:diesel": "yes",
+        "fuel:petrol": "yes",
+        "name": "Indian Oil Fuel Station"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2352100154,
+      "lat": 17.4206051,
+      "lon": 78.4563468,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Bharat Petroleum",
+        "brand:wikidata": "Q854826",
+        "building": "yes",
+        "name": "Bharat Petroleum"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2466611001,
+      "lat": 17.4234953,
+      "lon": 78.4120322,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "name": "Indian Oil"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2710628568,
+      "lat": 17.3968121,
+      "lon": 78.423568,
+      "tags": {
+        "amenity": "fuel",
+        "brand": "Hindustan Petroleum",
+        "brand:wikidata": "Q1619375",
+        "check_date": "2024-03-29",
+        "name": "Hindustan Petroleum",
+        "official_name": "Hindustan Petroleum",
+        "short_name": "HP"
+      }
+    },
+    {
+      "type": "node",
+      "id": 2779381745,
+      "lat": 17.4125624,
+      "lon": 78.4796126,
+      "tags": {
+        "amenity": "fuel",
+        "name": "Hindustan Pertoleum"
+      }
+    },
+    {
+      "type": "node",
+      "id": 3159027221,
+      "lat": 17.4362648,
+      "lon": 78.4381583,
+      "tags": {
+        "addr:street": "Yousufguda Main Road",
+        "amenity": "fuel",
+        "brand": "Indian Oil",
+        "brand:wikidata": "Q1289348",
+        "brand:wikipedia": "en:Indian Oil Corporation",
+        "name": "Indian Oil",
+        "opening_hours": "11:00-22:00",
+        "operator": "Indian oil"
+      }
+    },
+    {
+      "type": "node",
+      "id": 3390802020,
+      "lat": 17.3932909,
+      "lon": 78.4321143,
+      "tags": {
+        "amenity": "fuel",
+        "name": "Bharat Petroleum"
+      }
+    }
+  ]
+}

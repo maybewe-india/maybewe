@@ -10,6 +10,8 @@ export default function EmptyState({
   description,
   actionTitle,
   onAction,
+  secondaryActionTitle,
+  onSecondaryAction,
   style,
   accentColor,
 }) {
@@ -33,6 +35,16 @@ export default function EmptyState({
           activeOpacity={0.8}
         >
           <Text style={[styles.actionText, { color: '#FAF8F5' }]}>{actionTitle}</Text>
+        </TouchableOpacity>
+      )}
+
+      {secondaryActionTitle && onSecondaryAction && (
+        <TouchableOpacity
+          onPress={onSecondaryAction}
+          style={[styles.secondaryActionBtn, { borderColor: 'rgba(197, 168, 128, 0.40)' }]}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.secondaryActionText, { color: '#1C1917' }]}>{secondaryActionTitle}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -87,5 +99,18 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 14,
     fontWeight: '700',
+  },
+  secondaryActionBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 9999,
+    borderWidth: 1,
+    backgroundColor: '#F4EFEB',
+  },
+  secondaryActionText: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

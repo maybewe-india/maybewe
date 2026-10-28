@@ -108,12 +108,118 @@ function formatDistance(meters: number): string {
   return (km < 10 ? km.toFixed(1) : Math.round(km)) + ' km away';
 }
 
-function isValidCoord(lat: unknown, lng: unknown): boolean {
+export function isValidCoord(lat: unknown, lng: unknown): boolean {
   if (typeof lat !== 'number' || typeof lng !== 'number') return false;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
   if (isNaN(lat) || isNaN(lng)) return false;
   if (lat < -90 || lat > 90) return false;
   if (lng < -180 || lng > 180) return false;
+  // Strictly reject Null Island (0, 0)
+  if (lat === 0 && lng === 0) return false;
   return true;
+}
+
+export function calculateBoundingBox(
+  latitude: number,
+  longitude: number,
+  radiusMeters: number
+): { minLat: number; maxLat: number; minLng: number; maxLng: number } {
+  const bufferRadius = radiusMeters * 1.15;
+  const deltaLat = bufferRadius / 111320;
+  const cosLat = Math.cos((latitude * Math.PI) / 180);
+  const deltaLng = bufferRadius / (111320 * Math.max(Math.abs(cosLat), 0.01));
+  return {
+    minLat: latitude - deltaLat,
+    maxLat: latitude + deltaLat,
+    minLng: longitude - deltaLng,
+    maxLng: longitude + deltaLng,
+  };
+}
+
+export const KNOWN_INDIAN_STATES_AND_UTS: string[] = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Andaman and Nicobar Islands',
+  'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Jammu and Kashmir',
+  'Ladakh',
+  'Lakshadweep',
+  'Puducherry',
+];
+
+export function extractStateFromGeocode(item: any): string {
+  if (!item || typeof item !== 'object') return '';
+
+  // 1. Direct Nominatim / reverse-geocode address object
+  if (item.address && typeof item.address === 'object') {
+    if (typeof item.address.state === 'string' && item.address.state.trim().length > 0) {
+      return item.address.state.trim();
+    }
+    if (typeof item.address.state_district === 'string' && item.address.state_district.trim().length > 0) {
+      const match = KNOWN_INDIAN_STATES_AND_UTS.find(
+        (s) => s.toLowerCase() === item.address.state_district.trim().toLowerCase()
+      );
+      if (match) return match;
+    }
+  }
+
+  // 2. Photon / GeoJSON properties
+  if (item.properties && typeof item.properties === 'object') {
+    if (typeof item.properties.state === 'string' && item.properties.state.trim().length > 0) {
+      return item.properties.state.trim();
+    }
+  }
+
+  // 3. Fallback: Parse display_name tokens from right to left
+  const rawDisplayName = item.display_name || item.properties?.display_name || item.name;
+  if (typeof rawDisplayName === 'string' && rawDisplayName.trim().length > 0) {
+    const parts = rawDisplayName.split(',').map((p: string) => p.trim()).filter(Boolean);
+    // Scan tokens from right to left to find state name
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const part = parts[i];
+      const match = KNOWN_INDIAN_STATES_AND_UTS.find(
+        (s) => s.toLowerCase() === part.toLowerCase()
+      );
+      if (match) return match;
+    }
+    // Heuristic: If India/postal code is at the end, the component before it is often the state
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const part = parts[i];
+      if (/^\d{3,10}$/.test(part.replace(/\s+/g, ''))) continue; // skip postal codes
+      if (/^(india|bharat)$/i.test(part)) continue; // skip country
+      if (part.length > 2) return part;
+    }
+  }
+
+  return '';
 }
 
 // --- COMPREHENSIVE CATEGORY TAXONOMY & OSM MAPPINGS ---
@@ -264,6 +370,7 @@ export const CANONICAL_CATEGORY_MAP: Record<string, string> = {
 
 // Target keywords for OSM geocoding when querying by category
 export const OVERPASS_CATEGORY_TAGS: Record<string, string> = {
+  all: '["amenity"~"cafe|restaurant|place_of_worship|bank"]',
   fuel: '["amenity"="fuel"]',
   ev_charging: '["amenity"="charging_station"]',
   cafes: '["amenity"="cafe"]',
@@ -384,6 +491,19 @@ function isExternalQueryAllowed(clientKey: string, maxPerMin = 100): boolean {
 
 // --- POSTGIS PLACES PROVIDER (Primary Production Engine) ---
 
+export function matchesEnforcedCategory(props: any, enforceCategoryId?: string): boolean {
+  if (!enforceCategoryId || enforceCategoryId === "all") return true;
+  if (!props || typeof props !== "object") return false;
+  const rawType = (props.osm_value || props.type || props.osm_key || "").toLowerCase().trim();
+  const osmVal = (props.osm_value || "").toLowerCase().trim();
+  const mapped = CANONICAL_CATEGORY_MAP[rawType] || CANONICAL_CATEGORY_MAP[osmVal];
+  if (mapped) {
+    return mapped === enforceCategoryId;
+  }
+  const root = enforceCategoryId.replace(/s$/, "");
+  return rawType.includes(root);
+}
+
 export class PostgisPlacesProvider implements PlacesProvider {
   private supabase: any;
   public lastDebug: any = null;
@@ -437,20 +557,26 @@ export class PostgisPlacesProvider implements PlacesProvider {
       console.warn('search_nearby_places RPC warning:', err);
     }
 
-    // 2. Direct table fallback on PostGIS public.places
+    // 2. Direct table fallback on PostGIS public.places with bounded bounding-box spatial candidate filtering
     let existingPlaces: NormalizedPlace[] = [];
     try {
+      const { minLat, maxLat, minLng, maxLng } = calculateBoundingBox(latitude, longitude, clampedRadius);
+
       let query = this.supabase
         .from('places')
         .select('*')
-        .limit(clampedLimit);
+        .gte('latitude', minLat)
+        .lte('latitude', maxLat)
+        .gte('longitude', minLng)
+        .lte('longitude', maxLng);
 
       if (canonicalCat !== 'all') {
         const rootWord = CATEGORY_SEARCH_ROOT[canonicalCat] || canonicalCat.replace(/s$/, '');
         query = query.or('category_id.eq.' + canonicalCat + ',category_id.eq.' + rootWord + ',category.ilike.%' + rootWord + '%,name.ilike.%' + rootWord + '%');
       }
 
-      const { data, error } = await query;
+      const candidateLimit = Math.max(clampedLimit * 5, 100);
+      const { data, error } = await query.limit(candidateLimit);
       if (!error && Array.isArray(data) && data.length > 0) {
         existingPlaces = data
           .map((row: any) => {
@@ -478,34 +604,94 @@ export class PostgisPlacesProvider implements PlacesProvider {
     this.lastDebug = { existingCount: existingPlaces.length, canonicalCat, osmQuery, isAllowed };
 
     // 3. On-demand OSM POI discovery if PostGIS has < 3 results in this area & category
-    if (canonicalCat !== 'all' && isAllowed) {
-      try {
-        const osmPlaces = await this.fetchAndIngestOsm(
-          osmQuery,
-          latitude,
-          longitude,
-          clampedLimit,
-          canonicalCat,
-          clampedRadius
-        );
-        this.lastDebug.osmCount = osmPlaces.length;
-        if (osmPlaces.length > 0) {
-          const seen = new Set<string>();
-          const combined: NormalizedPlace[] = [];
-          for (const p of [...existingPlaces, ...osmPlaces]) {
-            if (p && !seen.has(p.place_id)) {
-              seen.add(p.place_id);
-              if ((p.distance_meters || 0) <= clampedRadius && (p.distance_meters || 0) <= 25000) {
-                combined.push(p);
+    if (isAllowed) {
+      if (canonicalCat === 'all') {
+        try {
+          // Unified multi-amenity single Overpass query prevents 429 concurrency throttles
+          const unifiedOsmPlaces = await this.fetchAndIngestOsm(
+            'all',
+            latitude,
+            longitude,
+            clampedLimit,
+            'all',
+            clampedRadius
+          );
+
+          let allOsmPlaces: NormalizedPlace[] = Array.isArray(unifiedOsmPlaces) ? unifiedOsmPlaces : [];
+
+          // Resilient sequential fallback across primary categories if unified query yielded 0
+          if (allOsmPlaces.length === 0) {
+            const primaryCategories = ['cafes', 'restaurants', 'attractions', 'stays'];
+            const perCatLimit = Math.max(Math.ceil(clampedLimit / primaryCategories.length), 5);
+            for (const cat of primaryCategories) {
+              const query = CATEGORY_OSM_SEARCH[cat] || cat;
+              try {
+                const catPlaces = await this.fetchAndIngestOsm(
+                  query,
+                  latitude,
+                  longitude,
+                  perCatLimit,
+                  cat,
+                  clampedRadius
+                );
+                if (Array.isArray(catPlaces) && catPlaces.length > 0) {
+                  allOsmPlaces.push(...catPlaces);
+                  if (allOsmPlaces.length >= clampedLimit) break;
+                }
+              } catch (catErr) {
+                console.warn(`Category ${cat} ingestion warning:`, catErr);
               }
             }
           }
-          combined.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
-          return combined.slice(0, clampedLimit);
+
+          this.lastDebug.osmCount = allOsmPlaces.length;
+          if (allOsmPlaces.length > 0) {
+            const seen = new Set<string>();
+            const combined: NormalizedPlace[] = [];
+            for (const p of [...existingPlaces, ...allOsmPlaces]) {
+              if (p && !seen.has(p.place_id)) {
+                seen.add(p.place_id);
+                if ((p.distance_meters || 0) <= clampedRadius && (p.distance_meters || 0) <= 25000) {
+                  combined.push(p);
+                }
+              }
+            }
+            combined.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
+            return combined.slice(0, clampedLimit);
+          }
+        } catch (multiOsmErr: any) {
+          this.lastDebug.osmError = multiOsmErr?.message;
+          console.warn('On-demand multi-category OSM ingestion warning:', multiOsmErr);
         }
-      } catch (osmErr: any) {
-        this.lastDebug.osmError = osmErr?.message;
-        console.warn('On-demand category OSM ingestion warning:', osmErr);
+      } else {
+        try {
+          const osmPlaces = await this.fetchAndIngestOsm(
+            osmQuery,
+            latitude,
+            longitude,
+            clampedLimit,
+            canonicalCat,
+            clampedRadius
+          );
+          this.lastDebug.osmCount = osmPlaces.length;
+          if (osmPlaces.length > 0) {
+            const seen = new Set<string>();
+            const combined: NormalizedPlace[] = [];
+            for (const p of [...existingPlaces, ...osmPlaces]) {
+              if (p && !seen.has(p.place_id)) {
+                seen.add(p.place_id);
+                if ((p.distance_meters || 0) <= clampedRadius && (p.distance_meters || 0) <= 25000) {
+                  combined.push(p);
+                }
+              }
+            }
+            combined.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
+            return combined.slice(0, clampedLimit);
+          }
+        } catch (osmErr: any) {
+          this.lastDebug.osmError = osmErr?.message;
+          console.warn('On-demand category OSM ingestion warning:', osmErr);
+        }
       }
     }
 
@@ -661,9 +847,12 @@ export class PostgisPlacesProvider implements PlacesProvider {
           const maxLat = (userLat + latDelta).toFixed(6);
           const viewbox = `${minLon},${maxLat},${maxLon},${minLat}`;
 
-          const osmParam = enforceCategoryId === "fuel" ? "amenity=fuel"
+          const osmParam = enforceCategoryId === "all" ? "amenity=cafe"
+            : enforceCategoryId === "fuel" ? "amenity=fuel"
             : enforceCategoryId === "cafes" ? "amenity=cafe"
             : enforceCategoryId === "restaurants" ? "amenity=restaurant"
+            : enforceCategoryId === "stays" ? "tourism=hotel"
+            : enforceCategoryId === "attractions" ? "tourism=attraction"
             : enforceCategoryId === "temples" ? "amenity=place_of_worship"
             : enforceCategoryId === "churches" ? "amenity=place_of_worship"
             : enforceCategoryId === "mosques" ? "amenity=place_of_worship"
@@ -687,7 +876,7 @@ export class PostgisPlacesProvider implements PlacesProvider {
             : enforceCategoryId === "activities" ? "leisure=sports_centre"
             : "q=" + encodeURIComponent(enforceCategoryId);
 
-          const nomUrl = `${GEOCODER_PROVIDER_URL}?format=json&${osmParam}&viewbox=${viewbox}&bounded=1&limit=${Math.min(limit, 30)}`;
+          const nomUrl = `${GEOCODER_PROVIDER_URL}?format=json&addressdetails=1&${osmParam}&viewbox=${viewbox}&bounded=1&limit=${Math.min(limit, 30)}`;
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 4500);
 
@@ -704,12 +893,14 @@ export class PostgisPlacesProvider implements PlacesProvider {
                 const elLat = Number(item.lat);
                 const elLon = Number(item.lon);
                 const rawName = item.name || (item.display_name ? item.display_name.split(",")[0].trim() : "") || "Verified Spot";
+                const extractedState = extractStateFromGeocode(item);
+                const extractedCity = item.address?.city || item.address?.town || item.address?.village || item.address?.suburb || (item.display_name ? item.display_name.split(",")[1]?.trim() : "");
                 return {
                   properties: {
                     name: rawName,
-                    city: item.display_name ? item.display_name.split(",")[1]?.trim() : "",
-                    state: "Telangana",
-                    country: "India",
+                    city: extractedCity,
+                    state: extractedState,
+                    country: item.address?.country || "India",
                     osm_id: item.osm_id || item.place_id,
                     osm_type: item.osm_type === "node" ? "N" : item.osm_type === "way" ? "W" : "R",
                     osm_value: enforceCategoryId,
@@ -727,7 +918,7 @@ export class PostgisPlacesProvider implements PlacesProvider {
       }
 
       // 3. Fallback to Photon Komoot API ONLY for free-text geocoding (never for nearby category discovery)
-      if (rawFeatures.length === 0 && !enforceCategoryId) {
+      if (rawFeatures.length === 0) {
         try {
           const encodedQuery = encodeURIComponent(query);
           let photonUrl = 'https://photon.komoot.io/api/?q=' + encodedQuery + '&limit=' + Math.min(limit, 25);
@@ -827,8 +1018,17 @@ export class PostgisPlacesProvider implements PlacesProvider {
           }
         }
 
+        // SEMANTIC ACCURACY GUARD:
+        // When a specific category is enforced, strictly discard places that do not match it.
+        if (enforceCategoryId && enforceCategoryId !== 'all') {
+          if (!matchesEnforcedCategory(props, enforceCategoryId)) {
+            continue;
+          }
+        }
+
         const destination = props.city || props.town || props.village || props.district || props.county || props.state || 'India';
-        const state = props.state || 'India';
+        const rawState = props.state || extractStateFromGeocode(feat);
+        const state = rawState || 'India';
         const country = props.country || 'India';
         const name = props.name || 'Real POI Spot';
         const fullAddress = [name, destination, state, country].filter(Boolean).join(', ');
@@ -1109,7 +1309,6 @@ Deno.serve(async (req) => {
           places,
           count: places.length,
           session_token: sessionToken,
-          debug: { ...((provider as any).lastDebug || {}), hasServiceRoleKey: !!serviceRoleKey, hasAnonKey: !!supabaseAnonKey },
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -1141,7 +1340,6 @@ Deno.serve(async (req) => {
           places,
           count: places.length,
           session_token: sessionToken,
-          debug: { ...((provider as any).lastDebug || {}), hasServiceRoleKey: !!serviceRoleKey, hasAnonKey: !!supabaseAnonKey },
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -1162,7 +1360,7 @@ Deno.serve(async (req) => {
 
       if (!place) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Place not found or invalid place identifier', debug: { ...((provider as any).lastDebug || {}), hasServiceRoleKey: !!serviceRoleKey, hasAnonKey: !!supabaseAnonKey } }),
+          JSON.stringify({ success: false, error: 'Place not found or invalid place identifier' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -1179,11 +1377,11 @@ Deno.serve(async (req) => {
     );
   } catch (err: any) {
     const errorMessage = err?.message || 'Internal server error';
+    console.error('[places-proxy] Unhandled upstream or runtime exception:', errorMessage);
     return new Response(
       JSON.stringify({
         success: false,
         error: 'Location provider temporarily unavailable.',
-        detail: errorMessage,
         code: 'UPSTREAM_ERROR',
       }),
       { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

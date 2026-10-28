@@ -1,4 +1,13 @@
-import React, { useState, useEffect } from 'react';
+function sanitizeProfileCity(p) {
+  if (p?.city && typeof p.city === 'string' && p.city.trim().length > 0) {
+    return p.state ? `${p.city.trim()}, ${p.state.trim()}` : p.city.trim();
+  }
+  if (p?.location && typeof p.location === 'string' && p.location.trim().length > 0) {
+    return p.location.trim();
+  }
+  return '';
+}
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,9 +20,11 @@ import {
   useWindowDimensions,
   Platform,
   KeyboardAvoidingView,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,9 +33,10 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { COLORS, GRADIENTS, RADII, SHADOWS, FONTS, PALETTE } from '../../lib/theme';
 import InputField from '../../components/ui/InputField';
 import { useAuth } from '../../lib/authContext';
+import { requestCurrentLocation, reverseGeocodeLocation } from '../../lib/locationService';
 import { useTheme } from '../../lib/themeContext';
 import { fetchPosts, fetchUserSavedPosts } from '../../lib/posts.js';
-import { getFollowCounts } from '../../lib/social.js';
+import { getFollowCounts, subscribeToUserFollowChanges } from '../../lib/social.js';
 import { getSavedPlaces, getAllPlaces } from '../../lib/places.js';
 import { getUserTrips, getSavedTrips } from '../../lib/tripPlanner.js';
 
@@ -96,11 +108,8 @@ export default function ProfileScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editName, setEditName] = useState(profile?.name || '');
   const [editAge, setEditAge] = useState(String(profile?.age || 24));
-  const [editLocation, setEditLocation] = useState(
-    profile?.city
-      ? (profile.state ? `${profile.city}, ${profile.state}` : profile.city)
-      : 'Chittoor, Andhra Pradesh'
-  );
+  const [editLocation, setEditLocation] = useState(sanitizeProfileCity(profile));
+  const [locating, setLocating] = useState(false);
   const [editBio, setEditBio] = useState(
     profile?.bio ||
       'Visual designer & coffee enthusiast wandering through architecture, quiet bookshops, and coastal hiking trails.'
@@ -115,7 +124,9 @@ export default function ProfileScreen() {
   const [savedPlacesList, setSavedPlacesList] = useState([]);
   const [savedTripsList, setSavedTripsList] = useState([]);
   const [userTrips, setUserTrips] = useState([]);
-  const [socialStats, setSocialStats] = useState({ followersCount: 142, followingCount: 89 });
+  const [socialStats, setSocialStats] = useState({ followersCount: null, followingCount: null });
+  const [socialStatsLoading, setSocialStatsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [trustEvents, setTrustEvents] = useState([]);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
@@ -126,9 +137,76 @@ export default function ProfileScreen() {
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
 
+  const loadSocialStats = useCallback(async (targetUserId) => {
+    const activeId = targetUserId || user?.id || profile?.id;
+    if (!activeId) {
+      setSocialStats({ followersCount: 0, followingCount: 0 });
+      setSocialStatsLoading(false);
+      return;
+    }
+    setSocialStatsLoading(true);
+    try {
+      const counts = await getFollowCounts(activeId);
+      if (counts?.error) {
+        setSocialStats({
+          followersCount: typeof counts?.followersCount === 'number' ? counts.followersCount : null,
+          followingCount: typeof counts?.followingCount === 'number' ? counts.followingCount : null,
+          error: counts.error,
+        });
+      } else {
+        setSocialStats({
+          followersCount: typeof counts?.followersCount === 'number' ? counts.followersCount : 0,
+          followingCount: typeof counts?.followingCount === 'number' ? counts.followingCount : 0,
+          error: null,
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to load profile follow counts:', err);
+      setSocialStats({ followersCount: null, followingCount: null, error: err });
+    } finally {
+      setSocialStatsLoading(false);
+    }
+  }, [user?.id, profile?.id]);
+
   useEffect(() => {
     loadProfileData();
   }, [profile?.id, user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const activeId = user?.id || profile?.id;
+      if (activeId) {
+        loadSocialStats(activeId);
+      }
+    }, [user?.id, profile?.id, loadSocialStats])
+  );
+
+  useEffect(() => {
+    const activeId = user?.id || profile?.id;
+    if (!activeId) return;
+
+    const unsubscribe = subscribeToUserFollowChanges(activeId, () => {
+      loadSocialStats(activeId);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [user?.id, profile?.id, loadSocialStats]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        loadProfileData(),
+        loadSocialStats(),
+      ]);
+    } catch (e) {
+      console.warn('Profile refresh error:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const loadProfileData = async () => {
     const userId = user?.id || profile?.id;
@@ -189,11 +267,7 @@ export default function ProfileScreen() {
         const unreadCount = await getUnreadNotificationsCount(userId);
         setUnreadNotifCount(unreadCount);
 
-        const counts = await getFollowCounts(userId);
-        setSocialStats({
-          followersCount: counts.followersCount > 0 ? counts.followersCount : 142,
-          followingCount: counts.followingCount > 0 ? counts.followingCount : 89,
-        });
+        await loadSocialStats(userId);
 
         const events = await getUserTrustEvents(userId);
         setTrustEvents(events);
@@ -210,20 +284,14 @@ export default function ProfileScreen() {
       if (profile.age) setEditAge(String(profile.age));
       if (profile.bio) setEditBio(profile.bio);
       if (profile.avatar_url) setEditAvatar(profile.avatar_url);
-      if (profile.city) {
-        setEditLocation(profile.state ? `${profile.city}, ${profile.state}` : profile.city);
-      }
+      setEditLocation(sanitizeProfileCity(profile));
     }
   }, [profile]);
 
   const openEditModal = () => {
     setEditName(profile?.name || '');
     setEditAge(profile?.age ? String(profile.age) : '24');
-    setEditLocation(
-      profile?.city
-        ? (profile.state ? `${profile.city}, ${profile.state}` : profile.city)
-        : 'Chittoor, Andhra Pradesh'
-    );
+    setEditLocation(sanitizeProfileCity(profile));
     setEditBio(profile?.bio || '');
     setEditAvatar(profile?.avatar_url || '');
     setEditModalVisible(true);
@@ -314,15 +382,55 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleUseCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const loc = await requestCurrentLocation({ forceRefresh: true });
+      if (loc && typeof loc.latitude === 'number') {
+        const applyLocation = async () => {
+          const geo = await reverseGeocodeLocation(loc.latitude, loc.longitude);
+          if (geo && (geo.city || geo.state)) {
+            const label = [geo.city, geo.state].filter(Boolean).join(', ');
+            setEditLocation(label);
+          } else {
+            setEditLocation(`${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`);
+          }
+        };
+
+        const isCoarse = loc.isCoarse || loc.isProvisional || loc.confidence === 'COARSE' || (typeof loc.accuracy === 'number' && loc.accuracy > 150);
+        if (isCoarse) {
+          const approxRadius = Math.round(loc.accuracy || loc.accuracyRadiusMeters || 1000);
+          Alert.alert(
+            'Approximate Location Warning',
+            `GPS fix is approximate (±${approxRadius}m). You can use this approximate location, wait for better satellite reception, or enter your city manually.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Use Approximate', onPress: applyLocation },
+            ]
+          );
+        } else {
+          await applyLocation();
+        }
+      } else {
+        Alert.alert('GPS Notice', 'Could not acquire fresh GPS fix. Please ensure location services are enabled.');
+      }
+    } catch (e) {
+      Alert.alert('GPS Notice', 'Could not determine current location.');
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      let city = 'Chittoor';
-      let state = 'Andhra Pradesh';
-      if (editLocation && editLocation.trim()) {
-        const parts = editLocation.split(',').map((s) => s.trim());
-        city = parts[0] || 'Chittoor';
-        state = parts[1] || 'Andhra Pradesh';
+      let city = '';
+      let state = '';
+      const cleanLoc = (editLocation && typeof editLocation === 'string') ? editLocation.trim() : '';
+      if (cleanLoc.length > 0) {
+        const parts = cleanLoc.split(',').map((s) => s.trim());
+        city = parts[0] || '';
+        state = parts[1] || '';
       }
 
       const res = await updateProfile({
@@ -330,6 +438,7 @@ export default function ProfileScreen() {
         bio: editBio,
         avatar_url: editAvatar || profile?.avatar_url,
         age: parseInt(editAge, 10) || profile?.age || 24,
+        location: cleanLoc,
         city,
         state,
       });
@@ -357,9 +466,11 @@ export default function ProfileScreen() {
   };
   const displayName = formatProfileName(profile?.name || 'Traveler');
   const displayAge = profile?.age || 24;
-  const displayLocation = profile?.city
-    ? `${profile.city}, ${profile.state || 'Andhra Pradesh'}`
-    : 'Chittoor, Andhra Pradesh';
+  const displayLocation = (profile?.location && typeof profile.location === 'string' && profile.location.trim().length > 0)
+    ? profile.location.trim()
+    : (profile?.city && typeof profile.city === 'string' && profile.city.trim().length > 0
+      ? `${profile.city.trim()}, ${profile.state ? profile.state.trim() : ''}`.replace(/,\s*$/, '')
+      : 'Location not set');
   const trustScore = profile?.trust_score || 4.95;
   const verificationStatus = profile?.verification_status || (profile?.is_verified ? 'verified' : 'pending');
   const verificationLabel =
@@ -378,6 +489,14 @@ export default function ProfileScreen() {
             { paddingBottom: Math.max(insets.bottom, 24) + 160 },
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#B99A5E"
+              colors={['#B99A5E']}
+            />
+          }
         >
           {/* Top Quick Actions Bar (Clean, no background image) */}
           <View style={[styles.topActionsBar, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
@@ -480,12 +599,16 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <View style={styles.editorialStatDiv} />
             <View style={styles.editorialStatCol}>
-              <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>{socialStats.followersCount}</Text>
+              <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>
+                {socialStats.followersCount === null ? '—' : socialStats.followersCount}
+              </Text>
               <Text style={[styles.editorialStatLbl, { color: '#7D756D' }]}>Followers</Text>
             </View>
             <View style={styles.editorialStatDiv} />
             <View style={styles.editorialStatCol}>
-              <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>{socialStats.followingCount}</Text>
+              <Text style={[styles.editorialStatVal, { color: colors.textPrimary }]}>
+                {socialStats.followingCount === null ? '—' : socialStats.followingCount}
+              </Text>
               <Text style={[styles.editorialStatLbl, { color: '#7D756D' }]}>Following</Text>
             </View>
             <View style={styles.editorialStatDiv} />
@@ -891,7 +1014,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setEditModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'android' ? 'height' : 'padding'}
           style={{ flex: 1 }}
         >
           <View style={[styles.modalRoot, { backgroundColor: colors.modalBg }]}>
@@ -979,16 +1102,27 @@ export default function ProfileScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={[styles.formLabel, { color: colors.primary }]}>LOCATION</Text>
                   <TouchableOpacity
-                    onPress={() => setEditLocation('Chittoor, Andhra Pradesh')}
-                    style={{ marginBottom: 6 }}
+                    onPress={handleUseCurrentLocation}
+                    disabled={locating}
+                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Use current GPS location"
                   >
-                    <Text style={{ fontFamily: FONTS.semiBold, fontSize: 11, color: '#B99A5E' }}>Set Chittoor, AP</Text>
+                    {locating ? (
+                      <ActivityIndicator size="small" color="#B99A5E" style={{ marginRight: 4 }} />
+                    ) : (
+                      <Ionicons name="navigate-outline" size={13} color="#B99A5E" style={{ marginRight: 4 }} />
+                    )}
+                    <Text style={{ fontFamily: FONTS.semiBold, fontSize: 11, color: '#B99A5E' }}>
+                      {locating ? 'Acquiring GPS...' : 'Use Current Location'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <InputField
                   value={editLocation}
                   onChangeText={setEditLocation}
-                  placeholder="e.g. Chittoor, Andhra Pradesh"
+                  placeholder="e.g. Chennai, Tamil Nadu"
                   icon="location-outline"
                 />
               </View>
@@ -1046,8 +1180,11 @@ export default function ProfileScreen() {
         onFollowChange={(_authorId, isFollowing) => {
           setSocialStats((prev) => ({
             ...prev,
-            followingCount: isFollowing ? prev.followingCount + 1 : Math.max(0, prev.followingCount - 1),
+            followingCount: isFollowing
+              ? ((prev.followingCount ?? 0) + 1)
+              : Math.max(0, (prev.followingCount ?? 0) - 1),
           }));
+          loadSocialStats();
         }}
       />
 

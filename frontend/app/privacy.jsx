@@ -141,7 +141,7 @@ export default function PrivacyPolicyPage() {
               <View style={styles.bulletRow}>
                 <Ionicons name="timer-outline" size={16} color="#C5A880" style={styles.bulletIcon} />
                 <Text style={styles.bulletText}>
-                  <Text style={styles.bold}>24-Hour Ephemeral Stories:</Text> Photos uploaded as Stories automatically expire from active feed and discovery queries 24 hours after publication (enforced via database query filter expires_at > now()).
+                  <Text style={styles.bold}>24-Hour Ephemeral Stories:</Text> Photos uploaded as Stories automatically expire from active feed and discovery queries 24 hours after publication (enforced via database query filter expires_at &gt; now()).
                 </Text>
               </View>
               <View style={styles.bulletRow}>

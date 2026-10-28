@@ -1,4 +1,10 @@
 {
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {},
-  "extends": "expo/tsconfig.base"
+  "exclude": [
+    "supabase",
+    "backend",
+    "scripts",
+    "node_modules"
+  ]
 }

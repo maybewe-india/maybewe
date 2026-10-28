@@ -2885,3 +2885,29 @@ export function searchDestinations(query) {
       c.tags.some((t) => t.toLowerCase().includes(q))
   );
 }
+
+export function findClosestIndianCity(lat, lng) {
+  if (typeof lat !== "number" || typeof lng !== "number" || isNaN(lat) || isNaN(lng)) return null;
+  let closest = null;
+  let minDistance = Infinity;
+
+  for (const city of MAJOR_INDIAN_CITIES) {
+    if (typeof city.lat === "number" && typeof city.lng === "number") {
+      const dLat = ((city.lat - lat) * Math.PI) / 180;
+      const dLng = ((city.lng - lng) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat * Math.PI) / 180) *
+          Math.cos((city.lat * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const dist = 6371 * c; // in km
+      if (dist < minDistance) {
+        minDistance = dist;
+        closest = { ...city, distanceKm: Math.round(dist) };
+      }
+    }
+  }
+  return closest;
+}

@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   RefreshControl,
   TouchableOpacity,
   Platform,
@@ -15,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../lib/themeContext.jsx";
 import { COLORS, RADII } from "../../lib/theme.js";
 import { supabase } from "../../lib/supabaseClient.js";
-import { fetchFeedPosts, deletePost, togglePostSave } from "../../lib/posts.js";
+import { fetchFeedPosts, deletePost, togglePostSave, isAuditOrTestPost } from "../../lib/posts.js";
 import { blockUser } from "../../lib/social.js";
 
 import SocialPostCard from "../../components/social/SocialPostCard.jsx";
@@ -155,6 +156,7 @@ export default function SocialFeedScreen() {
 
   const handleIncomingNewPost = (newRecord) => {
     if (!newRecord || !newRecord.id) return;
+    if (isAuditOrTestPost(newRecord)) return;
     if (seenIdsRef.current.has(newRecord.id)) return;
 
     // Filter by destination if destination filter is active
@@ -336,10 +338,20 @@ export default function SocialFeedScreen() {
     <SocialPostCard
       post={item}
       currentUserId={currentUserId}
+      onOpenComments={(post) => setActiveCommentPost(post)}
       onCommentPress={(post) => setActiveCommentPost(post)}
       onLikeChange={handleLikeChange}
+      onPostDeleted={handleDeletePost}
       onDeletePost={handleDeletePost}
+      onAuthorBlocked={handleBlockAuthor}
       onBlockAuthor={handleBlockAuthor}
+      onOpenReport={(post) =>
+        setReportTarget({
+          type: "post",
+          id: post.id,
+          authorName: post.author?.name || "Traveler",
+        })
+      }
       onReportPost={(post) =>
         setReportTarget({
           type: "post",
@@ -421,11 +433,23 @@ export default function SocialFeedScreen() {
       {loadingInitial ? (
         <FeedSkeleton count={3} />
       ) : posts.length === 0 ? (
-        <FeedEmptyState
-          destination={selectedDestination}
-          onRefresh={() => loadFeed(true)}
-          onCreatePress={() => setCreateModalVisible(true)}
-        />
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingBottom: insets.bottom + 120, justifyContent: "center" }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#D4AF37"
+              colors={["#D4AF37"]}
+            />
+          }
+        >
+          <FeedEmptyState
+            destination={selectedDestination}
+            onRefresh={() => loadFeed(true)}
+            onCreatePress={() => setCreateModalVisible(true)}
+          />
+        </ScrollView>
       ) : (
         <FlatList
           data={posts}

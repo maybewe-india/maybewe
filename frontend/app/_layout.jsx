@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from '../lib/authContext';
 import { ThemeProvider, useTheme } from '../lib/themeContext';
 import { COLORS, FONTS } from '../lib/theme';
 import TestNavigatorModal from '../components/TestNavigatorModal';
+import { evaluateAuthGuard } from '../lib/authGuard';
 
 function AuthRouteGuard({ children }) {
   const { session, user, profile, isLoading, isPasswordRecovery, hasAgreedToGuidelines } = useAuth();
@@ -24,78 +25,48 @@ function AuthRouteGuard({ children }) {
   const searchParams = useGlobalSearchParams();
 
   useEffect(() => {
-    if (isLoading) return;
+    const isDevelopment = typeof __DEV__ !== 'undefined' ? Boolean(__DEV__) : false;
+    const hasSession = Boolean(user || session?.user || profile?.id);
+    const isVerified = profile?.verification_status === 'verified';
 
-    // Allow QA showcase tester or explicit preview mode from Test Navigator
-    const isPreviewMode = searchParams?.preview === 'true';
-    const firstSegment = segments[0] || '';
-    const inAuthGroup = firstSegment === '(auth)';
-    const inShowcase = firstSegment === 'showcase';
-    const inMaps = firstSegment === 'maps';
-    const isPublicLegal =
-      firstSegment === 'privacy' ||
-      firstSegment === 'terms' ||
-      firstSegment === 'delete-account';
+    const decision = evaluateAuthGuard({
+      hasSession,
+      isLoading,
+      isVerified,
+      hasAgreedToGuidelines,
+      isPasswordRecovery,
+      segments,
+      previewRequested: searchParams?.preview,
+      isDevelopment,
+    });
 
-    if (inShowcase || inMaps || isPreviewMode || isPublicLegal) return;
-
-    const currentSubRoute = segments[1] || '';
-
-    // CRITICAL: When on reset-password or in password recovery mode, do NOT redirect to verification, tabs, or login!
-    if (currentSubRoute === 'reset-password' || isPasswordRecovery) {
-      if (currentSubRoute !== 'reset-password') {
-        router.replace('/(auth)/reset-password');
-      }
+    if (decision === 'wait' || decision === 'allow') {
       return;
     }
 
-    const isVerified = profile?.verification_status === 'verified';
-    const isAuthenticated = Boolean(user || session?.user || profile?.id);
+    if (decision === 'redirect-to-reset-password') {
+      router.replace('/(auth)/reset-password');
+      return;
+    }
 
-    console.log('[AuthGuard] route:', segments.join('/'), 'isAuthenticated:', isAuthenticated, 'isVerified:', isVerified, 'hasAgreedToGuidelines:', hasAgreedToGuidelines);
+    if (decision === 'redirect-to-guidelines') {
+      router.replace('/(auth)/guidelines');
+      return;
+    }
 
-    if (isAuthenticated) {
-      // User is logged in
-      if (!isVerified) {
-        // Unverified user MUST complete guidelines and verification before accessing main app tabs/features
-        if (!inAuthGroup) {
-          if (!hasAgreedToGuidelines) {
-            console.log('[AuthGuard] Unverified user needs guidelines -> Redirecting to /(auth)/guidelines');
-            router.replace('/(auth)/guidelines');
-          } else {
-            console.log('[AuthGuard] Unverified user with guidelines agreed -> Redirecting to /(auth)/verification');
-            router.replace('/(auth)/verification');
-          }
-        }
-      } else {
-        // Verified user: redirect directly from any auth screen to tabs
-        const isAuthScreen =
-          currentSubRoute === 'welcome' ||
-          currentSubRoute === 'login' ||
-          currentSubRoute === 'signup' ||
-          currentSubRoute === 'forgot-password' ||
-          currentSubRoute === 'theme-selection' ||
-          currentSubRoute === 'guidelines' ||
-          currentSubRoute === 'verification';
+    if (decision === 'redirect-to-verification') {
+      router.replace('/(auth)/verification');
+      return;
+    }
 
-        if (inAuthGroup && isAuthScreen) {
-          console.log('[AuthGuard] Verified user on auth screen -> Redirecting to /(tabs)');
-          router.replace('/(tabs)');
-        }
-      }
-    } else {
-      // User is not logged in: only public auth screens are allowed
-      const isPublicAuthScreen =
-        currentSubRoute === 'welcome' ||
-        currentSubRoute === 'login' ||
-        currentSubRoute === 'signup' ||
-        currentSubRoute === 'forgot-password' ||
-        currentSubRoute === 'reset-password';
+    if (decision === 'redirect-to-tabs') {
+      router.replace('/(tabs)');
+      return;
+    }
 
-      if (!inAuthGroup || !isPublicAuthScreen) {
-        console.log('[AuthGuard] Unauthenticated access to', segments.join('/'), '-> Redirecting to /(auth)/welcome');
-        router.replace('/(auth)/welcome');
-      }
+    if (decision === 'redirect-to-welcome') {
+      router.replace('/(auth)/welcome');
+      return;
     }
   }, [session, user, profile, isLoading, isPasswordRecovery, hasAgreedToGuidelines, segments, searchParams]);
 
@@ -283,6 +254,8 @@ export default function RootLayout() {
                 >
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                   <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+                  <Stack.Screen name="callback" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="chat/[id]"
                     options={{

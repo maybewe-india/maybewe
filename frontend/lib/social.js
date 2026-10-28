@@ -84,7 +84,10 @@ export async function unfollowUser(followerId, followingId) {
  */
 
 /**
- * Get follower and following counts for a user
+ * Get follower and following counts for an authenticated user from the follows table.
+ * Uses exact counts:
+ * - Followers: accounts where following_id == userId
+ * - Following: accounts where follower_id == userId
  */
 export async function getFollowCounts(userId) {
   if (!userId || !isSupabaseConfigured) {
@@ -103,13 +106,72 @@ export async function getFollowCounts(userId) {
         .eq('follower_id', userId),
     ]);
 
+    if (followersRes?.error) {
+      console.warn('getFollowCounts followers query error:', followersRes.error);
+    }
+    if (followingRes?.error) {
+      console.warn('getFollowCounts following query error:', followingRes.error);
+    }
+
+    const hasError = Boolean(followersRes?.error || followingRes?.error);
+
     return {
-      followersCount: followersRes?.count || 0,
-      followingCount: followingRes?.count || 0,
+      followersCount: followersRes?.error ? null : Math.max(0, Number(followersRes?.count || 0)),
+      followingCount: followingRes?.error ? null : Math.max(0, Number(followingRes?.count || 0)),
+      error: hasError ? (followersRes?.error || followingRes?.error) : null,
     };
   } catch (err) {
     console.warn('getFollowCounts error:', err);
-    return { followersCount: 0, followingCount: 0 };
+    return { followersCount: null, followingCount: null, error: err };
+  }
+}
+
+/**
+ * Realtime subscription to the follows table for changes involving the user
+ */
+export function subscribeToUserFollowChanges(userId, onChange) {
+  if (!userId || !isSupabaseConfigured) return () => {};
+
+  try {
+    const channelName = `user_follows_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'follows',
+          filter: `following_id=eq.${userId}`,
+        },
+        () => {
+          if (typeof onChange === 'function') onChange();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'follows',
+          filter: `follower_id=eq.${userId}`,
+        },
+        () => {
+          if (typeof onChange === 'function') onChange();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('Failed to clean up follows channel:', err);
+      }
+    };
+  } catch (err) {
+    console.warn('subscribeToUserFollowChanges error:', err);
+    return () => {};
   }
 }
 

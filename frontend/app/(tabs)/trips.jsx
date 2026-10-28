@@ -171,6 +171,11 @@ export default function TripsScreen() {
       return;
     }
 
+    if (dateTo.trim() < dateFrom.trim()) {
+      Alert.alert('Invalid Dates', 'Return date must be on or after departure date.');
+      return;
+    }
+
     setIsPosting(true);
     const coverUrl = resolveDestinationImageUri(destination.trim());
     const newTrip = {
@@ -283,6 +288,11 @@ export default function TripsScreen() {
   const handleSaveEditTrip = async () => {
     if (!editDestination.trim() || !editDateFrom.trim() || !editDateTo.trim()) {
       Alert.alert('Missing Info', 'Please provide a destination and travel dates.');
+      return;
+    }
+
+    if (editDateTo.trim() < editDateFrom.trim()) {
+      Alert.alert('Invalid Dates', 'Return date must be on or after departure date.');
       return;
     }
 

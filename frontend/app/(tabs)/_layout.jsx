@@ -60,23 +60,32 @@ function CustomTabBar({ state, descriptors, navigation }) {
             <TouchableOpacity
               key={route.key}
               onPress={onPress}
-              activeOpacity={0.8}
-              style={styles.tabItem}
+              activeOpacity={0.75}
+              style={[styles.tabItem, isFocused && styles.tabItemActive]}
               accessibilityRole="tab"
               accessibilityState={{ selected: isFocused }}
               accessibilityLabel={tab.label}
             >
+              <View style={[styles.tabIconWrap, isFocused && styles.tabIconWrapActive]}>
+                <Ionicons
+                  name={isFocused ? tab.iconFocused : tab.iconBlur}
+                  size={19}
+                  color={isFocused ? "#B99A5E" : "#7D756D"}
+                />
+              </View>
+              <Text
+                style={[styles.tabLabel, isFocused ? styles.activeLabel : styles.inactiveLabel]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={1.15}
+              >
+                {tab.label}
+              </Text>
               {isFocused ? (
-                <View style={styles.activePill}>
-                  <View style={styles.champagneActiveDot} />
-                  <Ionicons name={tab.iconFocused} size={15} color="#D4AF37" />
-                  <Text style={styles.activeLabel} numberOfLines={1}>{tab.label}</Text>
-                </View>
+                <View style={styles.champagneActiveDot} />
               ) : (
-                <View style={styles.inactiveItem}>
-                  <Ionicons name={tab.iconBlur} size={18} color="#7D756D" />
-                  <Text style={styles.inactiveLabel}>{tab.label}</Text>
-                </View>
+                <View style={styles.dotPlaceholder} />
               )}
             </TouchableOpacity>
           );
@@ -117,16 +126,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(250, 248, 245, 0.82)',
+    backgroundColor: 'rgba(250, 248, 245, 0.85)',
     borderRadius: RADII.full,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    width: '92%',
-    maxWidth: 440,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    width: '94%',
+    maxWidth: 460,
+    minHeight: 58,
     borderWidth: 1,
-    borderColor: 'rgba(197, 168, 128, 0.2)',
+    borderColor: 'rgba(197, 168, 128, 0.25)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(197, 168, 128, 0.2)',
+    borderTopColor: 'rgba(197, 168, 128, 0.25)',
     position: 'relative',
     ...Platform.select({
       ios: {
@@ -149,58 +159,50 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 46,
-  },
-  activePill: {
-    flexDirection: "row",
+    minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1C1917",
-    paddingVertical: 7,
-    paddingHorizontal: 11,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    gap: 4,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 12px rgba(29, 29, 27, 0.22)',
-      },
-      ios: {
-        shadowColor: '#1D1D1B',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    paddingVertical: 2,
+    paddingHorizontal: 1,
+    minHeight: 46,
+  },
+  tabItemActive: {},
+  tabIconWrap: {
+    width: 26,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabIconWrapActive: {
+    transform: [{ scale: 1.05 }],
+  },
+  tabLabel: {
+    fontSize: 10,
+    lineHeight: 12,
+    letterSpacing: -0.1,
+    marginTop: 1,
+    textAlign: "center",
+    width: "100%",
+    includeFontPadding: false,
+  },
+  activeLabel: {
+    color: "#1C1917",
+    fontWeight: "700",
+  },
+  inactiveLabel: {
+    color: "#7D756D",
+    fontWeight: "500",
   },
   champagneActiveDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D4AF37', // Champagne active indicator
+    backgroundColor: "#B99A5E",
+    marginTop: 2,
   },
-  activeLabel: {
-    color: '#FAF8F3', // Soft pearl text
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  inactiveItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  inactiveLabel: {
-    color: '#7D756D', // Warm grey
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 3,
-    letterSpacing: 0.2,
+  dotPlaceholder: {
+    width: 4,
+    height: 4,
+    marginTop: 2,
   },
 });

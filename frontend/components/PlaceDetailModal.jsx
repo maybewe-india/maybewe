@@ -39,20 +39,58 @@ export default function PlaceDetailModal({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [travelMoments, setTravelMoments] = useState([]);
 
+  const targetPlaceId = place?.id || place?.place_id;
+
   useEffect(() => {
-    if (place?.id) {
-      isPlaceSaved(place.id).then(setSaved);
-      fetchPlaceTravelMoments(place.id).then(setTravelMoments);
+    let isMounted = true;
+    if (targetPlaceId) {
+      isPlaceSaved(targetPlaceId)
+        .then((s) => {
+          if (isMounted) setSaved(Boolean(s));
+        })
+        .catch(() => {
+          if (isMounted) setSaved(false);
+        });
+
+      // Guardrail: Skip community moments for synthetic/external OSM IDs
+      const isSyntheticOsmId =
+        typeof targetPlaceId === "string" &&
+        (targetPlaceId.includes("_") || /^\d+$/.test(targetPlaceId));
+
+      if (!isSyntheticOsmId) {
+        fetchPlaceTravelMoments(targetPlaceId)
+          .then((moments) => {
+            if (isMounted) setTravelMoments(Array.isArray(moments) ? moments : []);
+          })
+          .catch(() => {
+            if (isMounted) setTravelMoments([]);
+          });
+      } else {
+        setTravelMoments([]);
+      }
+    } else {
+      setSaved(false);
+      setTravelMoments([]);
     }
-  }, [place?.id]);
+    return () => {
+      isMounted = false;
+    };
+  }, [targetPlaceId]);
 
   if (!place) return null;
 
-  const images = place.images && place.images.length > 0 ? place.images : [place.image_url];
+  const fallbackHero = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200';
+  const rawImage =
+    (place.images && place.images[activeImageIndex]) ||
+    place.image_url ||
+    place.image ||
+    fallbackHero;
+  const imageSource = typeof rawImage === 'string' ? { uri: rawImage } : rawImage;
   const alternatives = findBudgetAlternatives(place);
 
   const handleToggleSave = async () => {
-    const nextSaved = await toggleSavePlace(place.id);
+    if (!place) return;
+    const nextSaved = await toggleSavePlace(place);
     setSaved(nextSaved);
   };
 
@@ -120,7 +158,7 @@ export default function PlaceDetailModal({
           {/* Hero Image Gallery */}
           <View style={styles.heroContainer}>
             <Image
-              source={{ uri: images[activeImageIndex] || place.image_url }}
+              source={imageSource}
               style={styles.heroImage}
               resizeMode="cover"
             />
